@@ -26,34 +26,33 @@ export default function CookieConsent() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 50 }}
           transition={{ duration: 0.4 }}
-          className="fixed bottom-0 left-0 right-0 z-50 p-4"
+          className="fixed bottom-4 left-4 z-50 max-w-sm pr-4 sm:pr-0"
         >
-          <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex items-start gap-3 flex-1">
-              <div className="w-10 h-10 rounded-xl bg-[#0F4C81]/8 flex items-center justify-center flex-shrink-0">
-                <Cookie size={20} className="text-[#0F4C81]" />
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#EFF6FF] flex items-center justify-center flex-shrink-0">
+                <Cookie size={18} className="text-[#1D4ED8]" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-[#1A1A2E] mb-1">Penggunaan Cookie</p>
-                <p className="text-xs text-[#1A1A2E]/50 leading-relaxed">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-[#0F172A] mb-0.5">Penggunaan Cookie</p>
+                <p className="text-xs text-[#475569] leading-relaxed">
                   Kami menggunakan cookie untuk meningkatkan pengalaman browsing Anda.
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
               <button
                 onClick={accept}
-                className="px-5 py-2.5 bg-[#0F4C81] text-white text-sm font-semibold rounded-xl hover:bg-[#1E6BAF] transition-colors"
+                aria-label="Tutup"
+                className="p-1.5 -mt-1 -mr-1 rounded-lg hover:bg-[#F8FAFC] transition-colors text-[#475569]/50"
               >
-                Mengerti
-              </button>
-              <button
-                onClick={accept}
-                className="p-2.5 rounded-xl hover:bg-gray-100 transition-colors text-[#1A1A2E]/40"
-              >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
+            <button
+              onClick={accept}
+              className="mt-3 w-full px-4 py-2 bg-[#1D4ED8] text-white text-xs font-bold rounded-xl hover:bg-[#1E40AF] transition-colors"
+            >
+              Mengerti
+            </button>
           </div>
         </motion.div>
       )}

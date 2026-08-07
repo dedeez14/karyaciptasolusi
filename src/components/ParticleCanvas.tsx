@@ -21,7 +21,7 @@ export default function ParticleCanvas() {
     let animationId: number;
     let particles: Particle[] = [];
 
-    const colors = ['#0F4C81', '#1E6BAF', '#F4B942', '#0F4C8150', '#F4B94250'];
+    const colors = ['#0F4C81', '#1E6BAF', '#2563EB', '#0F4C8150', '#2563EB50'];
 
     const resize = () => {
       canvas.width = canvas.offsetWidth;

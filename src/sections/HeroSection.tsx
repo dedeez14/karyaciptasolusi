@@ -19,7 +19,7 @@ const floatingDots = [
 /* Trust badges with icons */
 const trustBadges = [
   { text: 'Badan Usaha Resmi', color: '#4ADE80', icon: Shield },
-  { text: 'Konsultasi Gratis', color: '#F4B942', icon: MessageCircle },
+  { text: 'Konsultasi Gratis', color: '#2563EB', icon: MessageCircle },
   { text: 'Support 24/7', color: '#0F4C81', icon: Headphones },
 ];
 
@@ -46,7 +46,7 @@ const lineVariants = {
 
 export default function HeroSection() {
   const typedText = useTypingEffect(
-    ['Konsultasi IT Profesional', 'Pengembangan Aplikasi Custom', 'Platform SaaS Terintegrasi', 'Solusi Digital Bisnis Anda'],
+    ['Website Company Profile', 'Toko Online & E-Commerce', 'Aplikasi Web & Mobile Custom', 'Konsultasi IT Profesional', 'Platform SaaS Terintegrasi'],
     80, 40, 2500
   );
 
@@ -55,13 +55,13 @@ export default function HeroSection() {
       id="beranda"
       className="relative min-h-[100dvh] overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #FFFBF3 0%, #FFFFFF 40%, #FFF8E7 70%, #FEF3D6 100%)',
+        background: 'linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 40%, #EFF6FF 70%, #DBEAFE 100%)',
       }}
     >
       {/* Background pattern image */}
       <div className="absolute inset-0 opacity-[0.08]">
         <img
-          src="/images/banner-light.png"
+          src="/images/banner-light.jpg"
           alt=""
           className="w-full h-full object-cover"
         />
@@ -70,11 +70,11 @@ export default function HeroSection() {
       {/* Subtle yellow blobs */}
       <div
         className="absolute top-20 right-[10%] w-64 h-64 rounded-full opacity-30"
-        style={{ background: 'radial-gradient(circle, #F4B94220, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, #2563EB20, transparent 70%)' }}
       />
       <div
         className="absolute bottom-40 left-[5%] w-80 h-80 rounded-full opacity-20"
-        style={{ background: 'radial-gradient(circle, #F4B94215, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, #2563EB15, transparent 70%)' }}
       />
 
       {/* Floating animated dots */}
@@ -87,8 +87,8 @@ export default function HeroSection() {
             height: dot.size,
             left: dot.left,
             top: dot.top,
-            background: `radial-gradient(circle, rgba(244,185,66,${dot.opacity * 2}), rgba(244,185,66,${dot.opacity}))`,
-            boxShadow: `0 0 ${dot.size * 2}px rgba(244,185,66,${dot.opacity * 0.5})`,
+            background: `radial-gradient(circle, rgba(37,99,235,${dot.opacity * 2}), rgba(37,99,235,${dot.opacity}))`,
+            boxShadow: `0 0 ${dot.size * 2}px rgba(37,99,235,${dot.opacity * 0.5})`,
           }}
           animate={{ y: [0, -15, 0] }}
           transition={{
@@ -114,14 +114,14 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.5, ease: easing }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#F4B942]/30 bg-[#F4B942]/8 mb-6 relative overflow-hidden"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#2563EB]/30 bg-[#2563EB]/8 mb-6 relative overflow-hidden"
             >
               {/* Shimmer overlay */}
               <motion.div
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   background:
-                    'linear-gradient(90deg, transparent 0%, rgba(244,185,66,0.15) 50%, transparent 100%)',
+                    'linear-gradient(90deg, transparent 0%, rgba(37,99,235,0.15) 50%, transparent 100%)',
                 }}
                 animate={{ x: ['-100%', '200%'] }}
                 transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
@@ -130,9 +130,9 @@ export default function HeroSection() {
                 animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <Sparkles size={14} className="text-[#D4941A]" />
+                <Sparkles size={14} className="text-[#1D4ED8]" />
               </motion.div>
-              <span className="text-[#D4941A] text-xs font-bold tracking-[0.15em] uppercase relative z-10">
+              <span className="text-[#1D4ED8] text-xs font-bold tracking-[0.15em] uppercase relative z-10">
                 Solusi Teknologi Terpercaya
               </span>
             </motion.div>
@@ -147,20 +147,20 @@ export default function HeroSection() {
             >
               <motion.span
                 variants={lineVariants}
-                className="block text-[#2D2D3A]"
+                className="block text-[#0F172A]"
               >
-                Transformasi
+                Jasa Pembuatan
               </motion.span>
               <motion.span variants={lineVariants} className="block">
-                <span style={{ color: '#D4941A' }}>Digital</span>
-                <span className="text-[#2D2D3A]/40">,</span>
+                <span style={{ color: '#1D4ED8' }}>Website</span>
+                <span className="text-[#0F172A]"> &amp;</span>
               </motion.span>
-              <motion.span variants={lineVariants} className="block text-[#2D2D3A]">
-                Dimulai dari
+              <motion.span variants={lineVariants} className="block text-[#0F172A]">
+                Aplikasi untuk
               </motion.span>
               <motion.span variants={lineVariants} className="block">
-                <span className="bg-gradient-to-r from-[#F4B942] to-[#D4941A] bg-clip-text text-transparent">
-                  Sini.
+                <span className="bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] bg-clip-text text-transparent">
+                  Bisnis Anda.
                 </span>
               </motion.span>
             </motion.h1>
@@ -169,21 +169,22 @@ export default function HeroSection() {
             <div className="h-8 mb-5">
               <span
                 className="text-lg sm:text-xl font-medium typing-cursor"
-                style={{ color: '#D4941A' }}
+                style={{ color: '#1D4ED8' }}
               >
                 {typedText}
               </span>
             </div>
 
-            <p className="text-[#6B6B7B] max-w-lg mb-8 leading-relaxed text-sm">
-              PT Karya Cipta Solusi menghadirkan solusi teknologi terintegrasi mulai dari konsultasi
-              IT hingga pengembangan aplikasi custom untuk mempercepat pertumbuhan bisnis Anda.
+            <p className="text-[#475569] max-w-lg mb-8 leading-relaxed text-sm">
+              PT Karya Cipta Solusi adalah partner transformasi digital Anda jasa pembuatan website
+              company profile, toko online, aplikasi custom, hingga konsultasi IT untuk mempercepat
+              pertumbuhan bisnis Anda.
             </p>
 
             {/* CTA buttons with hover scale */}
             <div className="flex flex-wrap gap-3">
               <motion.a
-                href="https://wa.me/6285601771312"
+                href="https://wa.me/6283898911244"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-primary group"
@@ -198,20 +199,20 @@ export default function HeroSection() {
                 />
               </motion.a>
               <motion.a
-                href="tel:085601771312"
+                href="tel:083898911244"
                 className="btn-secondary"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               >
-                <Phone size={16} /> 0856-0177-1312
+                <Phone size={16} /> 0838-9891-1244
               </motion.a>
             </div>
 
             {/* Trust badges row with icons */}
             <motion.div
               className="flex flex-wrap items-center gap-5 mt-8 pt-6"
-              style={{ borderTop: '1px solid #F0E6D3' }}
+              style={{ borderTop: '1px solid #E2E8F0' }}
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9, duration: 0.5, ease: easing }}
@@ -230,7 +231,7 @@ export default function HeroSection() {
                     transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                   />
                   <badge.icon size={13} style={{ color: badge.color }} />
-                  <span className="text-xs text-[#6B6B7B] font-medium">{badge.text}</span>
+                  <span className="text-xs text-[#475569] font-medium">{badge.text}</span>
                 </motion.div>
               ))}
             </motion.div>
@@ -249,14 +250,14 @@ export default function HeroSection() {
                 className="absolute -inset-12 rounded-full"
                 style={{
                   background:
-                    'radial-gradient(circle, rgba(244,185,66,0.12) 0%, transparent 70%)',
+                    'radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 70%)',
                 }}
                 animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.7, 0.4] }}
                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               />
               {/* Secondary pulse ring */}
               <motion.div
-                className="absolute -inset-20 rounded-full border border-[#F4B942]/10"
+                className="absolute -inset-20 rounded-full border border-[#2563EB]/10"
                 animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
                 transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
               />
@@ -264,7 +265,7 @@ export default function HeroSection() {
                 className="absolute -inset-10 rounded-full opacity-20"
                 style={{
                   background:
-                    'radial-gradient(circle, #F4B94230, transparent 70%)',
+                    'radial-gradient(circle, #2563EB30, transparent 70%)',
                 }}
               />
               <motion.div
@@ -274,7 +275,7 @@ export default function HeroSection() {
               >
                 <img
                   src="/images/hero-typing.png"
-                  alt="Ilustrasi teknologi"
+                  alt="Jasa pembuatan website dan aplikasi - PT Karya Cipta Solusi"
                   className="w-full max-w-md h-auto object-contain drop-shadow-xl rounded-2xl"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/images/hero-main.png';
@@ -286,20 +287,20 @@ export default function HeroSection() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 1.2, duration: 0.5 }}
                 whileHover={{ scale: 1.05, y: -3 }}
-                className="absolute -bottom-2 -left-4 bg-white rounded-xl p-3 shadow-lg border border-[#F0E6D3] cursor-default"
+                className="absolute -bottom-2 -left-4 bg-white rounded-xl p-3 shadow-lg border border-[#E2E8F0] cursor-default"
               >
                 <div className="flex items-center gap-3">
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
                     style={{
-                      background: 'linear-gradient(135deg, #F4B942, #D4941A)',
+                      background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
                     }}
                   >
                     5+
                   </div>
                   <div>
-                    <p className="text-[10px] text-[#6B6B7B]">Layanan</p>
-                    <p className="text-xs font-bold text-[#2D2D3A]">Bidang Utama</p>
+                    <p className="text-[10px] text-[#475569]">Layanan</p>
+                    <p className="text-xs font-bold text-[#0F172A]">Bidang Utama</p>
                   </div>
                 </div>
               </motion.div>

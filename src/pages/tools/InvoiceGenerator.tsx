@@ -55,98 +55,98 @@ export default function InvoiceGenerator() {
     <div className="grid lg:grid-cols-2 gap-6">
       {/* FORM */}
       <div className="space-y-4">
-        <h3 className="font-bold text-[#2D2D3A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Data Invoice</h3>
+        <h3 className="font-bold text-[#0F172A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Data Invoice</h3>
 
         <div className="grid grid-cols-2 gap-3">
-          <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">No. Invoice</label>
-            <input value={noInvoice} onChange={e => setNoInvoice(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
-          <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Tanggal</label>
-            <input type="date" value={tanggal} onChange={e => setTanggal(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
+          <div><label className="text-xs font-semibold text-[#475569] mb-1 block">No. Invoice</label>
+            <input value={noInvoice} onChange={e => setNoInvoice(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
+          <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Tanggal</label>
+            <input type="date" value={tanggal} onChange={e => setTanggal(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
         </div>
 
-        <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Jatuh Tempo</label>
-          <input type="date" value={jatuhTempo} onChange={e => setJatuhTempo(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
+        <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Jatuh Tempo</label>
+          <input type="date" value={jatuhTempo} onChange={e => setJatuhTempo(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
 
-        <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Kepada Yth.</label>
-          <input value={kepada} onChange={e => setKepada(e.target.value)} placeholder="Nama klien/perusahaan" className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
+        <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Kepada Yth.</label>
+          <input value={kepada} onChange={e => setKepada(e.target.value)} placeholder="Nama klien/perusahaan" className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
 
-        <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Alamat Klien</label>
-          <textarea value={alamatKlien} onChange={e => setAlamatKlien(e.target.value)} rows={2} placeholder="Alamat lengkap klien" className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
+        <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Alamat Klien</label>
+          <textarea value={alamatKlien} onChange={e => setAlamatKlien(e.target.value)} rows={2} placeholder="Alamat lengkap klien" className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-[#6B6B7B]">Item / Jasa</label>
-            <button onClick={addItem} className="flex items-center gap-1 text-xs font-semibold text-[#D4941A] hover:text-[#F4B942]"><Plus size={14} /> Tambah</button>
+            <label className="text-xs font-semibold text-[#475569]">Item / Jasa</label>
+            <button onClick={addItem} className="flex items-center gap-1 text-xs font-semibold text-[#1D4ED8] hover:text-[#2563EB]"><Plus size={14} /> Tambah</button>
           </div>
           {items.map((item) => (
             <div key={item.id} className="grid grid-cols-12 gap-2 mb-2 items-end">
-              <div className="col-span-5"><input value={item.deskripsi} onChange={e => updateItem(item.id, 'deskripsi', e.target.value)} placeholder="Deskripsi" className="w-full px-2 py-1.5 rounded border border-[#F0E6D3] text-xs focus:outline-none focus:border-[#F4B942]" /></div>
-              <div className="col-span-2"><input type="number" value={item.qty} onChange={e => updateItem(item.id, 'qty', Number(e.target.value))} className="w-full px-2 py-1.5 rounded border border-[#F0E6D3] text-xs text-center focus:outline-none focus:border-[#F4B942]" /></div>
-              <div className="col-span-1"><input value={item.satuan} onChange={e => updateItem(item.id, 'satuan', e.target.value)} className="w-full px-2 py-1.5 rounded border border-[#F0E6D3] text-xs text-center focus:outline-none focus:border-[#F4B942]" /></div>
-              <div className="col-span-3"><input type="number" value={item.harga} onChange={e => updateItem(item.id, 'harga', Number(e.target.value))} placeholder="Harga" className="w-full px-2 py-1.5 rounded border border-[#F0E6D3] text-xs focus:outline-none focus:border-[#F4B942]" /></div>
+              <div className="col-span-5"><input value={item.deskripsi} onChange={e => updateItem(item.id, 'deskripsi', e.target.value)} placeholder="Deskripsi" className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs focus:outline-none focus:border-[#2563EB]" /></div>
+              <div className="col-span-2"><input type="number" value={item.qty} onChange={e => updateItem(item.id, 'qty', Number(e.target.value))} className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs text-center focus:outline-none focus:border-[#2563EB]" /></div>
+              <div className="col-span-1"><input value={item.satuan} onChange={e => updateItem(item.id, 'satuan', e.target.value)} className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs text-center focus:outline-none focus:border-[#2563EB]" /></div>
+              <div className="col-span-3"><input type="number" value={item.harga} onChange={e => updateItem(item.id, 'harga', Number(e.target.value))} placeholder="Harga" className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs focus:outline-none focus:border-[#2563EB]" /></div>
               <div className="col-span-1">{items.length > 1 && <button onClick={() => removeItem(item.id)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>}</div>
             </div>
           ))}
         </div>
 
-        <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Catatan</label>
-          <textarea value={catatan} onChange={e => setCatatan(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
+        <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Catatan</label>
+          <textarea value={catatan} onChange={e => setCatatan(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
 
-        <button onClick={() => handlePrint()} className="w-full py-3 bg-[#F4B942] text-white font-bold rounded-xl hover:bg-[#D4941A] transition-colors">
+        <button onClick={() => handlePrint()} className="w-full py-3 bg-[#2563EB] text-white font-bold rounded-xl hover:bg-[#1D4ED8] transition-colors">
           Print / Download PDF
         </button>
       </div>
 
       {/* PREVIEW */}
       <div>
-        <h3 className="font-bold text-[#2D2D3A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Preview</h3>
-        <div ref={printRef} className="bg-white p-8 rounded-xl border border-[#F0E6D3] shadow-sm" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <h3 className="font-bold text-[#0F172A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Preview</h3>
+        <div ref={printRef} className="bg-white p-8 rounded-xl border border-[#E2E8F0] shadow-sm" style={{ fontFamily: "'Inter', sans-serif" }}>
           {/* Invoice Header */}
           <div className="flex justify-between items-start mb-8">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <img src="/images/logo-main.png" alt="" className="w-10 h-10 object-contain" />
-                <div><p className="font-bold text-[#2D2D3A] text-sm">PT Karya Cipta Solusi</p><p className="text-[10px] text-[#D4941A] font-bold tracking-wider">SOLUSI TEKNOLOGI</p></div>
+                <div><p className="font-bold text-[#0F172A] text-sm">PT Karya Cipta Solusi</p><p className="text-[10px] text-[#1D4ED8] font-bold tracking-wider">SOLUSI TEKNOLOGI</p></div>
               </div>
-              <p className="text-[10px] text-[#6B6B7B] mt-1">Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru</p>
-              <p className="text-[10px] text-[#6B6B7B]">Tapos, Depok 16455 | 0856-0177-1312</p>
+              <p className="text-[10px] text-[#475569] mt-1">Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru</p>
+              <p className="text-[10px] text-[#475569]">Tapos, Depok 16455 | 0838-9891-1244</p>
             </div>
             <div className="text-right">
-              <h2 className="text-2xl font-bold" style={{ color: '#D4941A', fontFamily: "'Space Grotesk', sans-serif" }}>INVOICE</h2>
-              <p className="text-xs text-[#6B6B7B] mt-1">{noInvoice}</p>
+              <h2 className="text-2xl font-bold" style={{ color: '#1D4ED8', fontFamily: "'Space Grotesk', sans-serif" }}>INVOICE</h2>
+              <p className="text-xs text-[#475569] mt-1">{noInvoice}</p>
             </div>
           </div>
 
           {/* Info */}
-          <div className="grid grid-cols-2 gap-4 mb-6 bg-[#FFFBF3] p-4 rounded-lg">
+          <div className="grid grid-cols-2 gap-4 mb-6 bg-[#F8FAFC] p-4 rounded-lg">
             <div>
-              <p className="text-[10px] text-[#6B6B7B] font-semibold uppercase">Kepada</p>
-              <p className="text-sm font-bold text-[#2D2D3A]">{kepada || '(Nama Klien)'}</p>
-              <p className="text-[10px] text-[#6B6B7B]">{alamatKlien || '(Alamat)'}</p>
+              <p className="text-[10px] text-[#475569] font-semibold uppercase">Kepada</p>
+              <p className="text-sm font-bold text-[#0F172A]">{kepada || '(Nama Klien)'}</p>
+              <p className="text-[10px] text-[#475569]">{alamatKlien || '(Alamat)'}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-[#6B6B7B]"><span className="font-semibold">Tanggal:</span> {tanggal ? new Date(tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
-              {jatuhTempo && <p className="text-[10px] text-[#6B6B7B]"><span className="font-semibold">Jatuh Tempo:</span> {new Date(jatuhTempo).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
+              <p className="text-[10px] text-[#475569]"><span className="font-semibold">Tanggal:</span> {tanggal ? new Date(tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
+              {jatuhTempo && <p className="text-[10px] text-[#475569]"><span className="font-semibold">Jatuh Tempo:</span> {new Date(jatuhTempo).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
             </div>
           </div>
 
           {/* Items Table */}
           <table className="w-full mb-6">
-            <thead><tr className="border-b-2 border-[#F4B942]">
-              <th className="text-left text-[10px] font-bold text-[#6B6B7B] uppercase py-2 w-8">No</th>
-              <th className="text-left text-[10px] font-bold text-[#6B6B7B] uppercase py-2">Deskripsi</th>
-              <th className="text-center text-[10px] font-bold text-[#6B6B7B] uppercase py-2 w-12">Qty</th>
-              <th className="text-right text-[10px] font-bold text-[#6B6B7B] uppercase py-2 w-24">Harga</th>
-              <th className="text-right text-[10px] font-bold text-[#6B6B7B] uppercase py-2 w-28">Total</th>
+            <thead><tr className="border-b-2 border-[#2563EB]">
+              <th className="text-left text-[10px] font-bold text-[#475569] uppercase py-2 w-8">No</th>
+              <th className="text-left text-[10px] font-bold text-[#475569] uppercase py-2">Deskripsi</th>
+              <th className="text-center text-[10px] font-bold text-[#475569] uppercase py-2 w-12">Qty</th>
+              <th className="text-right text-[10px] font-bold text-[#475569] uppercase py-2 w-24">Harga</th>
+              <th className="text-right text-[10px] font-bold text-[#475569] uppercase py-2 w-28">Total</th>
             </tr></thead>
             <tbody>
               {items.map((item, idx) => (
-                <tr key={item.id} className="border-b border-[#F0E6D3]">
-                  <td className="py-2 text-xs text-[#6B6B7B]">{idx + 1}</td>
-                  <td className="py-2 text-xs text-[#2D2D3A] font-medium">{item.deskripsi || '-'}</td>
-                  <td className="py-2 text-xs text-center text-[#6B6B7B]">{item.qty} {item.satuan}</td>
-                  <td className="py-2 text-xs text-right text-[#6B6B7B]">{formatRupiah(item.harga)}</td>
-                  <td className="py-2 text-xs text-right font-semibold text-[#2D2D3A]">{formatRupiah(item.qty * item.harga)}</td>
+                <tr key={item.id} className="border-b border-[#E2E8F0]">
+                  <td className="py-2 text-xs text-[#475569]">{idx + 1}</td>
+                  <td className="py-2 text-xs text-[#0F172A] font-medium">{item.deskripsi || '-'}</td>
+                  <td className="py-2 text-xs text-center text-[#475569]">{item.qty} {item.satuan}</td>
+                  <td className="py-2 text-xs text-right text-[#475569]">{formatRupiah(item.harga)}</td>
+                  <td className="py-2 text-xs text-right font-semibold text-[#0F172A]">{formatRupiah(item.qty * item.harga)}</td>
                 </tr>
               ))}
             </tbody>
@@ -155,37 +155,37 @@ export default function InvoiceGenerator() {
           {/* Totals */}
           <div className="flex justify-end mb-6">
             <div className="w-64">
-              <div className="flex justify-between py-1"><span className="text-xs text-[#6B6B7B]">Subtotal</span><span className="text-xs font-semibold text-[#2D2D3A]">{formatRupiah(subtotal)}</span></div>
-              <div className="flex justify-between py-1"><span className="text-xs text-[#6B6B7B]">PPN 11%</span><span className="text-xs font-semibold text-[#2D2D3A]">{formatRupiah(ppn)}</span></div>
-              <div className="flex justify-between py-2 border-t-2 border-[#F4B942] mt-1">
-                <span className="text-sm font-bold text-[#2D2D3A]">TOTAL</span>
-                <span className="text-sm font-bold" style={{ color: '#D4941A' }}>{formatRupiah(total)}</span>
+              <div className="flex justify-between py-1"><span className="text-xs text-[#475569]">Subtotal</span><span className="text-xs font-semibold text-[#0F172A]">{formatRupiah(subtotal)}</span></div>
+              <div className="flex justify-between py-1"><span className="text-xs text-[#475569]">PPN 11%</span><span className="text-xs font-semibold text-[#0F172A]">{formatRupiah(ppn)}</span></div>
+              <div className="flex justify-between py-2 border-t-2 border-[#2563EB] mt-1">
+                <span className="text-sm font-bold text-[#0F172A]">TOTAL</span>
+                <span className="text-sm font-bold" style={{ color: '#1D4ED8' }}>{formatRupiah(total)}</span>
               </div>
-              <p className="text-[10px] text-[#6B6B7B] italic mt-1">{total > 0 ? terbilang(Math.floor(total)) + ' rupiah' : ''}</p>
+              <p className="text-[10px] text-[#475569] italic mt-1">{total > 0 ? terbilang(Math.floor(total)) + ' rupiah' : ''}</p>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="border-t border-[#F0E6D3] pt-4">
-            <p className="text-[10px] text-[#6B6B7B] mb-4">{catatan}</p>
+          <div className="border-t border-[#E2E8F0] pt-4">
+            <p className="text-[10px] text-[#475569] mb-4">{catatan}</p>
             <div className="grid grid-cols-2 gap-8">
               <div className="text-center">
-                <p className="text-[10px] text-[#6B6B7B] mb-8">Hormat Kami,</p>
-                <p className="text-xs font-bold text-[#2D2D3A]">PT Karya Cipta Solusi</p>
-                <div className="w-24 h-[1px] bg-[#2D2D3A] mx-auto mb-1"></div>
-                <p className="text-[10px] text-[#6B6B7B]">Direktur</p>
+                <p className="text-[10px] text-[#475569] mb-8">Hormat Kami,</p>
+                <p className="text-xs font-bold text-[#0F172A]">PT Karya Cipta Solusi</p>
+                <div className="w-24 h-[1px] bg-[#0F172A] mx-auto mb-1"></div>
+                <p className="text-[10px] text-[#475569]">Direktur</p>
               </div>
               <div className="text-center">
-                <p className="text-[10px] text-[#6B6B7B] mb-8">Mengetahui,</p>
-                <p className="text-xs font-bold text-[#2D2D3A]">{kepada || '........................'}</p>
-                <div className="w-24 h-[1px] bg-[#2D2D3A] mx-auto mb-1"></div>
-                <p className="text-[10px] text-[#6B6B7B]">Klien</p>
+                <p className="text-[10px] text-[#475569] mb-8">Mengetahui,</p>
+                <p className="text-xs font-bold text-[#0F172A]">{kepada || '........................'}</p>
+                <div className="w-24 h-[1px] bg-[#0F172A] mx-auto mb-1"></div>
+                <p className="text-[10px] text-[#475569]">Klien</p>
               </div>
             </div>
           </div>
 
-          <div className="text-center mt-6 pt-4 border-t border-[#F0E6D3]">
-            <p className="text-[9px] text-[#6B6B7B]">PT Karya Cipta Solusi | Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru, Tapos, Depok 16455 | Telp: 0856-0177-1312</p>
+          <div className="text-center mt-6 pt-4 border-t border-[#E2E8F0]">
+            <p className="text-[9px] text-[#475569]">PT Karya Cipta Solusi | Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru, Tapos, Depok 16455 | Telp: 0838-9891-1244</p>
           </div>
         </div>
       </div>

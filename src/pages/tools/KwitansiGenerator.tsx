@@ -32,85 +32,85 @@ export default function KwitansiGenerator() {
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       <div className="space-y-4">
-        <h3 className="font-bold text-[#2D2D3A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Data Kwitansi</h3>
+        <h3 className="font-bold text-[#0F172A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Data Kwitansi</h3>
 
         <div className="grid grid-cols-2 gap-3">
-          <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">No. Kwitansi</label>
-            <input value={noKwitansi} onChange={e => setNoKwitansi(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
-          <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Tanggal</label>
-            <input type="date" value={tanggal} onChange={e => setTanggal(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
+          <div><label className="text-xs font-semibold text-[#475569] mb-1 block">No. Kwitansi</label>
+            <input value={noKwitansi} onChange={e => setNoKwitansi(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
+          <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Tanggal</label>
+            <input type="date" value={tanggal} onChange={e => setTanggal(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
         </div>
 
-        <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Sudah Terima Dari</label>
-          <input value={terimaDari} onChange={e => setTerimaDari(e.target.value)} placeholder="Nama pemberi/pembayar" className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
+        <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Sudah Terima Dari</label>
+          <input value={terimaDari} onChange={e => setTerimaDari(e.target.value)} placeholder="Nama pemberi/pembayar" className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
 
-        <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Jumlah Uang (Rp)</label>
-          <input type="number" value={jumlah} onChange={e => setJumlah(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
+        <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Jumlah Uang (Rp)</label>
+          <input type="number" value={jumlah} onChange={e => setJumlah(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
 
-        <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Untuk Pembayaran</label>
-          <textarea value={pembayaran} onChange={e => setPembayaran(e.target.value)} rows={2} placeholder="Contoh: Pembayaran jasa pembuatan aplikasi ERP" className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942]" /></div>
+        <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Untuk Pembayaran</label>
+          <textarea value={pembayaran} onChange={e => setPembayaran(e.target.value)} rows={2} placeholder="Contoh: Pembayaran jasa pembuatan aplikasi ERP" className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
 
-        <div><label className="text-xs font-semibold text-[#6B6B7B] mb-1 block">Metode Pembayaran</label>
-          <select value={metode} onChange={e => setMetode(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#F0E6D3] text-sm focus:outline-none focus:border-[#F4B942] bg-white">
+        <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Metode Pembayaran</label>
+          <select value={metode} onChange={e => setMetode(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB] bg-white">
             <option>Transfer Bank</option><option>Tunai</option><option>QRIS</option><option>Check/Giro</option>
           </select></div>
 
-        <button onClick={() => handlePrint()} className="w-full py-3 bg-[#F4B942] text-white font-bold rounded-xl hover:bg-[#D4941A] transition-colors">
+        <button onClick={() => handlePrint()} className="w-full py-3 bg-[#2563EB] text-white font-bold rounded-xl hover:bg-[#1D4ED8] transition-colors">
           Print / Download PDF
         </button>
       </div>
 
       {/* PREVIEW */}
       <div>
-        <h3 className="font-bold text-[#2D2D3A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Preview</h3>
-        <div ref={printRef} className="bg-white p-10 rounded-xl border border-[#F0E6D3] shadow-sm" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <h3 className="font-bold text-[#0F172A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Preview</h3>
+        <div ref={printRef} className="bg-white p-10 rounded-xl border border-[#E2E8F0] shadow-sm" style={{ fontFamily: "'Inter', sans-serif" }}>
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-2">
               <img src="/images/logo-main.png" alt="" className="w-12 h-12 object-contain" />
-              <div className="text-left"><p className="font-bold text-[#2D2D3A] text-sm">PT Karya Cipta Solusi</p><p className="text-[10px] text-[#D4941A] font-bold tracking-wider">SOLUSI TEKNOLOGI</p></div>
+              <div className="text-left"><p className="font-bold text-[#0F172A] text-sm">PT Karya Cipta Solusi</p><p className="text-[10px] text-[#1D4ED8] font-bold tracking-wider">SOLUSI TEKNOLOGI</p></div>
             </div>
-            <p className="text-[9px] text-[#6B6B7B]">Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru, Tapos, Depok 16455</p>
-            <p className="text-[9px] text-[#6B6B7B]">Telp: 0856-0177-1312 | Email: febriansyahd65@gmail.com</p>
+            <p className="text-[9px] text-[#475569]">Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru, Tapos, Depok 16455</p>
+            <p className="text-[9px] text-[#475569]">Telp: 0838-9891-1244 | Email: pt.karyaciptasolusi@gmail.com</p>
           </div>
 
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold tracking-widest text-[#2D2D3A]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>KWITANSI</h2>
-            <p className="text-xs text-[#6B6B7B] mt-1">No: {noKwitansi}</p>
+            <h2 className="text-3xl font-bold tracking-widest text-[#0F172A]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>KWITANSI</h2>
+            <p className="text-xs text-[#475569] mt-1">No: {noKwitansi}</p>
           </div>
 
           <div className="space-y-4 mb-10">
-            <div className="flex border-b border-[#F0E6D3] pb-2">
-              <span className="w-36 text-xs font-semibold text-[#6B6B7B]">Sudah Terima Dari</span>
-              <span className="text-xs font-bold text-[#2D2D3A] flex-1">: {terimaDari || '................................................................'}</span>
+            <div className="flex border-b border-[#E2E8F0] pb-2">
+              <span className="w-36 text-xs font-semibold text-[#475569]">Sudah Terima Dari</span>
+              <span className="text-xs font-bold text-[#0F172A] flex-1">: {terimaDari || '................................................................'}</span>
             </div>
-            <div className="flex border-b border-[#F0E6D3] pb-2">
-              <span className="w-36 text-xs font-semibold text-[#6B6B7B]">Jumlah Uang</span>
-              <span className="text-xs font-bold text-[#2D2D3A] flex-1">: {formatRupiah(jumlah)}</span>
+            <div className="flex border-b border-[#E2E8F0] pb-2">
+              <span className="w-36 text-xs font-semibold text-[#475569]">Jumlah Uang</span>
+              <span className="text-xs font-bold text-[#0F172A] flex-1">: {formatRupiah(jumlah)}</span>
             </div>
-            <div className="flex border-b border-[#F0E6D3] pb-2">
-              <span className="w-36 text-xs font-semibold text-[#6B6B7B]">Terbilang</span>
-              <span className="text-xs font-bold text-[#2D2D3A] flex-1 italic">: {jumlah > 0 ? terbilang(Math.floor(jumlah)) + ' rupiah' : '................................................................'}</span>
+            <div className="flex border-b border-[#E2E8F0] pb-2">
+              <span className="w-36 text-xs font-semibold text-[#475569]">Terbilang</span>
+              <span className="text-xs font-bold text-[#0F172A] flex-1 italic">: {jumlah > 0 ? terbilang(Math.floor(jumlah)) + ' rupiah' : '................................................................'}</span>
             </div>
-            <div className="flex border-b border-[#F0E6D3] pb-2">
-              <span className="w-36 text-xs font-semibold text-[#6B6B7B]">Untuk Pembayaran</span>
-              <span className="text-xs text-[#2D2D3A] flex-1">: {pembayaran || '................................................................'}</span>
+            <div className="flex border-b border-[#E2E8F0] pb-2">
+              <span className="w-36 text-xs font-semibold text-[#475569]">Untuk Pembayaran</span>
+              <span className="text-xs text-[#0F172A] flex-1">: {pembayaran || '................................................................'}</span>
             </div>
-            <div className="flex border-b border-[#F0E6D3] pb-2">
-              <span className="w-36 text-xs font-semibold text-[#6B6B7B]">Metode</span>
-              <span className="text-xs text-[#2D2D3A] flex-1">: {metode}</span>
+            <div className="flex border-b border-[#E2E8F0] pb-2">
+              <span className="w-36 text-xs font-semibold text-[#475569]">Metode</span>
+              <span className="text-xs text-[#0F172A] flex-1">: {metode}</span>
             </div>
           </div>
 
           <div className="flex justify-between items-end">
-            <div className="bg-[#FFF8E7] px-4 py-3 rounded-lg">
-              <p className="text-xl font-bold" style={{ color: '#D4941A' }}>{formatRupiah(jumlah)}</p>
+            <div className="bg-[#EFF6FF] px-4 py-3 rounded-lg">
+              <p className="text-xl font-bold" style={{ color: '#1D4ED8' }}>{formatRupiah(jumlah)}</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] text-[#6B6B7B] mb-1">Depok, {tanggal ? new Date(tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '........................'}</p>
-              <p className="text-[10px] text-[#6B6B7B] mb-8">Yang Menerima,</p>
-              <p className="text-xs font-bold text-[#2D2D3A]">PT Karya Cipta Solusi</p>
-              <div className="w-24 h-[1px] bg-[#2D2D3A] mx-auto mb-1"></div>
-              <p className="text-[10px] text-[#6B6B7B]">Direktur</p>
+              <p className="text-[10px] text-[#475569] mb-1">Depok, {tanggal ? new Date(tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '........................'}</p>
+              <p className="text-[10px] text-[#475569] mb-8">Yang Menerima,</p>
+              <p className="text-xs font-bold text-[#0F172A]">PT Karya Cipta Solusi</p>
+              <div className="w-24 h-[1px] bg-[#0F172A] mx-auto mb-1"></div>
+              <p className="text-[10px] text-[#475569]">Direktur</p>
             </div>
           </div>
         </div>

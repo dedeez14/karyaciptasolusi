@@ -45,8 +45,8 @@ function FloatingInput({
     required,
     className: 'input-field pt-5 pb-2.5 px-4 peer',
     style: {
-      borderColor: focused ? '#F4B942' : '#F0E6D3',
-      boxShadow: focused ? '0 0 0 3px rgba(244, 185, 66, 0.15), 0 1px 4px rgba(244, 185, 66, 0.08)' : 'none',
+      borderColor: focused ? '#2563EB' : '#E2E8F0',
+      boxShadow: focused ? '0 0 0 3px rgba(37, 99, 235, 0.15), 0 1px 4px rgba(37, 99, 235, 0.08)' : 'none',
     },
   };
 
@@ -56,7 +56,7 @@ function FloatingInput({
         animate={{
           y: isActive ? -11 : 0,
           scale: isActive ? 0.78 : 1,
-          color: focused ? '#D4941A' : hasValue ? '#22C55E' : '#B0A99F',
+          color: focused ? '#1D4ED8' : hasValue ? '#22C55E' : '#94A3B8',
         }}
         transition={{ duration: 0.2, ease: easing }}
         className="absolute left-4 top-3.5 text-sm origin-left pointer-events-none z-10 font-medium"
@@ -113,7 +113,7 @@ function FloatingSelect({
         animate={{
           y: isActive ? -11 : 0,
           scale: isActive ? 0.78 : 1,
-          color: focused ? '#D4941A' : hasValue ? '#22C55E' : '#B0A99F',
+          color: focused ? '#1D4ED8' : hasValue ? '#22C55E' : '#94A3B8',
         }}
         transition={{ duration: 0.2, ease: easing }}
         className="absolute left-4 top-3.5 text-sm origin-left pointer-events-none z-10 font-medium"
@@ -129,8 +129,8 @@ function FloatingSelect({
           onBlur={() => setFocused(false)}
           className="input-field pt-5 pb-2.5 px-4 appearance-none cursor-pointer peer"
           style={{
-            borderColor: focused ? '#F4B942' : '#F0E6D3',
-            boxShadow: focused ? '0 0 0 3px rgba(244, 185, 66, 0.15), 0 1px 4px rgba(244, 185, 66, 0.08)' : 'none',
+            borderColor: focused ? '#2563EB' : '#E2E8F0',
+            boxShadow: focused ? '0 0 0 3px rgba(37, 99, 235, 0.15), 0 1px 4px rgba(37, 99, 235, 0.08)' : 'none',
           }}
         >
           <option value="" disabled />
@@ -143,7 +143,7 @@ function FloatingSelect({
         <ChevronDown
           size={16}
           className="absolute right-3 top-3.5 pointer-events-none transition-colors duration-200"
-          style={{ color: focused ? '#D4941A' : '#B0A99F' }}
+          style={{ color: focused ? '#1D4ED8' : '#94A3B8' }}
         />
       </div>
 
@@ -168,7 +168,7 @@ function FloatingSelect({
 
 /* ─── success confetti particles ─── */
 function ConfettiBurst() {
-  const colors = ['#F4B942', '#D4941A', '#0F4C81', '#22C55E', '#F97316', '#1E6BAF'];
+  const colors = ['#2563EB', '#1D4ED8', '#0F4C81', '#22C55E', '#F97316', '#1E6BAF'];
   const particles = Array.from({ length: 16 }, (_, i) => ({
     id: i,
     angle: (360 / 16) * i + Math.random() * 20,
@@ -223,7 +223,17 @@ export default function ContactFormSection() {
 
     setIsSubmitting(true);
 
-    // Simulate brief loading for UX
+    // Teruskan pesan ke WhatsApp perusahaan (harus sinkron agar tidak diblok popup blocker)
+    const waText = [
+      `Halo, saya ${form.nama}`,
+      `Email: ${form.email}`,
+      form.telepon ? `Telepon: ${form.telepon}` : '',
+      `Subjek: ${form.subjek || 'Umum'}`,
+      '',
+      form.pesan,
+    ].filter(Boolean).join('\n');
+    window.open(`https://wa.me/6283898911244?text=${encodeURIComponent(waText)}`, '_blank', 'noopener,noreferrer');
+
     setTimeout(() => {
       const newPesan: Pesan = {
         id: Date.now(),
@@ -258,16 +268,16 @@ export default function ContactFormSection() {
   ];
 
   const infoItems = [
-    { icon: MessageSquare, title: 'Respon Cepat', desc: 'Tim kami akan membalas dalam 1x24 jam', gradient: 'from-[#F4B942] to-[#D4941A]' },
-    { icon: Phone, title: 'WhatsApp Langsung', desc: '0856-0177-1312 (Klik untuk chat)', gradient: 'from-[#22C55E] to-[#16A34A]' },
-    { icon: Mail, title: 'Email', desc: 'febriansyahd65@gmail.com', gradient: 'from-[#0F4C81] to-[#1E6BAF]' },
+    { icon: MessageSquare, title: 'Respon Cepat', desc: 'Tim kami akan membalas dalam 1x24 jam', gradient: 'from-[#2563EB] to-[#1D4ED8]' },
+    { icon: Phone, title: 'WhatsApp Langsung', desc: '0838-9891-1244 (Klik untuk chat)', gradient: 'from-[#22C55E] to-[#16A34A]' },
+    { icon: Mail, title: 'Email', desc: 'pt.karyaciptasolusi@gmail.com', gradient: 'from-[#0F4C81] to-[#1E6BAF]' },
     { icon: Clock, title: 'Jam Operasional', desc: 'Senin-Sabtu, 09.00-17.00 WIB', gradient: 'from-[#F97316] to-[#EA580C]' },
   ];
 
   return (
     <section className="relative py-24 lg:py-32 bg-white overflow-hidden">
       {/* Decorative background blobs */}
-      <div className="absolute top-20 right-0 w-96 h-96 rounded-full opacity-[0.03]" style={{ background: 'radial-gradient(circle, #F4B942, transparent 70%)' }} />
+      <div className="absolute top-20 right-0 w-96 h-96 rounded-full opacity-[0.03]" style={{ background: 'radial-gradient(circle, #2563EB, transparent 70%)' }} />
       <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-[0.04]" style={{ background: 'radial-gradient(circle, #0F4C81, transparent 70%)' }} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -280,11 +290,11 @@ export default function ContactFormSection() {
           className="text-center mb-14"
         >
           <span className="section-badge mb-3">Pesan &amp; Saran</span>
-          <h2 className="text-4xl lg:text-5xl font-bold text-[#2D2D3A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            Kirim <span style={{ color: '#D4941A' }}>Pesan</span>
+          <h2 className="text-4xl lg:text-5xl font-bold text-[#0F172A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            Kirim <span style={{ color: '#1D4ED8' }}>Pesan</span>
           </h2>
-          <p className="text-[#6B6B7B] max-w-lg mx-auto text-sm leading-relaxed">
-            Punya pertanyaan atau saran? Kirim pesan langsung ke tim kami.
+          <p className="text-[#475569] max-w-lg mx-auto text-sm leading-relaxed">
+            Punya pertanyaan atau saran? Isi form di bawah — pesan Anda langsung diteruskan ke WhatsApp tim kami.
           </p>
         </motion.div>
 
@@ -300,14 +310,14 @@ export default function ContactFormSection() {
             <div
               className="warm-card p-6 sm:p-8 lg:p-10 relative"
               style={{
-                background: 'linear-gradient(135deg, #FFFFFF 0%, #FFFBF3 100%)',
+                background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)',
               }}
             >
               {/* Subtle gradient border glow */}
               <div
                 className="absolute inset-0 rounded-2xl pointer-events-none opacity-40"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(244,185,66,0.12), transparent 40%, rgba(15,76,129,0.08))',
+                  background: 'linear-gradient(135deg, rgba(37,99,235,0.12), transparent 40%, rgba(15,76,129,0.08))',
                   padding: '1.5px',
                   WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
                   WebkitMaskComposite: 'xor',
@@ -347,17 +357,17 @@ export default function ContactFormSection() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3 }}
-                      className="text-xl font-bold text-[#2D2D3A] mb-2"
+                      className="text-xl font-bold text-[#0F172A] mb-2"
                     >
-                      Pesan Terkirim!
+                      Pesan Diteruskan ke WhatsApp!
                     </motion.h3>
                     <motion.p
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.4 }}
-                      className="text-sm text-[#6B6B7B]"
+                      className="text-sm text-[#475569]"
                     >
-                      Terima kasih, tim kami akan segera menghubungi Anda.
+                      Tekan tombol kirim di WhatsApp untuk menyelesaikan — kami balas maksimal 1x24 jam.
                     </motion.p>
                   </motion.div>
                 ) : (
@@ -436,7 +446,7 @@ export default function ContactFormSection() {
                             className="flex items-center gap-2"
                           >
                             <Send size={16} />
-                            Kirim Pesan
+                            Kirim via WhatsApp
                           </motion.span>
                         )}
                       </AnimatePresence>
@@ -473,10 +483,10 @@ export default function ContactFormSection() {
                   <item.icon size={20} className="text-white" />
                 </motion.div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-[#2D2D3A] mb-0.5 group-hover:text-[#D4941A] transition-colors duration-200">
+                  <p className="text-sm font-bold text-[#0F172A] mb-0.5 group-hover:text-[#1D4ED8] transition-colors duration-200">
                     {item.title}
                   </p>
-                  <p className="text-xs text-[#6B6B7B] leading-relaxed">{item.desc}</p>
+                  <p className="text-xs text-[#475569] leading-relaxed">{item.desc}</p>
                 </div>
               </motion.div>
             ))}
@@ -523,14 +533,14 @@ export default function ContactFormSection() {
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.97 }}
                           transition={{ duration: 0.25, delay: idx * 0.04 }}
-                          className="p-4 rounded-xl bg-white border border-[#F0E6D3] hover:border-[#F4B942]/40 hover:shadow-md transition-all duration-200"
+                          className="p-4 rounded-xl bg-white border border-[#E2E8F0] hover:border-[#2563EB]/40 hover:shadow-md transition-all duration-200"
                         >
                           <div className="flex justify-between items-start mb-1">
-                            <p className="text-xs font-bold text-[#2D2D3A]">{p.nama}</p>
-                            <span className="text-[10px] text-[#B0A99F] whitespace-nowrap ml-2">{p.tanggal}</span>
+                            <p className="text-xs font-bold text-[#0F172A]">{p.nama}</p>
+                            <span className="text-[10px] text-[#94A3B8] whitespace-nowrap ml-2">{p.tanggal}</span>
                           </div>
-                          <p className="text-[11px] font-semibold text-[#D4941A] mb-1.5">{p.subjek}</p>
-                          <p className="text-xs text-[#6B6B7B] leading-relaxed line-clamp-2">{p.pesan}</p>
+                          <p className="text-[11px] font-semibold text-[#1D4ED8] mb-1.5">{p.subjek}</p>
+                          <p className="text-xs text-[#475569] leading-relaxed line-clamp-2">{p.pesan}</p>
                         </motion.div>
                       ))}
                     </AnimatePresence>

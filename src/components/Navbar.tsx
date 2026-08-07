@@ -6,10 +6,10 @@ const navLinks = [
   { label: 'Beranda', href: '#beranda' },
   { label: 'Tentang', href: '#tentang' },
   { label: 'Layanan', href: '#layanan' },
-  { label: 'Portofolio', href: '#portofolio' },
-  { label: 'Harga', href: '#harga' },
+  // { label: 'Portofolio', href: '#portofolio' },
+  { label: 'Konsultasi', href: '#konsultasi' },
   { label: 'Blog', href: '#blog' },
-  { label: 'Karir', href: '#karir' },
+  // { label: 'Karir', href: '#karir' },
   { label: 'FAQ', href: '#faq' },
   { label: 'Kontak', href: '#kontak' },
 ];
@@ -52,8 +52,8 @@ export default function Navbar() {
             <img src="/images/logo-main.png" alt="KCS" className="w-9 h-9 object-contain rounded-lg"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             <div className="hidden sm:block">
-              <p className="text-[#2D2D3A] font-bold text-sm leading-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Karya Cipta</p>
-              <p className="text-[#D4941A] text-[9px] font-bold tracking-[0.15em]">SOLUSI</p>
+              <p className="text-[#0F172A] font-bold text-sm leading-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Karya Cipta</p>
+              <p className="text-[#1D4ED8] text-[9px] font-bold tracking-[0.15em]">SOLUSI</p>
             </div>
           </a>
 
@@ -61,7 +61,7 @@ export default function Navbar() {
             {navLinks.map((link) => (
               <a key={link.href} href={link.href} onClick={(e) => handleNavClick(e, link.href)}
                 className={`px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all ${
-                  activeSection === link.href ? 'text-[#D4941A] bg-[#FEF3D6]' : 'text-[#6B6B7B] hover:text-[#2D2D3A] hover:bg-[#FFFBF3]'
+                  activeSection === link.href ? 'text-[#1D4ED8] bg-[#DBEAFE]' : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                 }`}>
                 {link.label}
               </a>
@@ -69,11 +69,11 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
-            <a href="https://wa.me/6285601771312" target="_blank" rel="noopener noreferrer"
-              className="hidden lg:inline-flex btn-primary btn-small shadow-lg shadow-[#F4B942]/25">
+            <a href="https://wa.me/6283898911244" target="_blank" rel="noopener noreferrer"
+              className="hidden lg:inline-flex btn-primary btn-small shadow-lg shadow-[#2563EB]/25">
               Konsultasi Gratis
             </a>
-            <button onClick={() => setMenuOpen(!menuOpen)} className="lg:hidden p-2.5 rounded-xl text-[#2D2D3A] hover:bg-[#FEF3D6] transition-colors">
+            <button onClick={() => setMenuOpen(!menuOpen)} className="lg:hidden p-2.5 rounded-xl text-[#0F172A] hover:bg-[#DBEAFE] transition-colors">
               {menuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
@@ -83,18 +83,18 @@ export default function Navbar() {
       <AnimatePresence>
         {menuOpen && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }} className="lg:hidden bg-white/98 backdrop-blur-xl border-t border-[#F0E6D3] overflow-hidden shadow-lg">
+            transition={{ duration: 0.3 }} className="lg:hidden bg-white/98 backdrop-blur-xl border-t border-[#E2E8F0] overflow-hidden shadow-lg">
             <div className="px-4 py-4 space-y-1 max-h-[70vh] overflow-y-auto">
               {navLinks.map((link, i) => (
                 <motion.a key={link.href} href={link.href} onClick={(e) => handleNavClick(e, link.href)}
                   initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
                   className={`block px-4 py-3 rounded-xl font-medium transition-colors ${
-                    activeSection === link.href ? 'text-[#D4941A] bg-[#FEF3D6]' : 'text-[#2D2D3A] hover:bg-[#FFFBF3]'
+                    activeSection === link.href ? 'text-[#1D4ED8] bg-[#DBEAFE]' : 'text-[#0F172A] hover:bg-[#F8FAFC]'
                   }`}>
                   {link.label}
                 </motion.a>
               ))}
-              <motion.a href="https://wa.me/6285601771312" target="_blank" rel="noopener noreferrer"
+              <motion.a href="https://wa.me/6283898911244" target="_blank" rel="noopener noreferrer"
                 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: navLinks.length * 0.05 }}
                 className="block px-4 py-3 mt-2 btn-primary text-center">
                 Konsultasi Gratis

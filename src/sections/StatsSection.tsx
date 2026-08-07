@@ -13,14 +13,14 @@ const stats = [
     suffix: '',
     label: 'Bidang',
     sub: 'Layanan Utama',
-    accent: 'from-[#F4B942] to-[#D4941A]',
-    borderAccent: '#F4B942',
-    topBorder: 'linear-gradient(90deg, #F4B942, #D4941A)',
-    iconBg: 'linear-gradient(135deg, #F4B942, #D4941A)',
+    accent: 'from-[#2563EB] to-[#1D4ED8]',
+    borderAccent: '#2563EB',
+    topBorder: 'linear-gradient(90deg, #2563EB, #1D4ED8)',
+    iconBg: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
   },
   {
     icon: Code,
-    value: 50,
+    value: 30,
     prefix: '',
     suffix: '+',
     label: 'Proyek',
@@ -32,15 +32,15 @@ const stats = [
   },
   {
     icon: Users,
-    value: 30,
+    value: 12,
     prefix: '',
     suffix: '+',
     label: 'Klien',
     sub: 'Terpercaya',
-    accent: 'from-[#D4941A] to-[#F4B942]',
-    borderAccent: '#D4941A',
-    topBorder: 'linear-gradient(90deg, #D4941A, #F4B942)',
-    iconBg: 'linear-gradient(135deg, #D4941A, #F4B942)',
+    accent: 'from-[#1D4ED8] to-[#2563EB]',
+    borderAccent: '#1D4ED8',
+    topBorder: 'linear-gradient(90deg, #1D4ED8, #2563EB)',
+    iconBg: 'linear-gradient(135deg, #1D4ED8, #2563EB)',
   },
   {
     icon: Calendar,
@@ -102,7 +102,7 @@ export default function StatsSection() {
         className="absolute inset-0"
         style={{
           backgroundImage:
-            'radial-gradient(circle, #F4B942 1px, transparent 1px)',
+            'radial-gradient(circle, #2563EB 1px, transparent 1px)',
           backgroundSize: '32px 32px',
           opacity: 0.06,
         }}
@@ -143,7 +143,7 @@ export default function StatsSection() {
 
               {/* Large background watermark number */}
               <span
-                className="absolute -right-2 -bottom-4 text-7xl font-bold text-[#F4B942]/[0.04] select-none group-hover:text-[#F4B942]/[0.08] transition-colors duration-500"
+                className="absolute -right-2 -bottom-4 text-7xl font-bold text-[#2563EB]/[0.04] select-none group-hover:text-[#2563EB]/[0.08] transition-colors duration-500"
                 style={{ fontFamily: "'Space Grotesk', sans-serif" }}
               >
                 {stat.value}
@@ -163,7 +163,7 @@ export default function StatsSection() {
                 {/* Number with CountUp and pulsing suffix */}
                 <div className="flex items-center mb-1">
                   <span
-                    className="text-3xl lg:text-4xl font-bold text-[#2D2D3A]"
+                    className="text-3xl lg:text-4xl font-bold text-[#0F172A]"
                     style={{ fontFamily: "'Space Grotesk', sans-serif" }}
                   >
                     {inView ? (
@@ -184,10 +184,10 @@ export default function StatsSection() {
                   )}
                 </div>
 
-                <p className="text-[#2D2D3A] font-semibold text-sm">
+                <p className="text-[#0F172A] font-semibold text-sm">
                   {stat.label}
                 </p>
-                <p className="text-[#6B6B7B] text-xs mt-0.5">{stat.sub}</p>
+                <p className="text-[#475569] text-xs mt-0.5">{stat.sub}</p>
               </div>
 
               {/* Bottom gradient line on hover */}

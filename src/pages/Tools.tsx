@@ -14,8 +14,8 @@ const tools = [
     label: 'Invoice',
     icon: FileText,
     desc: 'Generate invoice profesional dengan format rapi dan otomatis.',
-    gradient: 'from-[#F4B942] via-[#F5A623] to-[#D4941A]',
-    shadowColor: 'rgba(244, 185, 66, 0.25)',
+    gradient: 'from-[#2563EB] via-[#60A5FA] to-[#1D4ED8]',
+    shadowColor: 'rgba(37, 99, 235, 0.25)',
   },
   {
     id: 'kwitansi',
@@ -38,8 +38,8 @@ const tools = [
     label: 'Surat Perjanjian',
     icon: ShieldCheck,
     desc: 'Generate draft perjanjian kerja yang profesional.',
-    gradient: 'from-[#D4941A] via-[#C48416] to-[#A06D12]',
-    shadowColor: 'rgba(212, 148, 26, 0.25)',
+    gradient: 'from-[#1D4ED8] via-[#1E40AF] to-[#0F4C81]',
+    shadowColor: 'rgba(29, 78, 216, 0.25)',
   },
 ];
 
@@ -59,9 +59,9 @@ export default function Tools() {
   const activeToolData = tools.find((t) => t.id === activeTool);
 
   return (
-    <div className="min-h-screen bg-[#FFFBF3]" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* ─── Header ─── */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-[#F0E6D3] sticky top-0 z-50">
+      <div className="bg-white/80 backdrop-blur-md border-b border-[#E2E8F0] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <AnimatePresence mode="wait">
@@ -73,11 +73,11 @@ export default function Tools() {
                   exit={{ opacity: 0, x: -10, scale: 0.8 }}
                   transition={{ duration: 0.2 }}
                   onClick={() => setActiveTool(null)}
-                  whileHover={{ scale: 1.08, backgroundColor: '#FEF3D6' }}
+                  whileHover={{ scale: 1.08, backgroundColor: '#DBEAFE' }}
                   whileTap={{ scale: 0.95 }}
                   className="p-2 rounded-xl transition-colors"
                 >
-                  <ArrowLeft size={20} className="text-[#2D2D3A]" />
+                  <ArrowLeft size={20} className="text-[#0F172A]" />
                 </motion.button>
               )}
             </AnimatePresence>
@@ -97,7 +97,7 @@ export default function Tools() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
-                  className="text-sm font-bold text-[#2D2D3A] whitespace-nowrap"
+                  className="text-sm font-bold text-[#0F172A] whitespace-nowrap"
                   style={{ fontFamily: "'Space Grotesk', sans-serif" }}
                 >
                   {activeTool ? activeToolData?.label : 'Generator Dokumen'}
@@ -107,7 +107,7 @@ export default function Tools() {
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-[10px] text-[#6B6B7B]"
+                  className="text-[10px] text-[#475569]"
                 >
                   PT Karya Cipta Solusi
                 </motion.p>
@@ -159,12 +159,12 @@ export default function Tools() {
               >
                 <span className="section-badge mb-4">Tools</span>
                 <h2
-                  className="text-3xl sm:text-4xl font-bold text-[#2D2D3A] mb-3"
+                  className="text-3xl sm:text-4xl font-bold text-[#0F172A] mb-3"
                   style={{ fontFamily: "'Space Grotesk', sans-serif" }}
                 >
-                  Pilih <span style={{ color: '#D4941A' }}>Generator</span>
+                  Pilih <span style={{ color: '#1D4ED8' }}>Generator</span>
                 </h2>
-                <p className="text-[#6B6B7B] text-sm max-w-md mx-auto leading-relaxed">
+                <p className="text-[#475569] text-sm max-w-md mx-auto leading-relaxed">
                   Buat invoice, kwitansi, dan surat-surat untuk PT Karya Cipta Solusi dengan cepat dan mudah.
                 </p>
               </motion.div>
@@ -204,10 +204,10 @@ export default function Tools() {
                     </motion.div>
 
                     {/* Card text */}
-                    <h3 className="font-bold text-[#2D2D3A] text-base mb-2 relative z-10 group-hover:text-[#D4941A] transition-colors duration-200">
+                    <h3 className="font-bold text-[#0F172A] text-base mb-2 relative z-10 group-hover:text-[#1D4ED8] transition-colors duration-200">
                       {tool.label}
                     </h3>
-                    <p className="text-xs text-[#6B6B7B] leading-relaxed mb-4 relative z-10">
+                    <p className="text-xs text-[#475569] leading-relaxed mb-4 relative z-10">
                       {tool.desc}
                     </p>
 
@@ -217,7 +217,7 @@ export default function Tools() {
                       whileHover={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.25 }}
                       className="flex items-center gap-1 text-xs font-bold relative z-10"
-                      style={{ color: '#D4941A' }}
+                      style={{ color: '#1D4ED8' }}
                     >
                       <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1">
                         Buka Tool <ArrowRight size={12} />
@@ -255,8 +255,8 @@ export default function Tools() {
                   {activeToolData && <activeToolData.icon size={20} className="text-white" />}
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-[#2D2D3A]">{activeToolData?.label}</h3>
-                  <p className="text-xs text-[#6B6B7B]">{activeToolData?.desc}</p>
+                  <h3 className="text-lg font-bold text-[#0F172A]">{activeToolData?.label}</h3>
+                  <p className="text-xs text-[#475569]">{activeToolData?.desc}</p>
                 </div>
               </motion.div>
 

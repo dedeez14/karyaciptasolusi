@@ -11,6 +11,11 @@ export default function NewsletterSection() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
+
+    // Teruskan permintaan berlangganan ke WhatsApp tim (sinkron agar tidak diblok popup blocker)
+    const waText = `Halo, saya ingin berlangganan update & tips dari PT Karya Cipta Solusi.\nEmail saya: ${email}`;
+    window.open(`https://wa.me/6283898911244?text=${encodeURIComponent(waText)}`, '_blank', 'noopener,noreferrer');
+
     const list = JSON.parse(localStorage.getItem('kcs-newsletter') || '[]');
     list.push({ email, date: new Date().toISOString() });
     localStorage.setItem('kcs-newsletter', JSON.stringify(list));
@@ -20,7 +25,7 @@ export default function NewsletterSection() {
 
   return (
     <section className="relative py-20 lg:py-24 overflow-hidden">
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #F4B942 0%, #D4941A 50%, #F4B942 100%)' }} />
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 50%, #2563EB 100%)' }} />
       <div className="absolute inset-0 opacity-10" style={{
         backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
         backgroundSize: '30px 30px'
@@ -39,7 +44,7 @@ export default function NewsletterSection() {
           {subscribed ? (
             <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="flex items-center justify-center gap-2 text-white">
               <CheckCircle size={20} />
-              <span className="font-semibold">Berlangganan berhasil! Terima kasih.</span>
+              <span className="font-semibold">Terima kasih! Selesaikan konfirmasi lewat pesan WhatsApp yang terbuka.</span>
             </motion.div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">

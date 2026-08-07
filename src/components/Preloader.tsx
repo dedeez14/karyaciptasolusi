@@ -4,7 +4,7 @@ export default function Preloader() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoaded(true), 2200);
+    const timer = setTimeout(() => setLoaded(true), 1000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -20,7 +20,7 @@ export default function Preloader() {
         <div className="preloader-bar">
           <div className="preloader-bar-inner" />
         </div>
-        <p className="text-xs font-semibold tracking-[0.2em] uppercase" style={{ color: '#D4941A' }}>
+        <p className="text-xs font-semibold tracking-[0.2em] uppercase" style={{ color: '#1D4ED8' }}>
           Memuat
         </p>
       </div>

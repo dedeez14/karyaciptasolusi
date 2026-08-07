@@ -26,7 +26,7 @@ export default function BackToTop() {
           exit={{ opacity: 0, scale: 0.5, y: 20 }}
           transition={{ duration: 0.3 }}
           onClick={scrollToTop}
-          className="fixed bottom-24 right-5 z-50 w-11 h-11 rounded-full bg-[#0F4C81] text-white shadow-lg shadow-[#0F4C81]/30 flex items-center justify-center hover:bg-[#1E6BAF] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#F4B942] focus:ring-offset-2"
+          className="fixed bottom-24 right-5 z-50 w-11 h-11 rounded-full bg-[#0F4C81] text-white shadow-lg shadow-[#0F4C81]/30 flex items-center justify-center hover:bg-[#1E6BAF] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-2"
           aria-label="Kembali ke atas"
         >
           <ChevronUp size={20} />

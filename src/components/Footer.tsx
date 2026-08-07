@@ -1,11 +1,13 @@
-import { Phone, Mail, MapPin, ArrowUpRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Phone, Mail, MapPin, ArrowUpRight, Clock } from 'lucide-react';
+import { blogPosts } from '../data/blogPosts';
 
 const quickLinks = [
   { label: 'Beranda', href: '#beranda' },
   { label: 'Tentang', href: '#tentang' },
   { label: 'Layanan', href: '#layanan' },
-  { label: 'Portofolio', href: '#portofolio' },
-  { label: 'Testimoni', href: '#testimoni' },
+  { label: 'Kenapa Kami', href: '#kenapa-kami' },
+  { label: 'Konsultasi', href: '#konsultasi' },
   { label: 'FAQ', href: '#faq' },
   { label: 'Kontak', href: '#kontak' },
 ];
@@ -18,36 +20,42 @@ export default function Footer() {
   };
 
   return (
-    <footer className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #FFFBF3 0%, #FFF8E7 50%, #FEF3D6 100%)' }}>
-      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url(/images/banner-light.png)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+    <footer className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #DBEAFE 100%)' }}>
+      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url(/images/banner-light.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20 relative z-10">
         <div className="grid md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-8">
-          <div className="lg:col-span-5">
+          {/* Brand */}
+          <div className="lg:col-span-4">
             <div className="flex items-center gap-3 mb-5">
-              <img src="/images/logo-main.png" alt="KCS" className="w-12 h-12 object-contain rounded-lg"
+              <img src="/images/logo-main.png" alt="Logo PT Karya Cipta Solusi" className="w-12 h-12 object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               <div>
-                <p className="text-[#2D2D3A] font-bold text-base leading-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>PT Karya Cipta Solusi</p>
-                <p className="text-[#D4941A] text-xs font-bold tracking-wider">SOLUSI TEKNOLOGI</p>
+                <p className="text-[#0F172A] font-bold text-base leading-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>PT Karya Cipta Solusi</p>
+                <p className="text-[#1D4ED8] text-xs font-bold tracking-wider">SOLUSI TEKNOLOGI</p>
               </div>
             </div>
-            <p className="text-[#6B6B7B] text-sm leading-relaxed mb-5 max-w-sm">
-              Perusahaan konsultasi IT, pengembangan aplikasi, software, SaaS platform, dan pengolahan data di Depok, Jawa Barat.
+            <p className="text-[#475569] text-sm leading-relaxed mb-5 max-w-sm">
+              Jasa pembuatan website, aplikasi custom, dan konsultasi IT di Depok, Jawa Barat — melayani klien di seluruh Indonesia.
             </p>
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-sm mb-3">
               <span className="w-2 h-2 rounded-full bg-[#4ADE80] animate-pulse" />
               <span className="text-[#22c55e] font-medium text-xs">Aktif Beroperasi</span>
             </div>
+            <div className="flex items-start gap-2 text-xs text-[#475569]/80">
+              <Clock size={13} className="mt-0.5 flex-shrink-0 text-[#2563EB]" />
+              Senin - Sabtu, 09.00 - 17.00 WIB
+            </div>
           </div>
 
-          <div className="lg:col-span-3 lg:col-start-7">
-            <h4 className="font-bold text-xs mb-5 text-[#6B6B7B] tracking-wider uppercase">Navigasi</h4>
+          {/* Navigasi */}
+          <div className="lg:col-span-2">
+            <h4 className="font-bold text-xs mb-5 text-[#475569] tracking-wider uppercase">Navigasi</h4>
             <ul className="space-y-2.5">
               {quickLinks.map((link) => (
                 <li key={link.href}>
                   <a href={link.href} onClick={(e) => handleClick(e, link.href)}
-                    className="group flex items-center gap-1 text-[#6B6B7B]/70 hover:text-[#D4941A] text-sm transition-colors">
+                    className="group flex items-center gap-1 text-[#475569]/70 hover:text-[#1D4ED8] text-sm transition-colors">
                     {link.label}
                     <ArrowUpRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                   </a>
@@ -56,32 +64,52 @@ export default function Footer() {
             </ul>
           </div>
 
+          {/* Artikel terbaru - internal linking */}
           <div className="lg:col-span-3">
-            <h4 className="font-bold text-xs mb-5 text-[#6B6B7B] tracking-wider uppercase">Hubungi Kami</h4>
+            <h4 className="font-bold text-xs mb-5 text-[#475569] tracking-wider uppercase">Artikel Terbaru</h4>
+            <ul className="space-y-3">
+              {blogPosts.slice(0, 3).map((post) => (
+                <li key={post.slug}>
+                  <Link to={`/blog/${post.slug}`}
+                    className="block text-[#475569]/70 hover:text-[#1D4ED8] text-sm leading-snug transition-colors">
+                    {post.title}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link to="/blog" className="inline-flex items-center gap-1 text-[#1D4ED8] text-xs font-bold hover:gap-1.5 transition-all">
+                  Lihat Semua Artikel <ArrowUpRight size={12} />
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Kontak */}
+          <div className="lg:col-span-3">
+            <h4 className="font-bold text-xs mb-5 text-[#475569] tracking-wider uppercase">Hubungi Kami</h4>
             <ul className="space-y-3">
               {[
-                { icon: Phone, val: '0856-0177-1312', href: 'tel:085601771312' },
                 { icon: Phone, val: '0838-9891-1244', href: 'tel:083898911244' },
-                { icon: Mail, val: 'febriansyahd65@gmail.com', href: 'mailto:febriansyahd65@gmail.com' },
+                { icon: Mail, val: 'pt.karyaciptasolusi@gmail.com', href: 'mailto:pt.karyaciptasolusi@gmail.com' },
               ].map((c) => (
                 <li key={c.val}>
-                  <a href={c.href} className="flex items-start gap-3 text-[#6B6B7B]/70 hover:text-[#D4941A] text-sm transition-colors">
-                    <c.icon size={15} className="mt-0.5 flex-shrink-0 text-[#F4B942]" />
+                  <a href={c.href} className="flex items-start gap-3 text-[#475569]/70 hover:text-[#1D4ED8] text-sm transition-colors">
+                    <c.icon size={15} className="mt-0.5 flex-shrink-0 text-[#2563EB]" />
                     {c.val}
                   </a>
                 </li>
               ))}
-              <li className="flex items-start gap-3 text-[#6B6B7B]/70 text-sm">
-                <MapPin size={15} className="mt-0.5 flex-shrink-0 text-[#F4B942]" />
+              <li className="flex items-start gap-3 text-[#475569]/70 text-sm">
+                <MapPin size={15} className="mt-0.5 flex-shrink-0 text-[#2563EB]" />
                 Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru, Tapos, Depok 16455
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-12 pt-6 border-t border-[#F0E6D3] flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-[#6B6B7B]/50 text-xs">&copy; {new Date().getFullYear()} PT Karya Cipta Solusi. Hak Cipta Dilindungi.</p>
-          <p className="text-[#6B6B7B]/30 text-xs">Dibuat dengan dedikasi di Depok, Jawa Barat</p>
+        <div className="mt-12 pt-6 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-[#475569]/50 text-xs">&copy; {new Date().getFullYear()} PT Karya Cipta Solusi. Hak Cipta Dilindungi.</p>
+          <p className="text-[#475569]/40 text-xs">Jasa Pembuatan Website &amp; Aplikasi — Depok, Jawa Barat</p>
         </div>
       </div>
     </footer>

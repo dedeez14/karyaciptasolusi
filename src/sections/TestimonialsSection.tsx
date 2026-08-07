@@ -12,9 +12,9 @@ const testimonials = [
 ];
 
 const avatarGradients = [
-  'from-[#F4B942] to-[#D4941A]',
+  'from-[#2563EB] to-[#1D4ED8]',
   'from-[#0F4C81] to-[#1E6BAF]',
-  'from-[#D4941A] to-[#F4B942]',
+  'from-[#1D4ED8] to-[#2563EB]',
   'from-[#1E6BAF] to-[#3B8ED0]',
   'from-[#E85D4A] to-[#C94A38]',
   'from-[#47A248] to-[#388E3F]',
@@ -65,7 +65,7 @@ export default function TestimonialsSection() {
         animate={{ y: [0, -20, 0], scale: [1, 1.05, 1] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-40"
-        style={{ background: 'radial-gradient(circle, #F4B94208, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, #2563EB08, transparent 70%)' }}
       />
       <motion.div
         animate={{ y: [0, 15, 0], scale: [1, 1.03, 1] }}
@@ -93,14 +93,14 @@ export default function TestimonialsSection() {
             Testimoni
           </motion.span>
           <motion.h2
-            className="text-4xl lg:text-5xl font-bold text-[#2D2D3A]"
+            className="text-4xl lg:text-5xl font-bold text-[#0F172A]"
             style={{ fontFamily: "'Space Grotesk', sans-serif" }}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            Apa Kata <span style={{ color: '#D4941A' }}>Klien</span>
+            Apa Kata <span style={{ color: '#1D4ED8' }}>Klien</span>
           </motion.h2>
         </motion.div>
 
@@ -110,10 +110,10 @@ export default function TestimonialsSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="relative rounded-3xl p-8 lg:p-14 border border-[#F0E6D3]/80 overflow-hidden"
+          className="relative rounded-3xl p-8 lg:p-14 border border-[#E2E8F0]/80 overflow-hidden"
           style={{
-            background: 'linear-gradient(135deg, #FFFBF3 0%, #FFF8E7 50%, #FEF3D6 100%)',
-            boxShadow: '0 8px 40px rgba(244, 185, 66, 0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
+            background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #DBEAFE 100%)',
+            boxShadow: '0 8px 40px rgba(37, 99, 235, 0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
           }}
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
@@ -129,7 +129,7 @@ export default function TestimonialsSection() {
           >
             <Quote
               size={120}
-              className="absolute top-4 left-6 lg:top-6 lg:left-10 text-[#F4B942] pointer-events-none select-none"
+              className="absolute top-4 left-6 lg:top-6 lg:left-10 text-[#2563EB] pointer-events-none select-none"
               style={{ opacity: 0.06 }}
               strokeWidth={1}
             />
@@ -175,7 +175,7 @@ export default function TestimonialsSection() {
                     >
                       <Star
                         size={22}
-                        className="fill-[#F4B942] text-[#F4B942] drop-shadow-sm"
+                        className="fill-[#2563EB] text-[#2563EB] drop-shadow-sm"
                       />
                     </motion.div>
                   ))}
@@ -183,7 +183,7 @@ export default function TestimonialsSection() {
 
                 {/* Testimonial Text */}
                 <motion.p
-                  className="text-lg lg:text-xl text-[#2D2D3A]/85 leading-[1.75] max-w-2xl mb-10 italic font-medium"
+                  className="text-lg lg:text-xl text-[#0F172A]/85 leading-[1.75] max-w-2xl mb-10 italic font-medium"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
@@ -208,9 +208,9 @@ export default function TestimonialsSection() {
                   </motion.div>
 
                   <div className="text-left">
-                    <p className="font-bold text-[#2D2D3A] text-base">{t.name}</p>
+                    <p className="font-bold text-[#0F172A] text-base">{t.name}</p>
                     {/* Role Badge */}
-                    <span className="inline-block mt-0.5 px-3 py-0.5 bg-[#F4B942]/10 border border-[#F4B942]/20 rounded-full text-[#D4941A] text-[11px] font-semibold">
+                    <span className="inline-block mt-0.5 px-3 py-0.5 bg-[#2563EB]/10 border border-[#2563EB]/20 rounded-full text-[#1D4ED8] text-[11px] font-semibold">
                       {t.role}
                     </span>
                   </div>
@@ -248,8 +248,8 @@ export default function TestimonialsSection() {
                   }}
                   className={`h-2.5 rounded-full transition-all duration-500 ${
                     i === current
-                      ? 'w-8 bg-gradient-to-r from-[#F4B942] to-[#D4941A]'
-                      : 'w-2.5 bg-[#F0E6D3] hover:bg-[#F4B942]/50'
+                      ? 'w-8 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8]'
+                      : 'w-2.5 bg-[#E2E8F0] hover:bg-[#2563EB]/50'
                   }`}
                   whileHover={{ scale: 1.2 }}
                   whileTap={{ scale: 0.9 }}
@@ -279,7 +279,7 @@ export default function TestimonialsSection() {
                 exit={{ opacity: 0, y: 5 }}
                 className="absolute bottom-3 left-1/2 -translate-x-1/2"
               >
-                <span className="text-[10px] text-[#B0A99F] font-medium tracking-wide uppercase">
+                <span className="text-[10px] text-[#94A3B8] font-medium tracking-wide uppercase">
                   Auto-rotate dijeda
                 </span>
               </motion.div>
