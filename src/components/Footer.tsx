@@ -28,7 +28,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-4">
             <div className="flex items-center gap-3 mb-5">
-              <img src="/images/logo-main.png" alt="Logo PT Karya Cipta Solusi" className="w-12 h-12 object-contain"
+              <img src="/images/logo-main.png?v=2" alt="Logo PT Karya Cipta Solusi" className="w-12 h-12 object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               <div>
                 <p className="text-[#0F172A] font-bold text-base leading-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>PT Karya Cipta Solusi</p>

@@ -86,7 +86,7 @@ export default function Tools() {
               layout
               className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0"
             >
-              <img src="/images/logo-main.png" alt="KCS" className="w-full h-full object-contain rounded" />
+              <img src="/images/logo-main.png?v=2" alt="KCS" className="w-full h-full object-contain rounded" />
             </motion.div>
 
             <motion.div layout className="overflow-hidden">

@@ -105,7 +105,7 @@ export default function InvoiceGenerator() {
           <div className="flex justify-between items-start mb-8">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <img src="/images/logo-main.png" alt="" className="w-10 h-10 object-contain" />
+                <img src="/images/logo-main.png?v=2" alt="" className="w-10 h-10 object-contain" />
                 <div><p className="font-bold text-[#0F172A] text-sm">PT Karya Cipta Solusi</p><p className="text-[10px] text-[#1D4ED8] font-bold tracking-wider">SOLUSI TEKNOLOGI</p></div>
               </div>
               <p className="text-[10px] text-[#475569] mt-1">Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru</p>

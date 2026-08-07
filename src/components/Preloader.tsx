@@ -12,7 +12,7 @@ export default function Preloader() {
     <div className={`preloader ${loaded ? 'loaded' : ''}`}>
       <div className="flex flex-col items-center gap-5">
         <img
-          src="/images/logo-main.png"
+          src="/images/logo-main.png?v=2"
           alt="KCS"
           className="preloader-logo w-20 h-20 object-contain"
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

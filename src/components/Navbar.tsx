@@ -49,7 +49,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           <a href="#beranda" onClick={(e) => handleNavClick(e, '#beranda')} className="flex items-center gap-2.5">
-            <img src="/images/logo-main.png" alt="KCS" className="w-9 h-9 object-contain rounded-lg"
+            <img src="/images/logo-main.png?v=2" alt="KCS" className="w-9 h-9 object-contain rounded-lg"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             <div className="hidden sm:block">
               <p className="text-[#0F172A] font-bold text-sm leading-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Karya Cipta</p>

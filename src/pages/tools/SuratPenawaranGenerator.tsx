@@ -83,7 +83,7 @@ export default function SuratPenawaranGenerator() {
         <h3 className="font-bold text-[#0F172A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Preview</h3>
         <div ref={printRef} className="bg-white p-10 rounded-xl border border-[#E2E8F0] shadow-sm" style={{ fontFamily: "'Inter', sans-serif" }}>
           <div className="flex items-center gap-3 mb-6">
-            <img src="/images/logo-main.png" alt="" className="w-14 h-14 object-contain" />
+            <img src="/images/logo-main.png?v=2" alt="" className="w-14 h-14 object-contain" />
             <div><p className="font-bold text-[#0F172A]">PT Karya Cipta Solusi</p><p className="text-[10px] text-[#1D4ED8] font-bold tracking-wider">SOLUSI TEKNOLOGI</p>
               <p className="text-[9px] text-[#475569]">Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru, Tapos, Depok 16455</p>
               <p className="text-[9px] text-[#475569]">Telp: 0838-9891-1244 | Email: pt.karyaciptasolusi@gmail.com</p>
