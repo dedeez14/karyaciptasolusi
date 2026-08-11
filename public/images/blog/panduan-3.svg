@@ -1,16 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="Panduan">
 <defs>
-<linearGradient id="gpanduan3" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="#2563EB"/><stop offset="1" stop-color="#1D4ED8"/>
+<linearGradient id="gpanduan3" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#487cee"/><stop offset="1" stop-color="#2252d9"/>
 </linearGradient>
-<pattern id="dpanduan3" width="34" height="34" patternUnits="userSpaceOnUse">
-<circle cx="2" cy="2" r="2" fill="#fff" opacity=".13"/>
-</pattern>
+<pattern id="tpanduan3" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M0 0H40V40" fill="none" stroke="#fff" stroke-width="1.5" opacity=".1"/></pattern>
 </defs>
 <rect width="1200" height="800" fill="url(#gpanduan3)"/>
-<rect width="1200" height="800" fill="url(#dpanduan3)"/>
-<path d="M0 640 Q300 520 600 620 T1200 560 V800 H0Z" fill="#fff" opacity=".06"/><circle cx="980" cy="180" r="150" fill="#fff" opacity=".06"/>
-<g transform="translate(600 372) scale(9.5) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".95"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></g>
-<text x="600" y="612" text-anchor="middle" font-family="'Space Grotesk','Segoe UI',system-ui,sans-serif" font-size="40" font-weight="700" fill="#fff" letter-spacing="7" opacity=".95">PANDUAN</text>
-<rect x="510" y="648" width="180" height="5" rx="2.5" fill="#fff" opacity=".55"/>
+<rect width="1200" height="800" fill="url(#tpanduan3)"/>
+<path d="M0 600 Q300 470 600 590 T1200 520 V800 H0Z" fill="#fff" opacity=".08"/><path d="M0 690 Q320 570 640 680 T1200 620 V800 H0Z" fill="#fff" opacity=".06"/>
+<g transform="translate(600 340) scale(9) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".95"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></g>
+<text x="600" y="584" text-anchor="middle" font-family="'Space Grotesk','Segoe UI',system-ui,sans-serif" font-size="40" font-weight="700" fill="#fff" letter-spacing="7" opacity=".95">PANDUAN</text>
+<rect x="510" y="620" width="180" height="5" rx="2.5" fill="#fff" opacity=".55"/>
 </svg>

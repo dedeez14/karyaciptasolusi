@@ -1,16 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="Toko Online">
 <defs>
-<linearGradient id="gtoko-online4" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="#1E40AF"/><stop offset="1" stop-color="#2563EB"/>
+<linearGradient id="gtoko-online4" x1="1" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#342e97"/><stop offset="1" stop-color="#3b31b2"/>
 </linearGradient>
-<pattern id="dtoko-online4" width="34" height="34" patternUnits="userSpaceOnUse">
-<circle cx="2" cy="2" r="2" fill="#fff" opacity=".13"/>
-</pattern>
+<pattern id="ttoko-online4" width="52" height="52" patternUnits="userSpaceOnUse"><circle cx="26" cy="26" r="15" fill="none" stroke="#fff" stroke-width="2" opacity=".08"/></pattern>
 </defs>
 <rect width="1200" height="800" fill="url(#gtoko-online4)"/>
-<rect width="1200" height="800" fill="url(#dtoko-online4)"/>
-<circle cx="1080" cy="640" r="260" fill="#fff" opacity=".055"/><rect x="80" y="80" width="240" height="240" rx="60" fill="#fff" opacity=".05"/>
-<g transform="translate(600 372) scale(9.5) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".95"><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/><path d="M8 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/><path d="M19 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></g>
-<text x="600" y="612" text-anchor="middle" font-family="'Space Grotesk','Segoe UI',system-ui,sans-serif" font-size="40" font-weight="700" fill="#fff" letter-spacing="7" opacity=".95">TOKO ONLINE</text>
-<rect x="510" y="648" width="180" height="5" rx="2.5" fill="#fff" opacity=".55"/>
+<rect width="1200" height="800" fill="url(#ttoko-online4)"/>
+<circle cx="1090" cy="660" r="280" fill="#fff" opacity=".07"/><rect x="70" y="70" width="250" height="250" rx="64" fill="#fff" opacity=".06"/><circle cx="196" cy="196" r="60" fill="#fff" opacity=".05"/>
+<g transform="translate(600 372) scale(10) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".95"><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/><path d="M8 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/><path d="M19 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></g>
+<text x="600" y="616" text-anchor="middle" font-family="'Space Grotesk','Segoe UI',system-ui,sans-serif" font-size="40" font-weight="700" fill="#fff" letter-spacing="7" opacity=".95">TOKO ONLINE</text>
+<rect x="510" y="652" width="180" height="5" rx="2.5" fill="#fff" opacity=".55"/>
 </svg>

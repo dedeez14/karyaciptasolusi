@@ -1,16 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="Bisnis">
 <defs>
-<linearGradient id="gbisnis2" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="#0F4C81"/><stop offset="1" stop-color="#1E6BAF"/>
+<linearGradient id="gbisnis2" x1="0" y1="1" x2="1" y2="0">
+<stop offset="0" stop-color="#0c3b65"/><stop offset="1" stop-color="#072945"/>
 </linearGradient>
-<pattern id="dbisnis2" width="34" height="34" patternUnits="userSpaceOnUse">
-<circle cx="2" cy="2" r="2" fill="#fff" opacity=".13"/>
-</pattern>
+<pattern id="tbisnis2" width="46" height="46" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="46" stroke="#fff" stroke-width="7" opacity=".07"/></pattern>
 </defs>
 <rect width="1200" height="800" fill="url(#gbisnis2)"/>
-<rect width="1200" height="800" fill="url(#dbisnis2)"/>
-<rect x="820" y="-80" width="420" height="420" rx="90" fill="#fff" opacity=".06" transform="rotate(18 1030 130)"/><circle cx="120" cy="660" r="150" fill="#fff" opacity=".05"/>
-<g transform="translate(600 372) scale(9.5) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".95"><path d="M2 9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></g>
-<text x="600" y="612" text-anchor="middle" font-family="'Space Grotesk','Segoe UI',system-ui,sans-serif" font-size="40" font-weight="700" fill="#fff" letter-spacing="7" opacity=".95">BISNIS</text>
-<rect x="510" y="648" width="180" height="5" rx="2.5" fill="#fff" opacity=".55"/>
+<rect width="1200" height="800" fill="url(#tbisnis2)"/>
+<rect x="830" y="-90" width="440" height="440" rx="100" fill="#fff" opacity=".07" transform="rotate(20 1050 130)"/><rect x="-60" y="560" width="320" height="320" rx="80" fill="#fff" opacity=".05" transform="rotate(-15 100 720)"/>
+<g transform="translate(600 356) scale(10.5) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".95"><path d="M2 9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></g>
+<text x="600" y="600" text-anchor="middle" font-family="'Space Grotesk','Segoe UI',system-ui,sans-serif" font-size="40" font-weight="700" fill="#fff" letter-spacing="7" opacity=".95">BISNIS</text>
+<rect x="510" y="636" width="180" height="5" rx="2.5" fill="#fff" opacity=".55"/>
 </svg>

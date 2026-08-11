@@ -32,11 +32,35 @@ export function postsByCategory(category: string): BlogMeta[] {
   return blogPosts.filter((p) => p.category === category);
 }
 
-/** Artikel terkait: prioritaskan kategori sama, lalu lengkapi dengan yang terbaru. */
+/**
+ * Artikel terkait: sebagian besar dari kategori yang sama agar relevan, tapi selalu
+ * sisakan satu slot untuk kategori lain supaya pembaca menemukan topik baru
+ * dan deretan kartunya tidak terlihat seragam.
+ */
 export function relatedPosts(slug: string, limit = 3): BlogMeta[] {
   const current = getPostBySlug(slug);
   if (!current) return blogPosts.slice(0, limit);
+
   const sameCat = blogPosts.filter((p) => p.slug !== slug && p.category === current.category);
   const others = blogPosts.filter((p) => p.slug !== slug && p.category !== current.category);
-  return [...sameCat, ...others].slice(0, limit);
+
+  // sebarkan pilihan lintas kategori agar tidak selalu artikel terbaru yang muncul
+  const seenCat = new Set<string>();
+  const diverse = others.filter((p) => {
+    if (seenCat.has(p.category)) return false;
+    seenCat.add(p.category);
+    return true;
+  });
+
+  const sameCount = Math.max(1, limit - 1);
+  const picked = [...sameCat.slice(0, sameCount), ...diverse].slice(0, limit);
+
+  // jika kategori ini artikelnya sedikit, lengkapi dari sisa artikel mana pun
+  if (picked.length < limit) {
+    for (const p of [...sameCat, ...others]) {
+      if (picked.length >= limit) break;
+      if (!picked.some((x) => x.slug === p.slug)) picked.push(p);
+    }
+  }
+  return picked;
 }
