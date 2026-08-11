@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin, ArrowUpRight, Clock } from 'lucide-react';
-import { blogPosts } from '../data/blogPosts';
+import { blogPosts } from '../data/blogIndex';
 
 const quickLinks = [
   { label: 'Beranda', href: '#beranda' },

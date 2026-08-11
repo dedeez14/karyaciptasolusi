@@ -4,8 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/generate-blog-meta.mjs && vite",
+    "prebuild": "node scripts/generate-blog-meta.mjs",
     "build": "tsc -b && vite build",
+    "blog:meta": "node scripts/generate-blog-meta.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

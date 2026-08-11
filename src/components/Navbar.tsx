@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navLinks = [
   { label: 'Beranda', href: '#beranda' },
@@ -15,8 +17,10 @@ const navLinks = [
 ];
 
 export default function Navbar() {
+  const { user, logout, isAuthenticated } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('#beranda');
 
   useEffect(() => {
@@ -69,6 +73,36 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
+            {isAuthenticated ? (
+              <div className="hidden lg:flex relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+                >
+                  <span className="w-7 h-7 rounded-full bg-[#DBEAFE] text-[#1D4ED8] flex items-center justify-center">
+                    <User size={14} />
+                  </span>
+                  <span className="max-w-[100px] truncate">{user?.name}</span>
+                  <ChevronDown size={14} className={`transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-[#E2E8F0] shadow-lg py-1 z-50"
+                    onMouseLeave={() => setUserMenuOpen(false)}>
+                    <button
+                      onClick={() => { logout(); setUserMenuOpen(false); }}
+                      className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <LogOut size={14} />
+                      Keluar
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link to="/login" className="hidden lg:inline-flex btn-ghost btn-small">
+                Masuk
+              </Link>
+            )}
             <a href="https://wa.me/6283898911244" target="_blank" rel="noopener noreferrer"
               className="hidden lg:inline-flex btn-primary btn-small shadow-lg shadow-[#2563EB]/25">
               Konsultasi Gratis
@@ -94,8 +128,30 @@ export default function Navbar() {
                   {link.label}
                 </motion.a>
               ))}
+              {isAuthenticated ? (
+                <motion.button
+                  onClick={() => { logout(); setMenuOpen(false); }}
+                  initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: navLinks.length * 0.05 }}
+                  className="block w-full text-left px-4 py-3 rounded-xl font-medium text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  Keluar
+                </motion.button>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: navLinks.length * 0.05 }}
+                >
+                  <Link to="/login" onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-3 rounded-xl font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors">
+                    Masuk
+                  </Link>
+                  <Link to="/register" onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-3 rounded-xl font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors">
+                    Daftar
+                  </Link>
+                </motion.div>
+              )}
               <motion.a href="https://wa.me/6283898911244" target="_blank" rel="noopener noreferrer"
-                initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: navLinks.length * 0.05 }}
+                initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: (navLinks.length + 1) * 0.05 }}
                 className="block px-4 py-3 mt-2 btn-primary text-center">
                 Konsultasi Gratis
               </motion.a>

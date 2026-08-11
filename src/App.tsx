@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Preloader from './components/Preloader';
@@ -28,6 +29,8 @@ import ContactSection from './sections/ContactSection';
 const Tools = lazy(() => import('./pages/Tools'));
 const Blog = lazy(() => import('./pages/Blog'));
 const BlogPost = lazy(() => import('./pages/BlogPost'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
 
 /* Scroll ke atas tiap pindah halaman + dukung link lama berformat hash (#/tools) */
 function RouterBehavior() {
@@ -92,15 +95,19 @@ function HomePage() {
 export default function App() {
   return (
     <BrowserRouter>
-      <RouterBehavior />
-      <Suspense fallback={<div className="min-h-[100dvh] bg-white" />}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/tools" element={<Tools />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/blog/:slug" element={<BlogPost />} />
-        </Routes>
-      </Suspense>
+      <AuthProvider>
+        <RouterBehavior />
+        <Suspense fallback={<div className="min-h-[100dvh] bg-white" />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/tools" element={<Tools />} />
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Routes>
+        </Suspense>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
