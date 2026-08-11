@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/generate-blog-meta.mjs && vite",
-    "prebuild": "node scripts/generate-blog-meta.mjs",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/generate-blog-meta.mjs && tsc -b && vite build",
     "blog:meta": "node scripts/generate-blog-meta.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
