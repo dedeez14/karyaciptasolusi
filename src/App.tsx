@@ -31,6 +31,9 @@ const Blog = lazy(() => import('./pages/Blog'));
 const BlogPost = lazy(() => import('./pages/BlogPost'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const KebijakanPrivasi = lazy(() => import('./pages/KebijakanPrivasi'));
+const PenghapusanData = lazy(() => import('./pages/PenghapusanData'));
+const SyaratKetentuan = lazy(() => import('./pages/SyaratKetentuan'));
 
 /* Scroll ke atas tiap pindah halaman + dukung link lama berformat hash (#/tools) */
 function RouterBehavior() {
@@ -105,6 +108,13 @@ export default function App() {
             <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/kebijakan-privasi" element={<KebijakanPrivasi />} />
+            <Route path="/penghapusan-data" element={<PenghapusanData />} />
+            <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
+            {/* alias bahasa Inggris agar tautan dari platform luar tetap bekerja */}
+            <Route path="/privacy-policy" element={<KebijakanPrivasi />} />
+            <Route path="/data-deletion" element={<PenghapusanData />} />
+            <Route path="/terms" element={<SyaratKetentuan />} />
           </Routes>
         </Suspense>
       </AuthProvider>

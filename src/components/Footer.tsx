@@ -106,10 +106,25 @@ export default function Footer() {
             </ul>
           </div>
         </div>
-
-        <div className="mt-12 pt-6 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="mt-12 pt-6 border-t border-[#E2E8F0]">
+          <nav aria-label="Tautan legal" className="flex flex-wrap justify-center gap-x-5 gap-y-2 mb-5">
+            <Link to="/kebijakan-privasi" className="text-[#475569]/70 hover:text-[#1D4ED8] text-xs transition-colors">
+              Kebijakan Privasi
+            </Link>
+            <Link to="/syarat-ketentuan" className="text-[#475569]/70 hover:text-[#1D4ED8] text-xs transition-colors">
+              Syarat &amp; Ketentuan
+            </Link>
+            <Link to="/penghapusan-data" className="text-[#475569]/70 hover:text-[#1D4ED8] text-xs transition-colors">
+              Penghapusan Data
+            </Link>
+            <Link to="/blog" className="text-[#475569]/70 hover:text-[#1D4ED8] text-xs transition-colors">
+              Blog
+            </Link>
+          </nav>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-[#475569]/50 text-xs">&copy; {new Date().getFullYear()} PT Karya Cipta Solusi. Hak Cipta Dilindungi.</p>
           <p className="text-[#475569]/40 text-xs">Jasa Pembuatan Website &amp; Aplikasi — Depok, Jawa Barat</p>
+          </div>
         </div>
       </div>
     </footer>
