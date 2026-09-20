@@ -53,6 +53,22 @@ const karya: Karya[] = [
     teknologi: ['Go', 'React', 'MySQL'],
   },
   {
+    slug: 'sekolah',
+    nama: 'Sistem Manajemen Sekolah',
+    ringkas: 'Multi-sekolah dengan 6 peran: siswa, guru, kelas, jadwal, absensi, rapor otomatis, dan keuangan sekolah.',
+    url: 'https://sekolah.karyaciptasolusi.com/',
+    kategori: 'Pendidikan',
+    teknologi: ['Laravel 12', 'MySQL', 'Tailwind 4'],
+  },
+  {
+    slug: 'macco',
+    nama: 'Macco — Aplikasi Akuntansi',
+    ringkas: 'Jurnal, buku besar, rekonsiliasi bank, aset tetap, tutup buku, laporan keuangan, dan pajak UMKM.',
+    url: 'https://macco.karyaciptasolusi.com/',
+    kategori: 'Keuangan',
+    teknologi: ['Go', 'React', 'PostgreSQL'],
+  },
+  {
     slug: 'monitoring',
     nama: 'FleetCtl — Monitoring VPS',
     ringkas: 'Kelola banyak VPS sebagai satu fleet: metrik realtime, akses, firewall, cron, dan audit.',
