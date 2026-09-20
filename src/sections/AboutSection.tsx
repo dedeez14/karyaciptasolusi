@@ -24,7 +24,7 @@ const karya: Karya[] = [
     slug: 'movera',
     nama: 'MOVERA ERP',
     ringkas: 'ERP multi-perusahaan: pembelian, penjualan, persediaan, akuntansi, HRD, POS, dan modul proyek.',
-    url: 'https://demo.karyaciptasolusi.com/',
+    url: 'https://erp.karyaciptasolusi.com/',
     kategori: 'ERP',
     teknologi: ['Laravel 12', 'MySQL', 'Multi-tenant'],
   },
