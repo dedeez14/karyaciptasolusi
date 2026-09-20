@@ -4,7 +4,7 @@ import { blogPosts } from '../data/blogIndex';
 
 const quickLinks = [
   { label: 'Beranda', href: '#beranda' },
-  { label: 'Tentang', href: '#tentang' },
+  { label: 'Portofolio', href: '#portofolio' },
   { label: 'Layanan', href: '#layanan' },
   { label: 'Kenapa Kami', href: '#kenapa-kami' },
   { label: 'Konsultasi', href: '#konsultasi' },

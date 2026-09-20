@@ -1,59 +1,124 @@
 import { motion } from 'framer-motion';
-import { Target, Lightbulb, Heart, ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, ExternalLink } from 'lucide-react';
 
 const easing = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
-const values = [
-  { icon: Target, title: 'Visi', desc: 'Menjadi mitra teknologi terpercaya yang menginspirasi transformasi digital di Indonesia.', bg: 'bg-[#2563EB]', iconColor: 'text-white' },
-  { icon: Lightbulb, title: 'Misi', desc: 'Menyediakan solusi teknologi inovatif, berkualitas, dan terjangkau untuk UMKM dan korporasi.', bg: 'bg-[#0F4C81]', iconColor: 'text-white' },
-  { icon: Heart, title: 'Nilai', desc: 'Integritas, inovasi berkelanjutan, dan komitmen pada kepuasan klien dalam setiap proyek.', bg: 'bg-[#EFF6FF]', iconColor: 'text-[#1D4ED8]' },
+/*
+ * Bagian "Tentang Kami" diganti menjadi Portofolio (keputusan 2026-09-19): karya nyata yang
+ * kami bangun dan jalankan sendiri, tiap kartu menuju aplikasi yang hidup. Portofolio lengkap
+ * (pengalaman, stack, proyek klien) ada di dedeproject.dev.
+ */
+const PORTOFOLIO_LENGKAP = 'https://dedeproject.dev/#projects';
+
+type Karya = {
+  slug: string;
+  nama: string;
+  ringkas: string;
+  url: string;
+  kategori: string;
+  teknologi: string[];
+};
+
+const karya: Karya[] = [
+  {
+    slug: 'movera',
+    nama: 'MOVERA ERP',
+    ringkas: 'ERP multi-perusahaan: pembelian, penjualan, persediaan, akuntansi, HRD, POS, dan modul proyek.',
+    url: 'https://demo.karyaciptasolusi.com/',
+    kategori: 'ERP',
+    teknologi: ['Laravel 12', 'MySQL', 'Multi-tenant'],
+  },
+  {
+    slug: 'bengkel',
+    nama: 'Bengkel ERP',
+    ringkas: 'Job-shop bengkel bubut: customer → gambar → SPK shop-floor realtime → QC, plus situs perusahaan.',
+    url: 'https://bengkel.karyaciptasolusi.com/',
+    kategori: 'ERP',
+    teknologi: ['Go', 'React', 'PostgreSQL'],
+  },
+  {
+    slug: 'bumdes',
+    nama: 'SIBUMDes',
+    ringkas: 'Sistem informasi BUM Desa: tata kelola, permodalan, unit usaha, pembukuan, pelaporan, dan portal desa.',
+    url: 'https://bumdes.karyaciptasolusi.com/',
+    kategori: 'Pemerintahan',
+    teknologi: ['Go', 'React', 'PostgreSQL'],
+  },
+  {
+    slug: 'ksp',
+    nama: 'SISKOMEPU — Koperasi Simpan Pinjam',
+    ringkas: 'Keanggotaan, simpanan, siklus pinjaman, akuntansi & SHU, dan portal anggota.',
+    url: 'https://ksp.karyaciptasolusi.com/',
+    kategori: 'Keuangan',
+    teknologi: ['Go', 'React', 'MySQL'],
+  },
+  {
+    slug: 'monitoring',
+    nama: 'FleetCtl — Monitoring VPS',
+    ringkas: 'Kelola banyak VPS sebagai satu fleet: metrik realtime, akses, firewall, cron, dan audit.',
+    url: 'https://monitoring.karyaciptasolusi.com/',
+    kategori: 'DevOps',
+    teknologi: ['Go', 'Next.js', 'TimescaleDB'],
+  },
+  {
+    slug: 'music',
+    nama: 'Lumina — Simulator Tata Cahaya',
+    ringkas: 'Panggung 3D yang bereaksi otomatis terhadap musik; rekam hasilnya langsung dari browser.',
+    url: 'https://music.karyaciptasolusi.com/',
+    kategori: 'Kreatif',
+    teknologi: ['Three.js', 'Web Audio', 'WebCodecs'],
+  },
 ];
 
 export default function AboutSection() {
   return (
-    <section id="tentang" className="relative py-24 lg:py-32 overflow-hidden" style={{ background: 'linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 50%, #F8FAFC 100%)' }}>
+    <section id="portofolio" className="relative py-24 lg:py-32 overflow-hidden" style={{ background: 'linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 50%, #F8FAFC 100%)' }}>
       <div className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-30" style={{ background: 'radial-gradient(circle, #2563EB08, transparent 70%)' }} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: easing }} className="text-center mb-12">
-          <span className="section-badge mb-3">Tentang Kami</span>
-          <h2 className="text-4xl lg:text-5xl font-bold text-[#0F172A]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Siapa <span style={{ color: '#1D4ED8' }}>Kami</span></h2>
+        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: easing }} className="text-center mb-6">
+          <span className="section-badge mb-3">Portofolio</span>
+          <h2 className="text-4xl lg:text-5xl font-bold text-[#0F172A]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Karya yang <span style={{ color: '#1D4ED8' }}>Kami Jalankan</span></h2>
         </motion.div>
+        <motion.p initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.1, ease: easing }}
+          className="text-[#475569] text-sm leading-relaxed text-center max-w-2xl mx-auto mb-12">
+          Bukan sekadar tangkapan layar: setiap aplikasi di bawah ini kami bangun sendiri dan berjalan di server kami. Silakan buka dan coba langsung.
+        </motion.p>
 
-        <div className="grid lg:grid-cols-2 gap-10 items-center mb-16">
-          <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.7, ease: easing }} className="relative">
-            <div className="rounded-2xl overflow-hidden border border-[#E2E8F0] shadow-lg">
-              <img src="/images/about-founder.jpg" alt="Founder & Developer PT Karya Cipta Solusi" loading="lazy" decoding="async" className="w-full max-w-md mx-auto h-auto object-cover"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            </div>
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3, duration: 0.5 }}
-              className="absolute -bottom-4 left-4 sm:left-8 bg-white rounded-xl p-4 shadow-xl border border-[#E2E8F0] max-w-xs">
-              <p className="font-bold text-[#0F172A] text-sm">Founder & Developer</p>
-              <p className="text-[#475569] text-xs">PT Karya Cipta Solusi</p>
-            </motion.div>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.7, ease: easing }}>
-            <p className="text-[#475569] leading-relaxed mb-5 text-sm">PT Karya Cipta Solusi didirikan dengan semangat untuk membantu bisnis di Indonesia menghadapi era digital. Berawal dari pengalaman mendalam dalam teknologi informasi, kami memahami tantangan unik yang dihadapi pelaku usaha.</p>
-            <p className="text-[#475569] leading-relaxed mb-8 text-sm">Kami berkomitmen memberikan solusi teknologi terbaik. Setiap proyek adalah dedikasi untuk hasil yang optimal dan memuaskan.</p>
-            <a href="https://wa.me/6283898911244" target="_blank" rel="noopener noreferrer" className="group btn-ghost hover:no-underline" style={{ color: '#1D4ED8' }}>
-              Diskusikan kebutuhan Anda <ArrowUpRight size={16} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </a>
-          </motion.div>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-5">
-          {values.map((v, i) => (
-            <motion.div key={v.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.12, ease: easing }} className="warm-card p-6">
-              <div className={`w-12 h-12 rounded-xl ${v.bg} flex items-center justify-center mb-4`}>
-                <v.icon size={22} className={v.iconColor} />
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
+          {karya.map((k, i) => (
+            <motion.a key={k.slug} href={k.url} target="_blank" rel="noopener noreferrer"
+              initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: i * 0.08, ease: easing }}
+              className="warm-card group flex flex-col overflow-hidden hover:no-underline" aria-label={`Buka ${k.nama}`}>
+              <div className="relative aspect-[16/9] bg-[#EFF6FF] overflow-hidden">
+                <img src={`/images/portofolio/${k.slug}.png`} alt={`Tampilan ${k.nama}`} loading="lazy" decoding="async" width={640} height={360}
+                  className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <span className="absolute top-3 left-3 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/90 text-[#1D4ED8] border border-[#DBEAFE]">{k.kategori}</span>
               </div>
-              <h3 className="text-lg font-bold text-[#0F172A] mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{v.title}</h3>
-              <p className="text-[#475569] text-sm leading-relaxed">{v.desc}</p>
-            </motion.div>
+              <div className="p-5 flex flex-col flex-1">
+                <h3 className="text-base font-bold text-[#0F172A] mb-1.5 flex items-start justify-between gap-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                  <span>{k.nama}</span>
+                  <ExternalLink size={15} className="shrink-0 mt-1 text-[#94A3B8] group-hover:text-[#1D4ED8] transition-colors" />
+                </h3>
+                <p className="text-[#475569] text-sm leading-relaxed flex-1">{k.ringkas}</p>
+                <ul className="flex flex-wrap gap-1.5 mt-4" aria-label="Teknologi">
+                  {k.teknologi.map((t) => (
+                    <li key={t} className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#334155]">{t}</li>
+                  ))}
+                </ul>
+              </div>
+            </motion.a>
           ))}
         </div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, ease: easing }} className="text-center">
+          <a href={PORTOFOLIO_LENGKAP} target="_blank" rel="noopener noreferrer" className="btn-primary inline-flex items-center gap-2 hover:no-underline">
+            Lihat portofolio lengkap di dedeproject.dev <ArrowUpRight size={16} />
+          </a>
+          <p className="text-[#94A3B8] text-xs mt-3">Pengalaman, teknologi, dan proyek klien lainnya.</p>
+        </motion.div>
       </div>
     </section>
   );

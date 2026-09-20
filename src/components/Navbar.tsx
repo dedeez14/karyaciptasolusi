@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const navLinks = [
   { label: 'Beranda', href: '#beranda' },
-  { label: 'Tentang', href: '#tentang' },
+  { label: 'Portofolio', href: '#portofolio' },
   { label: 'Layanan', href: '#layanan' },
   // { label: 'Portofolio', href: '#portofolio' },
   { label: 'Konsultasi', href: '#konsultasi' },
