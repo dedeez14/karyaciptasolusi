@@ -60,14 +60,6 @@ const karya: Karya[] = [
     kategori: 'DevOps',
     teknologi: ['Go', 'Next.js', 'TimescaleDB'],
   },
-  {
-    slug: 'music',
-    nama: 'Lumina — Simulator Tata Cahaya',
-    ringkas: 'Panggung 3D yang bereaksi otomatis terhadap musik; rekam hasilnya langsung dari browser.',
-    url: 'https://music.karyaciptasolusi.com/',
-    kategori: 'Kreatif',
-    teknologi: ['Three.js', 'Web Audio', 'WebCodecs'],
-  },
 ];
 
 export default function AboutSection() {
