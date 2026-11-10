@@ -104,59 +104,79 @@ export function PlaceResults({ jobId, live }: { jobId?: string; live?: boolean }
     }
   };
 
+  const dash = <span className="text-slate-300">—</span>;
   const columns: Column<Place>[] = [
     {
       key: 'title',
-      header: 'Business',
+      header: 'Name',
       sortable: true,
       render: (p) => (
-        <div className="min-w-0">
+        <div className="max-w-56 min-w-36">
           <p className="font-medium text-slate-900">{p.title}</p>
-          <p className="text-xs text-slate-500">{[p.category, p.address].filter(Boolean).join(' · ')}</p>
+          <p className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
+            {p.category && <span>{p.category}</span>}
+            {p.rating !== null && (
+              <span className="inline-flex items-center gap-0.5 whitespace-nowrap" title={`${fmtNumber(p.rating, 1)} from ${p.reviewCount ?? 0} reviews`}>
+                <Icon name="star" className="h-3 w-3 text-amber-500" />
+                {fmtNumber(p.rating, 1)} ({p.reviewCount ?? 0})
+              </span>
+            )}
+          </p>
         </div>
       ),
     },
     {
-      key: 'contact',
-      header: 'Contact',
-      render: (p) => (
-        <div className="space-y-0.5 text-sm">
-          {p.phone && (
-            <p className="flex items-center gap-1.5 whitespace-nowrap text-slate-700">
-              <Icon name="phone" className="h-3.5 w-3.5 text-slate-400" />
-              {localPhone(p.phone)}
-            </p>
-          )}
-          {p.emails.map((e) => (
-            <p key={e} className="flex items-center gap-1.5 text-slate-700">
-              <Icon name="mail" className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-              <span className="break-all">{e}</span>
-            </p>
-          ))}
-          {p.website && (
-            <a href={p.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-brand-700 hover:underline" onClick={(e) => e.stopPropagation()}>
-              <Icon name="globe" className="h-3.5 w-3.5 shrink-0" />
-              <span className="max-w-56 truncate">{p.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
-            </a>
-          )}
-          {!p.phone && !p.emails.length && !p.website && <span className="text-slate-300">—</span>}
-        </div>
-      ),
-    },
-    {
-      key: 'rating',
-      header: 'Rating',
-      sortable: true,
-      align: 'right',
+      key: 'address',
+      header: 'Address',
+      hideOnMobile: true,
       render: (p) =>
-        p.rating !== null ? (
-          <span className="inline-flex items-center gap-1 whitespace-nowrap">
-            <Icon name="star" className="h-3.5 w-3.5 text-amber-500" />
-            {fmtNumber(p.rating, 1)}
-            <span className="text-xs text-slate-400">({p.reviewCount ?? 0})</span>
+        p.address ? (
+          <span className="line-clamp-2 max-w-64 min-w-40 text-sm text-slate-700" title={p.address}>
+            {p.address}
           </span>
         ) : (
-          <span className="text-slate-300">—</span>
+          dash
+        ),
+    },
+    {
+      key: 'phone',
+      header: 'Phone',
+      render: (p) =>
+        p.phone ? (
+          <a href={`tel:${p.phone.replace(/[^\d+]/g, '')}`} className="whitespace-nowrap text-sm text-slate-700 hover:text-brand-700" onClick={(e) => e.stopPropagation()}>
+            {localPhone(p.phone)}
+          </a>
+        ) : (
+          dash
+        ),
+    },
+    {
+      key: 'website',
+      header: 'Website',
+      hideOnMobile: true,
+      render: (p) =>
+        p.website ? (
+          <a href={p.website} target="_blank" rel="noopener noreferrer" title={p.website} className="block max-w-40 truncate text-sm text-brand-700 hover:underline" onClick={(e) => e.stopPropagation()}>
+            {p.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+          </a>
+        ) : (
+          dash
+        ),
+    },
+    {
+      key: 'emails',
+      header: 'E-mail',
+      render: (p) =>
+        p.emails.length ? (
+          <div className="space-y-0.5 text-sm text-slate-700">
+            {p.emails.map((e) => (
+              <p key={e} className="break-all">
+                {e}
+              </p>
+            ))}
+          </div>
+        ) : (
+          dash
         ),
     },
     {
