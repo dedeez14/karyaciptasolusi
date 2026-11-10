@@ -74,8 +74,11 @@ export default defineConfig({
         globIgnores: ['assets/icons/**'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
+        // the new worker takes control of open tabs as soon as the user accepts an update
+        clientsClaim: true,
+        // API requests are not routed through the service worker at all: never cached, and the long-lived
+        // notification stream (SSE) does not keep the old worker busy, which would delay activating an update
         runtimeCaching: [
-          { urlPattern: ({ url }) => url.pathname.startsWith('/api/'), handler: 'NetworkOnly' },
           { urlPattern: ({ url }) => url.pathname.startsWith('/assets/icons/'), handler: 'CacheFirst', options: { cacheName: 'icons', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 } } },
         ],
       },
