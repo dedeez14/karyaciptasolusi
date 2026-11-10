@@ -728,23 +728,26 @@ model CostCenter {
 }
 
 model Project {
-  id          String    @id @default(uuid()) @db.Uuid
-  companyId   String    @db.Uuid
-  branchId    String?   @db.Uuid
-  code        String    @db.VarChar(30)
-  name        String    @db.VarChar(150)
-  customerId  String?   @db.Uuid
-  startDate   DateTime? @db.Date
-  endDate     DateTime? @db.Date
-  budget      Decimal   @default(0) @db.Decimal(18, 2)
-  statusCode  String?   @db.VarChar(50)
-  description String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdById String?   @db.Uuid
-  updatedById String?   @db.Uuid
-  deletedAt   DateTime?
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  branchId         String?   @db.Uuid
+  code             String    @db.VarChar(30)
+  name             String    @db.VarChar(150)
+  customerId       String?   @db.Uuid
+  startDate        DateTime? @db.Date
+  endDate          DateTime? @db.Date
+  budget           Decimal   @default(0) @db.Decimal(18, 2)
+  /// time billing: hourly rate and the service product used on invoices
+  hourlyRate       Decimal   @default(0) @db.Decimal(18, 2)
+  billingProductId String?   @db.Uuid
+  statusCode       String?   @db.VarChar(50)
+  description      String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+  deletedAt        DateTime?
 
   @@unique([companyId, code])
   @@map("projects")
@@ -796,17 +799,21 @@ model AccountMapping {
 }
 
 model FiscalPeriod {
-  id          String    @id @default(uuid()) @db.Uuid
-  companyId   String    @db.Uuid
-  name        String    @db.VarChar(50)
-  startDate   DateTime  @db.Date
-  endDate     DateTime  @db.Date
-  isClosed    Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdById String?   @db.Uuid
-  updatedById String?   @db.Uuid
-  deletedAt   DateTime?
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  name             String    @db.VarChar(50)
+  startDate        DateTime  @db.Date
+  endDate          DateTime  @db.Date
+  isClosed         Boolean   @default(false)
+  /// year-end closing journal (income & expense moved to retained earnings)
+  closingJournalId String?   @db.Uuid
+  closedAt         DateTime?
+  closedById       String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+  deletedAt        DateTime?
 
   @@unique([companyId, name])
   @@map("fiscal_periods")
@@ -1161,24 +1168,28 @@ model LeaveRequest {
 }
 
 model PayrollRun {
-  id             String    @id @default(uuid()) @db.Uuid
-  companyId      String    @db.Uuid
-  branchId       String?   @db.Uuid
-  number         String    @db.VarChar(40)
-  periodStart    DateTime  @db.Date
-  periodEnd      DateTime  @db.Date
-  payDate        DateTime  @db.Date
-  status         DocStatus @default(DRAFT)
-  totalGross     Decimal   @default(0) @db.Decimal(18, 2)
-  totalDeduction Decimal   @default(0) @db.Decimal(18, 2)
-  totalNet       Decimal   @default(0) @db.Decimal(18, 2)
-  notes          String?
-  journalEntryId String?   @db.Uuid
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdById    String?   @db.Uuid
-  updatedById    String?   @db.Uuid
-  deletedAt      DateTime?
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @db.Uuid
+  branchId          String?   @db.Uuid
+  number            String    @db.VarChar(40)
+  periodStart       DateTime  @db.Date
+  periodEnd         DateTime  @db.Date
+  payDate           DateTime  @db.Date
+  status            DocStatus @default(DRAFT)
+  totalGross        Decimal   @default(0) @db.Decimal(18, 2)
+  totalDeduction    Decimal   @default(0) @db.Decimal(18, 2)
+  totalNet          Decimal   @default(0) @db.Decimal(18, 2)
+  notes             String?
+  journalEntryId    String?   @db.Uuid
+  /// salary payment (net pay transferred)
+  paidAt            DateTime?
+  paidBankAccountId String?   @db.Uuid
+  paymentJournalId  String?   @db.Uuid
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdById       String?   @db.Uuid
+  updatedById       String?   @db.Uuid
+  deletedAt         DateTime?
 
   payslips Payslip[]
 
@@ -1210,43 +1221,47 @@ model Payslip {
 // ----------------------------------------------------------------------------
 
 model TradeDocument {
-  id             String    @id @default(uuid()) @db.Uuid
-  companyId      String    @db.Uuid
-  branchId       String?   @db.Uuid
-  docType        String    @db.VarChar(10)
-  number         String    @db.VarChar(40)
-  date           DateTime  @db.Date
-  dueDate        DateTime? @db.Date
-  status         DocStatus @default(DRAFT)
-  customerId     String?   @db.Uuid
-  supplierId     String?   @db.Uuid
-  warehouseId    String?   @db.Uuid
-  toWarehouseId  String?   @db.Uuid
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  branchId         String?   @db.Uuid
+  docType          String    @db.VarChar(10)
+  number           String    @db.VarChar(40)
+  date             DateTime  @db.Date
+  dueDate          DateTime? @db.Date
+  status           DocStatus @default(DRAFT)
+  customerId       String?   @db.Uuid
+  supplierId       String?   @db.Uuid
+  warehouseId      String?   @db.Uuid
+  toWarehouseId    String?   @db.Uuid
   /// recurring billing subscription that generated this invoice
-  subscriptionId String?   @db.Uuid
-  paymentTermId  String?   @db.Uuid
-  projectId      String?   @db.Uuid
-  opportunityId  String?   @db.Uuid
-  sourceId       String?   @db.Uuid
-  currencyCode   String    @default("IDR") @db.VarChar(3)
-  exchangeRate   Decimal   @default(1) @db.Decimal(18, 6)
-  reference      String?   @db.VarChar(100)
-  notes          String?
-  terms          String?
-  subtotal       Decimal   @default(0) @db.Decimal(18, 2)
-  discountTotal  Decimal   @default(0) @db.Decimal(18, 2)
-  taxTotal       Decimal   @default(0) @db.Decimal(18, 2)
-  grandTotal     Decimal   @default(0) @db.Decimal(18, 2)
-  paidAmount     Decimal   @default(0) @db.Decimal(18, 2)
-  ownerId        String?   @db.Uuid
-  confirmedById  String?   @db.Uuid
-  confirmedAt    DateTime?
-  cancelledAt    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdById    String?   @db.Uuid
-  updatedById    String?   @db.Uuid
-  deletedAt      DateTime?
+  subscriptionId   String?   @db.Uuid
+  /// opening balance document (go-live): posts against Opening Balance Equity, no revenue / stock movement
+  isOpening        Boolean   @default(false)
+  /// Indonesian tax invoice number (Nomor Faktur Pajak)
+  taxInvoiceNumber String?   @db.VarChar(40)
+  paymentTermId    String?   @db.Uuid
+  projectId        String?   @db.Uuid
+  opportunityId    String?   @db.Uuid
+  sourceId         String?   @db.Uuid
+  currencyCode     String    @default("IDR") @db.VarChar(3)
+  exchangeRate     Decimal   @default(1) @db.Decimal(18, 6)
+  reference        String?   @db.VarChar(100)
+  notes            String?
+  terms            String?
+  subtotal         Decimal   @default(0) @db.Decimal(18, 2)
+  discountTotal    Decimal   @default(0) @db.Decimal(18, 2)
+  taxTotal         Decimal   @default(0) @db.Decimal(18, 2)
+  grandTotal       Decimal   @default(0) @db.Decimal(18, 2)
+  paidAmount       Decimal   @default(0) @db.Decimal(18, 2)
+  ownerId          String?   @db.Uuid
+  confirmedById    String?   @db.Uuid
+  confirmedAt      DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+  deletedAt        DateTime?
 
   lines       TradeDocumentLine[]
   source      TradeDocument?      @relation("DocSource", fields: [sourceId], references: [id])
@@ -1551,6 +1566,9 @@ model TaskTimeLog {
   date      DateTime @db.Date
   hours     Decimal  @db.Decimal(6, 2)
   note      String?  @db.VarChar(500)
+  billable  Boolean  @default(true)
+  /// sales invoice the hours were billed on
+  invoiceId String?  @db.Uuid
   createdAt DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -1922,4 +1940,69 @@ model Holiday {
 
   @@index([companyId, date])
   @@map("holidays")
+}
+
+// ----------------------------------------------------------------------------
+// Bank reconciliation
+// ----------------------------------------------------------------------------
+
+model BankStatement {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  bankAccountId  String    @db.Uuid
+  number         String    @db.VarChar(40)
+  periodStart    DateTime  @db.Date
+  periodEnd      DateTime  @db.Date
+  openingBalance Decimal   @default(0) @db.Decimal(18, 2)
+  closingBalance Decimal   @default(0) @db.Decimal(18, 2)
+  statusCode     String    @default("OPEN") @db.VarChar(20) // lookup BANK_STATEMENT_STATUS
+  notes          String?
+  reconciledAt   DateTime?
+  reconciledById String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  deletedAt      DateTime?
+
+  lines BankStatementLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, bankAccountId])
+  @@map("bank_statements")
+}
+
+model BankStatementLine {
+  id                String   @id @default(uuid()) @db.Uuid
+  statementId       String   @db.Uuid
+  lineNo            Int
+  date              DateTime @db.Date
+  description       String   @db.VarChar(500)
+  reference         String?  @db.VarChar(100)
+  /// positive = money in, negative = money out
+  amount            Decimal  @db.Decimal(18, 2)
+  /// cash transaction created from this line (bank charges, interest, unrecorded transfers)
+  cashTransactionId String?  @db.Uuid
+
+  statement BankStatement    @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  matches   BankReconMatch[]
+
+  @@index([statementId])
+  @@map("bank_statement_lines")
+}
+
+/// A statement line matched to one or more ledger lines of the bank account
+model BankReconMatch {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  lineId        String   @db.Uuid
+  journalLineId String   @db.Uuid
+  matchedById   String?  @db.Uuid
+  createdAt     DateTime @default(now())
+
+  line BankStatementLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+
+  @@unique([journalLineId])
+  @@index([lineId])
+  @@map("bank_recon_matches")
 }

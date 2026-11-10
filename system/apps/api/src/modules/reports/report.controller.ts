@@ -4,14 +4,24 @@ import { Activity } from '../../common/decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { RequestCtx } from '../../common/context/request-context';
+import { CryptoService } from '../../common/crypto/crypto.service';
 import { FileOutputService } from '../files/file-output.service';
-import { REPORT_MAP, REPORTS, ReportDef } from './report.registry';
+import { REPORT_MAP, REPORTS, ReportCtx, ReportDef } from './report.registry';
 
 const SAFE = /^[\w\-:.,]{0,60}$/;
 
 @Controller('reports')
 export class ReportController {
-  constructor(private readonly prisma: PrismaService, private readonly output: FileOutputService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly output: FileOutputService,
+    private readonly audit: AuditService,
+    private readonly crypto: CryptoService,
+  ) {}
+
+  private ctx(def: ReportDef, q: Record<string, unknown>): ReportCtx {
+    return { prisma: this.prisma, companyId: RequestCtx.companyId(), p: this.params(def, q), decrypt: (v) => this.crypto.decrypt(v), can: (c) => RequestCtx.can(c) };
+  }
 
   private def(key: string): ReportDef {
     const d = REPORT_MAP.get(key);
@@ -42,7 +52,7 @@ export class ReportController {
   async run(@Param('key') key: string, @Query() q: Record<string, unknown>) {
     const def = this.def(key);
     const { run, ...meta } = def;
-    const result = await run({ prisma: this.prisma, companyId: RequestCtx.companyId(), p: this.params(def, q) });
+    const result = await run(this.ctx(def, q));
     return { report: meta, ...result };
   }
 
@@ -50,7 +60,7 @@ export class ReportController {
   @Get(':key/export')
   async export(@Param('key') key: string, @Query() q: Record<string, unknown>, @Res() res: Response) {
     const def = this.def(key);
-    const r = await def.run({ prisma: this.prisma, companyId: RequestCtx.companyId(), p: this.params(def, q) });
+    const r = await def.run(this.ctx(def, q));
     this.audit.activity('report.export', { report: key, format: q.format });
     await this.output.sendTable(res, { title: def.label, subtitle: r.subtitle, columns: r.columns, rows: r.rows, totals: r.totals }, String(q.format ?? 'xlsx'), q.save === '1');
   }

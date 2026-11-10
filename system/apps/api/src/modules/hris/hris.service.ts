@@ -10,6 +10,8 @@ import { paged } from '../../common/utils/query';
 import { JournalService, PostingLine } from '../accounting/journal.service';
 import { PrintableDocument, PdfService } from '../print/pdf.service';
 import { SettingsService } from '../../common/settings/settings.service';
+import { CryptoService } from '../../common/crypto/crypto.service';
+import type { ExportTable } from '../../common/export/export.service';
 
 interface SlipLine {
   code: string;
@@ -29,6 +31,7 @@ export class HrisService {
     private readonly journal: JournalService,
     private readonly pdf: PdfService,
     private readonly settings: SettingsService,
+    private readonly crypto: CryptoService,
   ) {}
 
   // ------------------------------------------------------------------ leave workflow
@@ -173,12 +176,103 @@ export class HrisService {
     RequestCtx.assert('hris.payroll.confirm');
     const run = await this.getRun(id);
     if (run.status === 'CANCELLED') throw new ConflictException('Payroll is already cancelled');
+    if (run.paidAt) throw new ConflictException('Salaries of this payroll were already paid. Cancel the salary payment first.');
     return this.prisma.$transaction(async (tx) => {
       if (run.status !== 'DRAFT') await this.journal.voidBySource(tx, 'PAYROLL', id);
       const r = await tx.payrollRun.update({ where: { id }, data: { status: 'CANCELLED', updatedById: RequestCtx.user().id } });
       await this.audit.record('Payroll Run', id, 'CANCEL', run, r, tx);
       return r;
     });
+  }
+
+  // ------------------------------------------------------------------ salary payment
+  /** Pays the net salaries: Dr salaries payable / Cr the chosen cash or bank account */
+  async payRun(id: string, input: { bankAccountId: string; date: Date }) {
+    RequestCtx.assert('hris.payroll.pay');
+    const u = RequestCtx.user();
+    const run = await this.getRun(id);
+    if (run.status === 'DRAFT') throw new ConflictException('Confirm the payroll before paying the salaries');
+    if (run.status !== 'CONFIRMED') throw new ConflictException(`Payroll is ${run.status.toLowerCase()} and cannot be paid`);
+    if (run.paidAt) throw new ConflictException('Salaries of this payroll are already paid');
+    if (D(run.totalNet).lte(0)) throw new ConflictException('There is no net pay to transfer');
+    const bank = await this.prisma.bankAccount.findFirst({ where: { id: input.bankAccountId, companyId: u.companyId, deletedAt: null, isActive: true } });
+    if (!bank) throw new BadRequestException({ message: 'Validation failed', errors: { bankAccountId: 'Choose an active cash or bank account' } });
+    if (!bank.accountId) throw new BadRequestException({ message: 'Validation failed', errors: { bankAccountId: `${bank.name} has no ledger account. Set it in Cash & Bank Accounts.` } });
+    return this.prisma.$transaction(async (tx) => {
+      const amount = D(run.totalNet);
+      const entry = await this.journal.post(tx, {
+        companyId: run.companyId,
+        branchId: run.branchId,
+        date: input.date,
+        description: `Salary payment ${run.number}`,
+        reference: run.number,
+        sourceType: 'PAYROLL_PAY',
+        sourceId: run.id,
+        lines: [
+          { key: 'SALARY_PAYABLE', debit: amount, description: `Net salaries ${run.number}` },
+          { accountId: bank.accountId, credit: amount, description: `Salary transfer from ${bank.name}` },
+        ],
+      });
+      const r = await tx.payrollRun.update({ where: { id }, data: { paidAt: input.date, paidBankAccountId: bank.id, paymentJournalId: entry?.id ?? null, updatedById: u.id } });
+      await this.audit.record('Payroll Run', id, 'PAY', { paidAt: null }, { paidAt: r.paidAt, bankAccount: bank.name, amount: amount.toString(), journal: entry?.number }, tx);
+      return r;
+    });
+  }
+
+  /** Reverses a salary payment (voids its journal) */
+  async unpayRun(id: string) {
+    RequestCtx.assert('hris.payroll.pay');
+    const run = await this.getRun(id);
+    if (!run.paidAt) throw new ConflictException('Salaries of this payroll are not paid');
+    return this.prisma.$transaction(async (tx) => {
+      await this.journal.voidBySource(tx, 'PAYROLL_PAY', id);
+      const r = await tx.payrollRun.update({ where: { id }, data: { paidAt: null, paidBankAccountId: null, paymentJournalId: null, updatedById: RequestCtx.user().id } });
+      await this.audit.record('Payroll Run', id, 'UNPAY', { paidAt: run.paidAt, paymentJournalId: run.paymentJournalId }, { paidAt: null }, tx);
+      return r;
+    });
+  }
+
+  /** Bank transfer list of the net salaries (account numbers decrypted - permission & activity logged) */
+  async transferFile(id: string, format: string): Promise<ExportTable> {
+    RequestCtx.assert('hris.payroll.pay');
+    const run = await this.getRun(id);
+    if (run.status !== 'CONFIRMED') throw new ConflictException('Confirm the payroll before exporting the transfer file');
+    const emps = await this.prisma.employee.findMany({ where: { id: { in: run.payslips.map((p) => p.employeeId) } }, select: { id: true, code: true, fullName: true, bankName: true, bankAccountNo: true } });
+    const em = new Map(emps.map((e) => [e.id, e]));
+    const period = run.periodStart.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const rows = run.payslips
+      .filter((p) => D(p.netPay).gt(0))
+      .map((p) => {
+        const e = em.get(p.employeeId);
+        const account = this.crypto.decrypt(e?.bankAccountNo ?? null) ?? '';
+        return {
+          code: e?.code ?? '',
+          name: e?.fullName ?? '',
+          bank: e?.bankName ?? '',
+          account,
+          amount: D(p.netPay).toNumber(),
+          description: `Gaji ${period}`,
+          note: !account || !e?.bankName ? 'Bank account missing' : '',
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const total = rows.reduce((a, r) => a + r.amount, 0);
+    this.audit.activity('payroll.transfer-file', { runId: run.id, number: run.number, employees: rows.length, total, format });
+    return {
+      title: `Salary transfer ${run.number}`,
+      subtitle: `Gaji ${period} - pay date ${run.payDate.toISOString().slice(0, 10)}`,
+      columns: [
+        { key: 'code', label: 'Employee ID' },
+        { key: 'name', label: 'Name' },
+        { key: 'bank', label: 'Bank' },
+        { key: 'account', label: 'Account number' },
+        { key: 'amount', label: 'Amount', type: 'money' },
+        { key: 'description', label: 'Description' },
+        { key: 'note', label: 'Note' },
+      ],
+      rows,
+      totals: { amount: total },
+    };
   }
 
   async payslipDoc(runId: string, payslipId: string): Promise<{ doc: PrintableDocument; name: string }> {
@@ -203,6 +297,7 @@ export class HrisService {
         meta: [
           { label: 'Period', value: `${fmt(run.periodStart)} - ${fmt(run.periodEnd)}` },
           { label: 'Pay Date', value: fmt(run.payDate) },
+          ...(run.paidAt ? [{ label: 'Paid on', value: fmt(run.paidAt) }] : []),
         ],
         columns: [
           { key: 'name', label: 'Component', width: 4 },

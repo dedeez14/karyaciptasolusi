@@ -40,13 +40,13 @@ export class InsightsController {
     return this.fin.warehouses();
   }
 
-  @Permission('accounting.period.update')
+  @Permission('accounting.closing.close')
   @Post('fiscal-periods/:id/close')
   closePeriod(@Param('id') id: string) {
     return this.fin.setPeriodClosed(id, true);
   }
 
-  @Permission('accounting.period.update')
+  @Permission('accounting.closing.reopen')
   @Post('fiscal-periods/:id/reopen')
   reopenPeriod(@Param('id') id: string) {
     return this.fin.setPeriodClosed(id, false);

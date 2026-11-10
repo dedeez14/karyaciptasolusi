@@ -320,6 +320,8 @@ export default function DocumentViewPage() {
               {d.warehouseName && <Info label={def.warehouse === 'transfer' ? 'From warehouse' : 'Warehouse'} value={d.warehouseName} />}
               {d.toWarehouseName && <Info label="To warehouse" value={d.toWarehouseName} />}
               <Info label="Reference" value={d.reference} />
+              {(def.code === 'SI' || def.code === 'PI') && <TaxInvoiceInfo type={def.code} id={d.id} value={d.taxInvoiceNumber ?? null} editable={def.can.update && d.status !== 'CANCELLED'} />}
+              {d.isOpening && <Info label="Origin" value="Opening balance (go-live)" />}
               {def.priced && <Info label="Currency" value={`${d.currencyCode}${Number(d.exchangeRate) !== 1 ? ` @ ${fmtNumber(d.exchangeRate, 6)}` : ''}`} />}
               {d.confirmedAt && <Info label="Confirmed at" value={fmtDateTime(d.confirmedAt)} />}
             </dl>
@@ -475,6 +477,67 @@ export default function DocumentViewPage() {
         </div>
       </div>
       {emailOpen && <EmailModal open={emailOpen} onClose={() => setEmailOpen(false)} doc={d} title={def.printTitle} />}
+    </div>
+  );
+}
+
+/** Nomor Faktur Pajak: shown on sales / purchase invoices, editable after confirmation (it is often issued later) */
+function TaxInvoiceInfo({ type, id, value, editable }: { type: string; id: string; value: string | null; editable: boolean }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(value ?? '');
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api.patch(`/documents/${type}/${id}/tax-invoice-number`, { taxInvoiceNumber: text.trim() || null });
+      toast.success(text.trim() ? 'Tax invoice number saved' : 'Tax invoice number removed');
+      qc.invalidateQueries({ queryKey: ['documents'] });
+      setOpen(false);
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div>
+      <dt className="text-xs font-medium text-slate-500">Tax invoice no.</dt>
+      <dd className="mt-0.5 flex items-center gap-2 font-medium text-slate-900">
+        {value ? <span className="font-mono text-[13px]">{value}</span> : <span className="text-slate-300">—</span>}
+        {editable && (
+          <button
+            type="button"
+            className="rounded-md px-1.5 py-0.5 text-xs font-medium text-brand-700 hover:bg-brand-50"
+            onClick={() => {
+              setText(value ?? '');
+              setOpen(true);
+            }}
+          >
+            {value ? 'Edit' : 'Add'}
+          </button>
+        )}
+      </dd>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Tax invoice number"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button loading={busy} onClick={save}>
+              Save
+            </Button>
+          </>
+        }
+      >
+        <Field label="Nomor Faktur Pajak" help="Leave empty to remove it. Shown on the PDF and in the VAT reports.">
+          <Input autoFocus value={text} maxLength={40} placeholder="010.000-26.00000001" onChange={(e) => setText(e.target.value)} />
+        </Field>
+      </Modal>
     </div>
   );
 }

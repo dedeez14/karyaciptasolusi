@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '@/lib/api';
 import { download } from '@/lib/download';
-import { fmtByType, fmtCompact } from '@/lib/format';
+import { fmtByType, fmtCompact, plural } from '@/lib/format';
 import { AsyncSelect, Button, Card, cn, DatePicker, Dropdown, EmptyState, Field, PageHeader, Select, Spinner, toast } from '@/components/ui';
 import { CHART_COLORS, defaultValue, type ReportMeta, type ReportResult } from './reportTypes';
 
@@ -179,7 +179,7 @@ export default function ReportViewPage() {
                 </table>
               </div>
             )}
-            <div className="border-t border-line px-4 py-2 text-xs text-slate-400">{data.rows.length} rows</div>
+            <div className="border-t border-line px-4 py-2 text-xs text-slate-400">{plural(data.rows.length, 'row')}</div>
           </Card>
         </div>
       ) : null}

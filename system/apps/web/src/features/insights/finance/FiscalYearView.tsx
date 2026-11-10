@@ -1,15 +1,14 @@
 import { useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { useNavigate } from 'react-router';
 import { fmtDate } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { Badge, Button, cn, confirm, Icon, toast } from '@/components/ui';
+import { Badge, Button, cn, Icon } from '@/components/ui';
 import type { ResourceViewProps } from '@/features/resources/views/types';
 
-/** Fiscal periods as a year grid with one-click close / reopen */
+/** Fiscal periods as a year grid; closing / reopening goes through Accounting > Year-end Closing */
 export function FiscalYearView({ rows, open, refresh }: ResourceViewProps) {
   const can = useSession((s) => s.can);
-  const qc = useQueryClient();
+  const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
   const years = useMemo(() => {
     const m = new Map<number, typeof rows>();
@@ -20,24 +19,9 @@ export function FiscalYearView({ rows, open, refresh }: ResourceViewProps) {
     return [...m.entries()].sort((a, b) => b[0] - a[0]);
   }, [rows]);
 
-  const toggle = async (r: (typeof rows)[number]) => {
-    const closing = !r.isClosed;
-    const ok = await confirm({
-      title: `${closing ? 'Close' : 'Reopen'} ${r.name}?`,
-      message: closing ? 'Journals dated inside a closed period can no longer be posted or changed.' : 'Postings dated inside this period will be allowed again. This is recorded in the audit trail.',
-      confirmText: closing ? 'Close period' : 'Reopen',
-      danger: !closing,
-    });
-    if (!ok) return;
-    try {
-      await api.post(`/insights/fiscal-periods/${r.id}/${closing ? 'close' : 'reopen'}`);
-      toast.success(closing ? 'Period closed' : 'Period reopened');
-      qc.invalidateQueries({ queryKey: ['resource', 'fiscal-periods'] });
-      refresh();
-    } catch (e) {
-      toast.error(e);
-    }
-  };
+  // closing a year = closing journal into retained earnings + lock: one flow, on the Year-end Closing page
+  const toggle = (r: (typeof rows)[number]) => navigate(`/accounting/year-end?period=${r.id}`);
+
 
   return (
     <div className="space-y-6">
@@ -79,9 +63,9 @@ export function FiscalYearView({ rows, open, refresh }: ResourceViewProps) {
                       {r.isClosed ? <Badge>Closed</Badge> : <Badge tone="green">Open</Badge>}
                       {current && <Badge tone="blue">Current</Badge>}
                     </div>
-                    {can('accounting.period.update') && (
+                    {can('accounting.closing.read') && (
                       <Button size="sm" variant={r.isClosed ? 'ghost' : 'outline'} className="mt-2 w-full" icon={r.isClosed ? 'rotate-ccw' : 'lock'} onClick={() => toggle(r)}>
-                        {r.isClosed ? 'Reopen' : 'Close'}
+                        {r.isClosed ? 'Reopen...' : 'Year-end close...'}
                       </Button>
                     )}
                   </div>

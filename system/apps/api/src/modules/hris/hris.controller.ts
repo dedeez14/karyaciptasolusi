@@ -6,6 +6,7 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { HrisService } from './hris.service';
 import { FileOutputService } from '../files/file-output.service';
 
+const paySchema = z.object({ bankAccountId: z.uuid('Choose a cash or bank account'), date: z.coerce.date() });
 const runSchema = z.object({
   periodStart: z.coerce.date(),
   periodEnd: z.coerce.date(),
@@ -70,6 +71,24 @@ export class HrisController {
   @Post('payroll/:id/cancel')
   cancel(@Param('id') id: string) {
     return this.hris.cancelRun(id);
+  }
+
+  @Activity('payroll.pay')
+  @Post('payroll/:id/pay')
+  pay(@Param('id') id: string, @Body(new ZodPipe(paySchema)) body: z.infer<typeof paySchema>) {
+    return this.hris.payRun(id, body);
+  }
+
+  @Activity('payroll.unpay')
+  @Post('payroll/:id/unpay')
+  unpay(@Param('id') id: string) {
+    return this.hris.unpayRun(id);
+  }
+
+  @Get('payroll/:id/transfer-file')
+  async transferFile(@Param('id') id: string, @Query('format') format: string, @Res() res: Response) {
+    const f = format === 'csv' ? 'csv' : 'xlsx';
+    await this.output.sendTable(res, await this.hris.transferFile(id, f), f);
   }
 
   @Activity('payslip.print')

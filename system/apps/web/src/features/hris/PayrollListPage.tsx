@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type Paged } from '@/lib/api';
-import { fmtDate, fmtMoney, isoDate } from '@/lib/format';
+import { fmtDate, fmtMoney, isoDate, plural } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, type Column, DataTable, DatePicker, EmptyState, Field, Modal, PageHeader, Pagination, StatusBadge, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Badge, Button, Card, type Column, DataTable, DatePicker, EmptyState, Field, Modal, PageHeader, Pagination, StatusBadge, Textarea, toast } from '@/components/ui';
 
 export interface PayrollRun {
   id: string;
@@ -18,6 +18,9 @@ export interface PayrollRun {
   totalNet: string;
   notes: string | null;
   journalEntryId: string | null;
+  paidAt?: string | null;
+  paidBankAccountId?: string | null;
+  paymentJournalId?: string | null;
   _count?: { payslips: number };
 }
 
@@ -101,14 +104,25 @@ export default function PayrollListPage() {
     { key: 'employees', header: 'Employees', align: 'right', render: (r) => r._count?.payslips ?? 0 },
     { key: 'totalGross', header: 'Gross', align: 'right', render: (r) => fmtMoney(r.totalGross) },
     { key: 'totalNet', header: 'Net pay', align: 'right', render: (r) => <b>{fmtMoney(r.totalNet)}</b> },
-    { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (r) =>
+        r.paidAt && r.status === 'CONFIRMED' ? (
+          <Badge tone="green" dot>
+            Paid {fmtDate(r.paidAt)}
+          </Badge>
+        ) : (
+          <StatusBadge status={r.status} />
+        ),
+    },
   ];
 
   return (
     <div>
       <PageHeader
         title="Payroll"
-        subtitle={list.data ? `${list.data.meta.total} payroll runs` : undefined}
+        subtitle={list.data ? plural(list.data.meta.total, 'payroll run') : undefined}
         actions={
           can('hris.payroll.create') && (
             <Button icon="plus" onClick={() => setOpen(true)}>

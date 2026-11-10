@@ -72,7 +72,7 @@ export const LOOKUPS: Record<string, [string, string, string?][]> = {
   PAPER_SIZE: [['A4', 'A4'], ['LETTER', 'Letter'], ['LEGAL', 'Legal'], ['A5', 'A5']],
   LANGUAGE: [['en', 'English'], ['id', 'Bahasa Indonesia']],
   TASK_PRIORITY: [['LOW', 'Low', '#64748b'], ['MEDIUM', 'Medium', '#2563eb'], ['HIGH', 'High', '#f59e0b'], ['URGENT', 'Urgent', '#dc2626']],
-  JOURNAL_SOURCE: [['MANUAL', 'Manual', '#8b5cf6'], ['SI', 'Sales Invoice', '#2563eb'], ['PI', 'Purchase Invoice', '#2563eb'], ['DO', 'Delivery', '#0891b2'], ['GR', 'Goods Receipt', '#0891b2'], ['ADJ', 'Stock Adjustment', '#0891b2'], ['PAY_IN', 'Customer Receipt', '#16a34a'], ['PAY_OUT', 'Supplier Payment', '#dc2626'], ['CASH_RECEIPT', 'Cash / Bank Receipt', '#16a34a'], ['CASH_PAYMENT', 'Cash / Bank Payment', '#dc2626'], ['CASH_TRANSFER', 'Bank Transfer', '#2563eb'], ['PAYROLL', 'Payroll', '#f59e0b']],
+  JOURNAL_SOURCE: [['MANUAL', 'Manual', '#8b5cf6'], ['SI', 'Sales Invoice', '#2563eb'], ['PI', 'Purchase Invoice', '#2563eb'], ['DO', 'Delivery', '#0891b2'], ['GR', 'Goods Receipt', '#0891b2'], ['ADJ', 'Stock Adjustment', '#0891b2'], ['PAY_IN', 'Customer Receipt', '#16a34a'], ['PAY_OUT', 'Supplier Payment', '#dc2626'], ['CASH_RECEIPT', 'Cash / Bank Receipt', '#16a34a'], ['CASH_PAYMENT', 'Cash / Bank Payment', '#dc2626'], ['CASH_TRANSFER', 'Bank Transfer', '#2563eb'], ['PAYROLL', 'Payroll', '#f59e0b'], ['PAYROLL_PAY', 'Salary Payment', '#dc2626'], ['OPENING', 'Opening Balance', '#64748b'], ['CLOSING', 'Year-end Closing', '#0f172a']],
   DUE_FILTER: [['overdue', 'Overdue', '#dc2626'], ['today', 'Due today', '#f59e0b'], ['week', 'Due this week', '#2563eb'], ['none', 'No due date', '#64748b']],
   TASK_STATE: [['open', 'Open', '#2563eb'], ['done', 'Completed', '#16a34a']],
   YES_NO: [['true', 'Yes', '#16a34a'], ['false', 'No', '#64748b']],
@@ -91,6 +91,7 @@ export const LOOKUPS: Record<string, [string, string, string?][]> = {
   EXPENSE_CATEGORY: [['TRANSPORT', 'Transport & fuel'], ['MEAL', 'Meals & entertainment'], ['TRAVEL', 'Travel & lodging'], ['OFFICE', 'Office supplies'], ['INTERNET', 'Internet & phone'], ['CLIENT', 'Client meeting'], ['OTHER', 'Other']],
   TICKET_CATEGORY: [['BUG', 'Bug / error'], ['REQUEST', 'Change request'], ['QUESTION', 'Question'], ['HOSTING', 'Hosting & domain'], ['EMAIL', 'E-mail'], ['BILLING', 'Billing']],
   TICKET_CHANNEL: [['EMAIL', 'E-mail'], ['WHATSAPP', 'WhatsApp'], ['PHONE', 'Phone'], ['PORTAL', 'Web form'], ['MEETING', 'Meeting']],
+  BANK_STATEMENT_STATUS: [['OPEN', 'In progress', '#f59e0b'], ['RECONCILED', 'Reconciled', '#16a34a']],
   // ---- open lists (add more values freely)
   LOCALE: [['id-ID', 'Indonesia (1.234,56)'], ['en-US', 'United States (1,234.56)'], ['en-GB', 'United Kingdom (1,234.56)'], ['en-SG', 'Singapore (1,234.56)']],
   TIMEZONE: [['Asia/Jakarta', 'WIB - Jakarta (UTC+7)'], ['Asia/Makassar', 'WITA - Makassar (UTC+8)'], ['Asia/Jayapura', 'WIT - Jayapura (UTC+9)'], ['Asia/Singapore', 'Singapore (UTC+8)'], ['UTC', 'UTC']],
@@ -213,6 +214,9 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['accounting.journals', 'accounting', 'Journal Entries', 'book-open', '/accounting/journals', 'accounting.journal.read'],
   ['accounting.assets', 'accounting', 'Fixed Assets', 'monitor-cog', '/assets', 'accounting.asset.read'],
   ['accounting.budgets', 'accounting', 'Budgets', 'piggy-bank', '/budgets', 'accounting.budget.read'],
+  ['accounting.bankrec', 'accounting', 'Bank Reconciliation', 'scale', '/accounting/bank-reconciliation', 'accounting.bankrec.read'],
+  ['accounting.opening', 'accounting', 'Opening Balances', 'flag', '/accounting/opening-balances', 'accounting.opening.read'],
+  ['accounting.closing', 'accounting', 'Year-end Closing', 'lock', '/accounting/year-end', 'accounting.closing.read'],
   ['accounting.coa', 'accounting', 'Chart of Accounts', 'list-tree', '/r/accounts', 'accounting.account.read'],
   ['accounting.banks', 'accounting', 'Cash & Bank Accounts', 'landmark', '/r/bank-accounts', 'master.bank-account.read'],
   ['accounting.taxes', 'accounting', 'Taxes', 'percent', '/r/taxes', 'master.tax.read'],
@@ -235,6 +239,7 @@ export const MENUS: [string, string | null, string, string, string | null, strin
 
   ['tasks', null, 'Task Management', 'list-todo', null, null],
   ['tasks.mine', 'tasks', 'My Tasks', 'user-check', '/tasks/my', 'task.task.read'],
+  ['tasks.timesheets', 'tasks', 'Timesheets', 'timer', '/tasks/timesheets', 'task.timesheet.read'],
   ['tasks.board', 'tasks', 'Task Board', 'square-kanban', '/tasks/board', 'task.task.read'],
   ['tasks.list', 'tasks', 'All Tasks', 'list-checks', '/tasks', 'task.task.read'],
   ['tasks.projects', 'tasks', 'Projects', 'folder-kanban', '/r/projects', 'master.project.read'],
@@ -284,11 +289,11 @@ export const MENUS: [string, string | null, string, string, string | null, strin
 /** role code -> [name, dataScope, permission prefixes] ("*" = everything, "*.read" = every read/view) */
 export const ROLES: [string, string, 'ALL' | 'COMPANY' | 'BRANCH' | 'OWN', string[]][] = [
   ['ADMINISTRATOR', 'Administrator', 'COMPANY', ['*']],
-  ['SALES', 'Sales & Marketing', 'BRANCH', ['approval.request.', 'support.ticket.', 'sales.subscription.read', 'hris.expense.read', 'hris.expense.create', 'hris.expense.update', 'task.task.', 'task.stage.read', 'crm.', 'sales.', 'master.customer', 'master.product.read', 'master.project', 'report.sales-', 'report.ar-aging', 'report.quotation-', 'report.lead-', 'report.sales-pipeline', 'report.campaign-', 'files.file.read', 'files.file.upload', 'files.file.download', 'inventory.stock.read', 'report.stock-balance']],
+  ['SALES', 'Sales & Marketing', 'BRANCH', ['task.timesheet.', 'approval.request.', 'support.ticket.', 'sales.subscription.read', 'hris.expense.read', 'hris.expense.create', 'hris.expense.update', 'task.task.', 'task.stage.read', 'crm.', 'sales.', 'master.customer', 'master.product.read', 'master.project', 'report.sales-', 'report.ar-aging', 'report.quotation-', 'report.lead-', 'report.sales-pipeline', 'report.campaign-', 'files.file.read', 'files.file.upload', 'files.file.download', 'inventory.stock.read', 'report.stock-balance']],
   ['PURCHASING', 'Purchasing', 'BRANCH', ['approval.request.', 'hris.expense.read', 'hris.expense.create', 'hris.expense.update', 'task.task.', 'task.stage.read', 'purchase.', 'master.supplier', 'master.product', 'report.purchase-', 'report.ap-aging', 'files.file.read', 'files.file.upload', 'files.file.download', 'inventory.stock.read', 'report.stock-', 'report.low-stock']],
   ['WAREHOUSE', 'Warehouse', 'BRANCH', ['approval.request.read', 'hris.expense.read', 'hris.expense.create', 'hris.expense.update', 'task.task.', 'task.stage.read', 'inventory.', 'sales.delivery.', 'purchase.receipt.', 'master.product', 'master.warehouse', 'report.stock-', 'report.low-stock', 'files.file.read', 'files.file.download']],
-  ['FINANCE', 'Finance & Accounting', 'COMPANY', ['approval.request.', 'sales.subscription.', 'hris.expense.', 'support.ticket.read', 'task.task.', 'task.stage.read', 'accounting.', 'sales.invoice.', 'sales.payment.', 'purchase.invoice.', 'purchase.payment.', 'master.bank-account', 'master.tax', 'master.currency', 'master.exchange-rate', 'report.', 'files.', 'hris.payroll.read']],
-  ['HR', 'Human Resources', 'COMPANY', ['approval.request.', 'task.task.', 'task.stage.read', 'hris.', 'report.employee-', 'report.attendance-', 'report.leave-', 'report.payroll-', 'files.file.']],
-  ['EMPLOYEE', 'Employee (Self Service)', 'OWN', ['hris.expense.read', 'hris.expense.create', 'hris.expense.update', 'hris.expense.delete', 'support.ticket.read', 'support.ticket.create', 'task.task.read', 'task.task.create', 'task.task.update', 'task.stage.read', 'hris.leave.read', 'hris.leave.create', 'hris.attendance.read', 'files.file.read', 'files.file.upload', 'files.file.download']],
+  ['FINANCE', 'Finance & Accounting', 'COMPANY', ['approval.request.', 'sales.subscription.', 'hris.expense.', 'support.ticket.read', 'task.task.', 'task.stage.read', 'accounting.', 'sales.invoice.', 'sales.payment.', 'purchase.invoice.', 'purchase.payment.', 'master.bank-account', 'master.tax', 'master.currency', 'master.exchange-rate', 'report.', 'files.', 'hris.payroll.read', 'hris.payroll.pay', 'task.timesheet.read', 'task.billing.create']],
+  ['HR', 'Human Resources', 'COMPANY', ['task.timesheet.', 'approval.request.', 'task.task.', 'task.stage.read', 'hris.', 'report.employee-', 'report.attendance-', 'report.leave-', 'report.payroll-', 'files.file.']],
+  ['EMPLOYEE', 'Employee (Self Service)', 'OWN', ['task.timesheet.read', 'hris.expense.read', 'hris.expense.create', 'hris.expense.update', 'hris.expense.delete', 'support.ticket.read', 'support.ticket.create', 'task.task.read', 'task.task.create', 'task.task.update', 'task.stage.read', 'hris.leave.read', 'hris.leave.create', 'hris.attendance.read', 'files.file.read', 'files.file.upload', 'files.file.download']],
   ['VIEWER', 'Read Only', 'COMPANY', ['*.read', '*.view']],
 ];

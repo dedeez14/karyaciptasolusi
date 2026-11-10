@@ -33,6 +33,7 @@ export const COA_TEMPLATE: Acc[] = [
   ['3-1000', 'Share Capital', 'EQUITY', '3-0000'],
   ['3-2000', 'Retained Earnings', 'EQUITY', '3-0000'],
   ['3-3000', 'Current Year Earnings', 'EQUITY', '3-0000'],
+  ['3-9000', 'Opening Balance Equity', 'EQUITY', '3-0000'],
   ['4-0000', 'Income', 'INCOME', null, true],
   ['4-1000', 'Sales Revenue - Goods', 'INCOME', '4-0000'],
   ['4-1100', 'Service Revenue', 'INCOME', '4-0000'],
@@ -77,6 +78,7 @@ export const ACCOUNT_MAPPING_TEMPLATE: [string, string, string][] = [
   ['PAYROLL_DEDUCTION', 'Payroll Deductions Payable', '2-1500'],
   ['RETAINED_EARNINGS', 'Retained Earnings', '3-2000'],
   ['CURRENT_EARNINGS', 'Current Year Earnings', '3-3000'],
+  ['OPENING_EQUITY', 'Opening balance equity (go-live)', '3-9000'],
   ['EXPENSE_PAYABLE', 'Employee reimbursements payable', '2-1600'],
   ['FIXED_ASSET', 'Fixed assets (default)', '1-2200'],
   ['ACCUM_DEPRECIATION', 'Accumulated depreciation', '1-2900'],
@@ -118,6 +120,7 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['BUDGET', 'Budget Code', 'BGT-', 'NEVER'],
   ['EXPENSE', 'Expense Claim', 'EXP/{YYYY}/{MM}/', 'MONTHLY'],
   ['TICKET', 'Support Ticket', 'TCK-', 'NEVER'],
+  ['BANK_STATEMENT', 'Bank Statement', 'BST/{YYYY}/', 'YEARLY'],
 ];
 
 export const SIMPLE_TEMPLATE = {

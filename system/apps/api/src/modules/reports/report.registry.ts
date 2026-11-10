@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import { budgetVsActual } from './budget-report';
+import { vatRegister, vatSummary } from './vat-report';
 
 export interface ReportParam {
   name: string;
@@ -32,6 +33,10 @@ export interface ReportCtx {
   prisma: PrismaService;
   companyId: string;
   p: Record<string, string | undefined>;
+  /** decrypts a field encrypted at rest (NPWP, ...) */
+  decrypt?: (value: string | null | undefined) => string | null;
+  /** permission check of the current user */
+  can?: (code: string) => boolean;
 }
 
 export interface ReportDef {
@@ -192,7 +197,7 @@ async function aging(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportResult
 }
 
 type Bal = { id: string; code: string; name: string; type: string; opening: Prisma.Decimal; debit: Prisma.Decimal; credit: Prisma.Decimal };
-async function balances(ctx: ReportCtx, start: Date, end: Date) {
+async function balances(ctx: ReportCtx, start: Date, end: Date, opts: { excludeClosing?: boolean } = {}) {
   return ctx.prisma.$queryRaw<Bal[]>`
     SELECT a.id, a.code, a.name, a.type::text AS type,
       COALESCE(SUM(CASE WHEN e.date < ${start} THEN l.debit - l.credit ELSE 0 END), 0) AS opening,
@@ -201,6 +206,7 @@ async function balances(ctx: ReportCtx, start: Date, end: Date) {
     FROM accounts a
     JOIN journal_lines l ON l."accountId" = a.id
     JOIN journal_entries e ON e.id = l."entryId" AND e.status = 'POSTED' AND e.date <= ${end} AND e."deletedAt" IS NULL
+      ${opts.excludeClosing ? Prisma.sql`AND COALESCE(e."sourceType", '') <> 'CLOSING'` : Prisma.empty}
     WHERE a."companyId" = ${ctx.companyId}::uuid
     GROUP BY a.id ORDER BY a.code`;
 }
@@ -442,7 +448,7 @@ export const REPORTS: ReportDef[] = [
     description: 'Income statement for the period',
     params: range,
     run: async (c) => {
-      const b = (await balances(c, from(c.p), to(c.p))).filter((r) => r.type === 'INCOME' || r.type === 'EXPENSE');
+      const b = (await balances(c, from(c.p), to(c.p), { excludeClosing: true })).filter((r) => r.type === 'INCOME' || r.type === 'EXPENSE');
       const rows: Record<string, unknown>[] = [];
       let income = 0;
       let expense = 0;
@@ -473,6 +479,33 @@ export const REPORTS: ReportDef[] = [
     description: 'Approved budget compared with posted figures per account',
     params: [...range, { name: 'costCenterId', label: 'Cost center', type: 'relation', relation: 'cost-centers' }, { name: 'projectId', label: 'Project', type: 'relation', relation: 'projects' }],
     run: (c) => budgetVsActual(c),
+  },
+  {
+    key: 'vat-output',
+    label: 'VAT Output (PPN Keluaran)',
+    module: 'accounting',
+    description: 'Sales invoices with tax invoice number, customer NPWP, tax base (DPP) and PPN',
+    params: range,
+    run: (c) => vatRegister(c, 'SI'),
+  },
+  {
+    key: 'vat-input',
+    label: 'VAT Input (PPN Masukan)',
+    module: 'accounting',
+    description: 'Purchase invoices with tax invoice number, supplier NPWP, tax base (DPP) and PPN',
+    params: range,
+    run: (c) => vatRegister(c, 'PI'),
+  },
+  {
+    key: 'vat-summary',
+    label: 'VAT Summary',
+    module: 'accounting',
+    description: 'Output and input VAT per month and the net amount to pay',
+    params: [
+      { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' },
+      { name: 'to', label: 'To', type: 'date', required: true, default: 'today' },
+    ],
+    run: (c) => vatSummary(c),
   },
   {
     key: 'balance-sheet',

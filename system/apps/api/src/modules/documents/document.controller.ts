@@ -60,6 +60,12 @@ export class DocumentController {
     return this.docs.update(type, id, body);
   }
 
+  /** Nomor Faktur Pajak - can be filled in after the invoice was confirmed */
+  @Patch(':type/:id/tax-invoice-number')
+  taxInvoiceNumber(@Param('type') type: string, @Param('id') id: string, @Body(new ZodPipe(z.object({ taxInvoiceNumber: z.string().trim().max(40).nullable().optional() }))) body: { taxInvoiceNumber?: string | null }) {
+    return this.docs.setTaxInvoiceNumber(type, id, body.taxInvoiceNumber ?? null);
+  }
+
   @Delete(':type/:id')
   remove(@Param('type') type: string, @Param('id') id: string) {
     return this.docs.remove(type, id);

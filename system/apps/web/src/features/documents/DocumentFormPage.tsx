@@ -20,6 +20,7 @@ interface Header {
   currencyCode: string;
   exchangeRate: string;
   reference: string;
+  taxInvoiceNumber: string;
   notes: string;
   terms: string;
 }
@@ -37,6 +38,7 @@ const emptyHeader = (): Header => ({
   currencyCode: '',
   exchangeRate: '1',
   reference: '',
+  taxInvoiceNumber: '',
   notes: '',
   terms: '',
 });
@@ -104,6 +106,7 @@ export default function DocumentFormPage() {
       currencyCode: d.currencyCode,
       exchangeRate: String(Number(d.exchangeRate)),
       reference: d.reference ?? '',
+      taxInvoiceNumber: d.taxInvoiceNumber ?? '',
       notes: d.notes ?? '',
       terms: d.terms ?? '',
     });
@@ -126,6 +129,7 @@ export default function DocumentFormPage() {
         currencyCode: h.currencyCode || undefined,
         exchangeRate: Number(h.exchangeRate) || 1,
         reference: h.reference,
+        taxInvoiceNumber: def?.code === 'SI' || def?.code === 'PI' ? h.taxInvoiceNumber : undefined,
         notes: h.notes,
         terms: h.terms,
         // completely blank lines (no product, no description) are ignored instead of blocking the save
@@ -275,6 +279,11 @@ export default function DocumentFormPage() {
             <Field label="Reference" help={def.module === 'sales' ? 'e.g. customer PO number' : undefined}>
               <Input value={h.reference} maxLength={100} onChange={(e) => set('reference', e.target.value)} />
             </Field>
+            {(def.code === 'SI' || def.code === 'PI') && (
+              <Field label="Tax invoice no." help="Nomor Faktur Pajak - can also be added after confirming">
+                <Input value={h.taxInvoiceNumber} maxLength={40} placeholder="010.000-26.00000001" onChange={(e) => set('taxInvoiceNumber', e.target.value)} />
+              </Field>
+            )}
             {def.module !== 'inventory' && (
               <Field label="Project">
                 <AsyncSelect resource="projects" value={h.projectId} onChange={(v) => set('projectId', v)} />

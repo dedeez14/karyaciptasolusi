@@ -293,9 +293,19 @@ export class CommercialInsightsService {
 
   async project(id: string) {
     const companyId = RequestCtx.companyId();
-    const p = await this.prisma.project.findFirst({ where: { ...(this.access.scopeWhere({ branchField: 'branchId' }) as Prisma.ProjectWhereInput), id: uuid(id), deletedAt: null }, select: { id: true } });
+    const p = await this.prisma.project.findFirst({ where: { ...(this.access.scopeWhere({ branchField: 'branchId' }) as Prisma.ProjectWhereInput), id: uuid(id), deletedAt: null }, select: { id: true, hourlyRate: true } });
     if (!p) throw new NotFoundException('Project not found');
     const stats = (await this.projectStats(id)).items[id];
+    // billable hours not yet on a (non cancelled) invoice
+    const billing = RequestCtx.can('task.task.read')
+      ? (
+          await this.prisma.$queryRaw<{ hours: Prisma.Decimal | null }[]>`
+            SELECT COALESCE(SUM(l.hours), 0) AS hours FROM task_time_logs l JOIN tasks t ON t.id = l."taskId"
+            LEFT JOIN trade_documents d ON d.id = l."invoiceId" AND d."deletedAt" IS NULL AND d.status <> 'CANCELLED'
+            WHERE t."companyId" = ${companyId}::uuid AND t."deletedAt" IS NULL AND t."projectId" = ${id}::uuid AND l.billable = true AND d.id IS NULL`
+        )[0]
+      : null;
+    const unbilledHours = billing ? num(billing.hours) : null;
     const types = this.readableTypes();
     const [tasks, stages, documents, tickets, timeByUser] = await Promise.all([
       RequestCtx.can('task.task.read')
@@ -331,6 +341,7 @@ export class CommercialInsightsService {
       documents: documents?.map((d) => ({ ...d, grandTotal: num(d.grandTotal) })) ?? null,
       tickets,
       time: timeByUser?.map((t) => ({ user: users.get(t.userId) ?? '-', hours: num(t.hours) })) ?? null,
+      billing: unbilledHours === null ? null : { hourlyRate: num(p.hourlyRate), unbilledHours, unbilledAmount: round2(unbilledHours * num(p.hourlyRate)) },
     };
   }
 }

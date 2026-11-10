@@ -61,6 +61,10 @@ import { APPROVALS_CONTROLLERS, APPROVALS_PROVIDERS } from './modules/approvals'
 import { EXPENSES_CONTROLLERS, EXPENSES_PROVIDERS } from './modules/expenses';
 import { HELPDESK_CONTROLLERS, HELPDESK_PROVIDERS } from './modules/helpdesk';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
+import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
+import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
+import { CLOSING_CONTROLLERS, CLOSING_PROVIDERS } from './modules/closing';
+import { TIMEBILLING_CONTROLLERS, TIMEBILLING_PROVIDERS } from './modules/timebilling';
 import { AttendanceController } from './modules/hris/attendance.controller';
 import { AttendanceService } from './modules/hris/attendance.service';
 
@@ -122,6 +126,10 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
     ...INSIGHTS_CONTROLLERS,
+    ...OPENING_CONTROLLERS,
+    ...BANKREC_CONTROLLERS,
+    ...CLOSING_CONTROLLERS,
+    ...TIMEBILLING_CONTROLLERS,
     AttendanceController,
   ],
   providers: [
@@ -161,6 +169,10 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,
     ...INSIGHTS_PROVIDERS,
+    ...OPENING_PROVIDERS,
+    ...BANKREC_PROVIDERS,
+    ...CLOSING_PROVIDERS,
+    ...TIMEBILLING_PROVIDERS,
     AttendanceService,
   ],
 })

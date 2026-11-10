@@ -5,13 +5,19 @@ import { AccessService } from '../../common/access/access.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { RequestCtx } from '../../common/context/request-context';
 import { day, num, round2, today, uuid, uuids } from './insights.util';
+import { ClosingService } from '../closing/closing.service';
 
 const DEBIT_NATURE = new Set(['ASSET', 'EXPENSE']);
 
 /** Accounting / treasury / inventory figures behind the purpose-built master data views */
 @Injectable()
 export class FinanceInsightsService {
-  constructor(private readonly prisma: PrismaService, private readonly access: AccessService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: AccessService,
+    private readonly audit: AuditService,
+    private readonly closing: ClosingService,
+  ) {}
 
   private canSeeBalances() {
     return RequestCtx.can('accounting.journal.read') || RequestCtx.can('report.trial-balance.view') || RequestCtx.can('report.balance-sheet.view');
@@ -107,13 +113,14 @@ export class FinanceInsightsService {
   }
 
   /** Close or reopen a fiscal period (closing blocks postings dated inside it) */
+  /**
+   * Close / reopen from the fiscal-year view uses the same year-end closing flow as Accounting > Year-end Closing
+   * (closing journal into retained earnings + lock), so there is only one way to close a period.
+   */
   async setPeriodClosed(id: string, closed: boolean) {
-    const companyId = RequestCtx.companyId();
-    const before = await this.prisma.fiscalPeriod.findFirst({ where: { id: uuid(id), companyId, deletedAt: null } });
-    if (!before) throw new NotFoundException('Fiscal period not found');
-    if (before.isClosed === closed) throw new ConflictException(closed ? 'The period is already closed' : 'The period is already open');
-    const after = await this.prisma.fiscalPeriod.update({ where: { id: before.id }, data: { isClosed: closed, updatedById: RequestCtx.user().id } });
-    await this.audit.record('FiscalPeriod', id, closed ? 'CLOSE' : 'REOPEN', { isClosed: before.isClosed }, { isClosed: after.isClosed });
-    return after;
+    const p = await this.prisma.fiscalPeriod.findFirst({ where: { id: uuid(id), companyId: RequestCtx.companyId(), deletedAt: null }, select: { id: true } });
+    if (!p) throw new NotFoundException('Fiscal period not found');
+    return closed ? this.closing.close(p.id) : this.closing.reopen(p.id);
   }
+
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -337,6 +337,9 @@ export class TaskService {
     const log = await this.prisma.taskTimeLog.findFirst({ where: { id: logId, taskId: id } });
     if (!log) throw new NotFoundException('Time entry not found');
     if (log.userId !== RequestCtx.user().id && !RequestCtx.can('task.task.manage')) throw new ForbiddenException('You can only delete your own time entries');
+    // hours on a (non cancelled) invoice are locked
+    if (log.invoiceId && (await this.prisma.tradeDocument.count({ where: { id: log.invoiceId, deletedAt: null, status: { not: 'CANCELLED' } } })))
+      throw new ConflictException('These hours are already invoiced and cannot be deleted');
     await this.prisma.taskTimeLog.delete({ where: { id: logId } });
     await this.recalcSpent(id);
     return { success: true };

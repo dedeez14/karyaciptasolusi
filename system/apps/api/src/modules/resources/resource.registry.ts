@@ -333,6 +333,8 @@ export const RESOURCES: ResourceDef[] = [
       date('startDate', 'Start Date', { list: true, sortable: true }),
       date('endDate', 'End Date'),
       money('budget', 'Budget', { list: true }),
+      money('hourlyRate', 'Hourly rate', { section: 'Time billing', help: 'Price per billable hour when invoicing logged time' }),
+      rel('billingProductId', 'Billing product', 'products', { section: 'Time billing', help: 'Service product used on time invoices (its sales tax applies)' }),
       rel('branchId', 'Branch', 'branches'),
       area('description', 'Description'),
       active(),
@@ -665,6 +667,6 @@ export const RESOURCES: ResourceDef[] = [
 ];
 
 /** Lists whose codes drive application logic: values can be renamed, recoloured and re-ordered, not added or deleted */
-export const SYSTEM_LOOKUPS = new Set(['PRODUCT_TYPE', 'ACCOUNT_TYPE', 'SALARY_KIND', 'SALARY_CALC', 'SEQUENCE_RESET', 'REQUEST_STATUS', 'DOC_STATUS', 'JOURNAL_STATUS', 'DATA_SCOPE', 'CASH_TYPE', 'FILE_SOURCE', 'FILE_TYPE', 'PAPER_SIZE', 'LANGUAGE', 'JOURNAL_SOURCE', 'DUE_FILTER', 'TASK_STATE', 'YES_NO', 'RECORD_STATUS', 'FILE_GROUP_BY', 'BILLING_INTERVAL', 'DEPRECIATION_METHOD', 'ASSET_STATUS', 'BUDGET_STATUS', 'APPROVAL_DOC_TYPE', 'APPROVAL_STATUS', 'EXPENSE_STATUS', 'TICKET_STATUS', 'TICKET_PRIORITY']);
+export const SYSTEM_LOOKUPS = new Set(['PRODUCT_TYPE', 'ACCOUNT_TYPE', 'SALARY_KIND', 'SALARY_CALC', 'SEQUENCE_RESET', 'REQUEST_STATUS', 'DOC_STATUS', 'JOURNAL_STATUS', 'DATA_SCOPE', 'CASH_TYPE', 'FILE_SOURCE', 'FILE_TYPE', 'PAPER_SIZE', 'LANGUAGE', 'JOURNAL_SOURCE', 'DUE_FILTER', 'TASK_STATE', 'YES_NO', 'RECORD_STATUS', 'FILE_GROUP_BY', 'BILLING_INTERVAL', 'DEPRECIATION_METHOD', 'ASSET_STATUS', 'BUDGET_STATUS', 'APPROVAL_DOC_TYPE', 'APPROVAL_STATUS', 'EXPENSE_STATUS', 'TICKET_STATUS', 'TICKET_PRIORITY', 'BANK_STATEMENT_STATUS']);
 
 export const RESOURCE_MAP = new Map(RESOURCES.map((r) => [r.key, r]));

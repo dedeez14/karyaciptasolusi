@@ -53,6 +53,7 @@ export class DocumentPrintService {
       { label: 'Date', value: fmtDate(doc.date) },
       ...(def.dueDate ? [{ label: def.code === 'SQ' ? 'Valid Until' : 'Due Date', value: fmtDate(doc.dueDate) }] : []),
       { label: 'Reference', value: doc.reference ?? '' },
+      ...((def.code === 'SI' || def.code === 'PI') && doc.taxInvoiceNumber ? [{ label: 'Tax Invoice No.', value: doc.taxInvoiceNumber }] : []),
       { label: 'Source', value: doc.source?.number ?? '' },
       { label: 'Payment Term', value: term?.name ?? '' },
       { label: 'Project', value: project?.name ?? '' },

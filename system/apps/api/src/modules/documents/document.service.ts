@@ -48,11 +48,22 @@ export const docSchema = z.object({
   reference: optText(100),
   notes: optText(4000),
   terms: optText(4000),
+  /** Indonesian tax invoice number (Nomor Faktur Pajak) - sales and purchase invoices only */
+  taxInvoiceNumber: optText(40),
   lines: z.array(lineSchema).min(1, 'Add at least one line').max(500),
 });
 export type DocInput = z.infer<typeof docSchema>;
 
 type FullDoc = Prisma.TradeDocumentGetPayload<{ include: { lines: true } }>;
+
+/** Options used by the go-live (opening balances) module: permissions are checked by that module instead */
+export interface OpeningOpts {
+  /** opening balance document: posts against Opening Balance Equity (no revenue, tax or COGS) */
+  opening?: boolean;
+  skipPermission?: boolean;
+}
+
+const TAX_INVOICE_TYPES = new Set(['SI', 'PI']);
 
 @Injectable()
 export class DocumentService {
@@ -267,6 +278,7 @@ export class DocumentService {
       reference: input.reference ?? null,
       notes: input.notes ?? null,
       terms: input.terms ?? null,
+      taxInvoiceNumber: TAX_INVOICE_TYPES.has(def.code) ? (input.taxInvoiceNumber ?? null) : null,
       subtotal,
       discountTotal,
       taxTotal,
@@ -275,9 +287,9 @@ export class DocumentService {
     return { header, lines };
   }
 
-  async create(type: string, body: unknown, sourceId?: string) {
+  async create(type: string, body: unknown, sourceId?: string, opts: OpeningOpts = {}) {
     const def = this.def(type);
-    RequestCtx.assert(`${def.permission}.create`);
+    if (!opts.skipPermission) RequestCtx.assert(`${def.permission}.create`);
     const input = docSchema.parse(body);
     if (!input.terms && def.code === 'SQ') input.terms = (await this.settings.str('sales.quotationTerms', RequestCtx.companyId(), '')) || null;
     if (!input.terms && def.code === 'SI') input.terms = (await this.settings.str('sales.invoiceTerms', RequestCtx.companyId(), '')) || null;
@@ -285,9 +297,10 @@ export class DocumentService {
     const u = RequestCtx.user();
     const branchId = input.branchId ?? u.branchId;
     const doc = await this.prisma.$transaction(async (tx) => {
-      const number = await this.sequence.next(def.code, u.companyId, header.date, tx);
+      // opening documents get their own numbering (OB-SI/2026/00001) so they never consume real invoice numbers
+      const number = await this.sequence.next(opts.opening ? `OB-${def.code}` : def.code, u.companyId, header.date, tx);
       const d = await tx.tradeDocument.create({
-        data: { ...header, companyId: u.companyId, branchId, docType: def.code, number, status: 'DRAFT', sourceId: sourceId ?? null, createdById: u.id, lines: { create: lines } },
+        data: { ...header, isOpening: !!opts.opening, companyId: u.companyId, branchId, docType: def.code, number, status: 'DRAFT', sourceId: sourceId ?? null, createdById: u.id, lines: { create: lines } },
         include: { lines: true },
       });
       await this.audit.record(def.label, d.id, 'CREATE', undefined, d, tx);
@@ -330,10 +343,10 @@ export class DocumentService {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new NotFoundException('Document not found');
   }
 
-  async confirm(type: string, id: string) {
+  async confirm(type: string, id: string, opts: OpeningOpts = {}) {
     this.assertId(id);
     const def = this.def(type);
-    RequestCtx.assert(`${def.permission}.confirm`);
+    if (!opts.skipPermission) RequestCtx.assert(`${def.permission}.confirm`);
     const u = RequestCtx.user();
     const allowNegative = await this.settings.bool('inventory.allowNegativeStock', u.companyId, false);
     return this.prisma.$transaction(
@@ -346,7 +359,7 @@ export class DocumentService {
         if (def.warehouse !== 'none' && def.warehouse !== 'optional' && !doc.warehouseId) throw new BadRequestException('Warehouse is required');
         if (def.warehouse === 'transfer' && !doc.toWarehouseId) throw new BadRequestException('Destination warehouse is required');
         await this.checkSourceQuantities(tx, def, doc);
-        if (APPROVAL_DOC_TYPES.has(def.code)) await this.approvals.assertApproved(u.companyId, this.approvalSubject(def, doc), tx);
+        if (APPROVAL_DOC_TYPES.has(def.code) && !doc.isOpening) await this.approvals.assertApproved(u.companyId, this.approvalSubject(def, doc), tx);
 
         await this.post(tx, def, doc, allowNegative);
 
@@ -359,8 +372,53 @@ export class DocumentService {
     );
   }
 
+  /**
+   * Opening balance documents (go-live): the balance comes from the previous system, so it is booked against
+   * Opening Balance Equity - no revenue, tax, COGS or GRNI. SI: Dr AR / Cr equity, PI: Dr equity / Cr AP,
+   * ADJ: stock in at the given cost, Dr Inventory / Cr equity.
+   */
+  private async postOpening(tx: Tx, def: DocTypeDef, doc: FullDoc) {
+    const rate = D(doc.exchangeRate);
+    const party = { customerId: doc.customerId, supplierId: doc.supplierId, projectId: doc.projectId };
+    const j: PostingLine[] = [];
+    if (def.code === 'SI') {
+      const amount = D(doc.grandTotal).times(rate);
+      j.push({ key: 'AR', debit: amount, ...party, description: doc.reference ?? doc.number }, { key: 'OPENING_EQUITY', credit: amount, description: `Opening receivable ${doc.reference ?? doc.number}` });
+    } else if (def.code === 'PI') {
+      const amount = D(doc.grandTotal).times(rate);
+      j.push({ key: 'OPENING_EQUITY', debit: amount, description: `Opening payable ${doc.reference ?? doc.number}` }, { key: 'AP', credit: amount, ...party, description: doc.reference ?? doc.number });
+    } else if (def.code === 'ADJ') {
+      const products = await tx.product.findMany({ where: { id: { in: doc.lines.map((l) => l.productId).filter(Boolean) as string[] } } });
+      const pm = new Map(products.map((p) => [p.id, p]));
+      for (const l of doc.lines) {
+        const p = l.productId ? pm.get(l.productId) : undefined;
+        if (!p || p.type !== 'STOCK') throw new BadRequestException(`Line ${l.lineNo}: only stock products can have an opening quantity`);
+        if (!D(l.qty).gt(0)) throw new BadRequestException(`Line ${l.lineNo}: opening quantity must be positive`);
+        if (D(l.unitPrice).lt(0)) throw new BadRequestException(`Line ${l.lineNo}: unit cost cannot be negative`);
+        const r = await this.inventory.move(tx, {
+          companyId: doc.companyId,
+          branchId: doc.branchId,
+          date: doc.date,
+          docType: def.code,
+          documentId: doc.id,
+          documentNumber: doc.number,
+          allowNegative: false,
+          productId: p.id,
+          productName: p.name,
+          warehouseId: doc.warehouseId!,
+          qty: D(l.qty),
+          unitCost: D(l.unitPrice),
+        });
+        await tx.tradeDocumentLine.update({ where: { id: l.id }, data: { unitCost: D(l.unitPrice) } });
+        j.push({ key: 'INVENTORY', debit: r.totalCost, description: p.name }, { key: 'OPENING_EQUITY', credit: r.totalCost, description: `Opening stock ${p.name}` });
+      }
+    } else throw new BadRequestException(`${def.label} cannot be an opening balance document`);
+    if (j.length) await this.journal.post(tx, { companyId: doc.companyId, branchId: doc.branchId, date: doc.date, description: `Opening balance ${def.label} ${doc.number}`, reference: doc.reference ?? undefined, sourceType: def.code, sourceId: doc.id, lines: j });
+  }
+
   /** Stock movements + automatic journal for a document */
   private async post(tx: Tx, def: DocTypeDef, doc: FullDoc, allowNegative: boolean) {
+    if (doc.isOpening) return this.postOpening(tx, def, doc);
     const rate = D(doc.exchangeRate);
     const products = await tx.product.findMany({ where: { id: { in: doc.lines.map((l) => l.productId).filter(Boolean) as string[] } } });
     const pm = new Map(products.map((p) => [p.id, p]));
@@ -467,10 +525,10 @@ export class DocumentService {
     await tx.tradeDocument.update({ where: { id: sourceId }, data: { status: all ? 'COMPLETED' : any ? 'PARTIAL' : 'CONFIRMED' } });
   }
 
-  async cancel(type: string, id: string) {
+  async cancel(type: string, id: string, opts: OpeningOpts = {}) {
     this.assertId(id);
     const def = this.def(type);
-    RequestCtx.assert(`${def.permission}.cancel`);
+    if (!opts.skipPermission) RequestCtx.assert(`${def.permission}.cancel`);
     const allowNegative = await this.settings.bool('inventory.allowNegativeStock', RequestCtx.companyId(), false);
     return this.prisma.$transaction(
       async (tx) => {
@@ -492,6 +550,20 @@ export class DocumentService {
       },
       { timeout: 30_000 },
     );
+  }
+
+  /** Tax invoice number (Nomor Faktur Pajak) is often issued after the invoice: editable until the invoice is cancelled */
+  async setTaxInvoiceNumber(type: string, id: string, value: string | null) {
+    this.assertId(id);
+    const def = this.def(type);
+    if (!TAX_INVOICE_TYPES.has(def.code)) throw new BadRequestException(`${def.label} has no tax invoice number`);
+    RequestCtx.assert(`${def.permission}.update`);
+    const v = value?.trim() ? value.trim().slice(0, 40) : null;
+    const before = await this.findOwned(def, id);
+    if (before.status === 'CANCELLED') throw new ConflictException('The document is cancelled');
+    const after = await this.prisma.tradeDocument.update({ where: { id }, data: { taxInvoiceNumber: v, updatedById: RequestCtx.user().id } });
+    await this.audit.record(def.label, id, 'UPDATE', { taxInvoiceNumber: before.taxInvoiceNumber }, { taxInvoiceNumber: after.taxInvoiceNumber });
+    return after;
   }
 
   // ------------------------------------------------------------------ approval workflow

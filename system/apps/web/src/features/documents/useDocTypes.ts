@@ -71,6 +71,10 @@ export interface TradeDoc {
   currencyCode: string;
   exchangeRate: string;
   reference: string | null;
+  /** Nomor Faktur Pajak (SI / PI) */
+  taxInvoiceNumber?: string | null;
+  /** go-live opening balance document */
+  isOpening?: boolean;
   notes: string | null;
   terms: string | null;
   subtotal: string;
