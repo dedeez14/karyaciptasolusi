@@ -51,7 +51,24 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     // Layer: rate limiting (per IP). Login has a stricter limit on its route.
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 600 }]),
     // Production: the API also serves the built PWA (single port, single process)
-    ...(existsSync(webDist) ? [ServeStaticModule.forRoot({ rootPath: webDist, exclude: ['/api/{*path}'], serveStaticOptions: { index: 'index.html', maxAge: '1h' } })] : []),
+    ...(existsSync(webDist)
+      ? [
+          ServeStaticModule.forRoot({
+            rootPath: webDist,
+            exclude: ['/api/{*path}'],
+            serveStaticOptions: {
+              index: 'index.html',
+              // hashed bundles never change -> cache forever; the HTML shell, service worker and manifest
+              // must always be revalidated so a new build is picked up immediately (no stale/unstyled pages)
+              setHeaders: (res, filePath) => {
+                const f = filePath.split('\\').join('/');
+                if (/\/assets\//.test(f)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+                else res.setHeader('Cache-Control', 'no-cache');
+              },
+            },
+          }),
+        ]
+      : []),
   ],
   controllers: [
     HealthController,

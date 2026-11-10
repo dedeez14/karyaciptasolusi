@@ -6,6 +6,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { join, normalize } from 'node:path';
 import { env, isProd } from './config/env';
 import { AppModule } from './app.module';
 import { RequestCtx } from './common/context/request-context';
@@ -61,6 +63,15 @@ async function bootstrap() {
     const requestId = randomUUID();
     res.setHeader('X-Request-Id', requestId);
     RequestCtx.run({ requestId, ip: req.ip, userAgent: req.headers['user-agent'] }, next);
+  });
+
+  // A missing bundle (old page after an update) must 404 instead of falling back to index.html,
+  // otherwise the browser receives HTML for a CSS/JS file and renders an unstyled, broken page.
+  const assetsDir = join(__dirname, '..', '..', 'web', 'dist', 'assets');
+  app.use('/assets', (req: any, res: any, next: () => void) => {
+    const rel = normalize(decodeURIComponent(req.path)).replace(/^[/\\]+/, '');
+    if (rel.includes('..') || !existsSync(join(assetsDir, rel))) return res.status(404).type('text/plain').send('Not found');
+    next();
   });
 
   // API responses must never be cached by browsers/proxies
