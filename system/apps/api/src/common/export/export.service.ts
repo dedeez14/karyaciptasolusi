@@ -34,11 +34,11 @@ export class ExportService {
     wb.creator = company ?? 'KCS ERP';
     wb.created = new Date();
     const ws = wb.addWorksheet(t.title.slice(0, 31).replace(/[\\/*?:[\]]/g, ' '));
-    ws.addRow([company ?? '']).font = { bold: true, size: 12 };
-    ws.addRow([t.title]).font = { bold: true, size: 14 };
-    if (t.subtitle) ws.addRow([t.subtitle]).font = { italic: true, color: { argb: 'FF666666' } };
+    ws.addRow([this.safe(company ?? '')]).font = { bold: true, size: 12 };
+    ws.addRow([this.safe(t.title)]).font = { bold: true, size: 14 };
+    if (t.subtitle) ws.addRow([this.safe(t.subtitle)]).font = { italic: true, color: { argb: 'FF666666' } };
     ws.addRow([]);
-    const header = ws.addRow(t.columns.map((c) => c.label));
+    const header = ws.addRow(t.columns.map((c) => this.safe(c.label)));
     header.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };

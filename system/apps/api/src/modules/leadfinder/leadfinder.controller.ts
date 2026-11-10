@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -81,6 +81,13 @@ export class LeadFinderController {
   @Post('places/leads')
   addToLeads(@Body() body: unknown) {
     return this.finder.addToLeads(body);
+  }
+
+  @Activity('leadfinder.find-emails')
+  @Post('places/find-emails')
+  @HttpCode(200)
+  findEmails(@Body() body: unknown) {
+    return this.finder.findEmails(body);
   }
 
   @Post('places/ignore')

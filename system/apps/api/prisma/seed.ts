@@ -50,9 +50,11 @@ async function main() {
   for (const [code, name, dataScope, rules] of ROLES) {
     const existing = await prisma.role.findFirst({ where: { companyId: null, code } });
     const role = existing ?? (await prisma.role.create({ data: { code, name, dataScope, isSystem: true } }));
-    const matched = allPerms.filter((p) =>
-      rules.some((r) => r === '*' || (r.startsWith('*.') ? p.code.endsWith(r.slice(1)) : r.endsWith('.') || r.endsWith('-') ? p.code.startsWith(r) : p.code === r || p.code.startsWith(r + '.'))),
-    );
+    const hit = (p: { code: string }, r: string) => r === '*' || (r.startsWith('*.') ? p.code.endsWith(r.slice(1)) : r.endsWith('.') || r.endsWith('-') ? p.code.startsWith(r) : p.code === r || p.code.startsWith(r + '.'));
+    // "!prefix" removes permissions matched by the other rules
+    const include = rules.filter((r) => !r.startsWith('!'));
+    const exclude = rules.filter((r) => r.startsWith('!')).map((r) => r.slice(1));
+    const matched = allPerms.filter((p) => include.some((r) => hit(p, r)) && !exclude.some((r) => hit(p, r)));
     await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
     await prisma.rolePermission.createMany({ data: matched.map((p) => ({ roleId: role.id, permissionId: p.id })), skipDuplicates: true });
   }

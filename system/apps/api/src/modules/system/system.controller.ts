@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { Permission } from '../../common/decorators';
@@ -51,6 +51,13 @@ export class RolesController {
     return { ...role, permissions: role.permissions.map((p) => p.permission.code) };
   }
 
+  /** a non super-admin cannot create or widen a role beyond their own data scope */
+  private assertScope(scope?: string) {
+    const u = RequestCtx.user();
+    const rank: Record<string, number> = { OWN: 0, BRANCH: 1, COMPANY: 2, ALL: 3 };
+    if (scope && !u.isSuperAdmin && rank[scope] > rank[u.dataScope]) throw new BadRequestException(`You cannot give a role a wider data scope (${scope}) than your own (${u.dataScope})`);
+  }
+
   private async permissionIds(codes: string[]) {
     const perms = await this.prisma.permission.findMany({ where: { code: { in: codes } }, select: { id: true, code: true } });
     // a non super-admin can never grant permissions they do not hold themselves (privilege escalation)
@@ -65,6 +72,7 @@ export class RolesController {
   @Post()
   @Permission('system.role.create')
   async create(@Body(new ZodPipe(roleSchema)) body: z.infer<typeof roleSchema>) {
+    this.assertScope(body.dataScope);
     const ids = await this.permissionIds(body.permissions);
     const { permissions, ...data } = body;
     const role = await this.prisma.role.create({ data: { ...data, companyId: RequestCtx.companyId(), createdById: RequestCtx.user().id, permissions: { create: ids.map((permissionId) => ({ permissionId })) } } });
@@ -77,6 +85,7 @@ export class RolesController {
   async update(@Param('id') id: string, @Body(new ZodPipe(roleSchema.partial())) body: Partial<z.infer<typeof roleSchema>>) {
     const before = await this.get(id);
     if (before.isSystem && !RequestCtx.user().isSuperAdmin) throw new ConflictException('System roles can only be changed by a super administrator');
+    this.assertScope(body.dataScope);
     const { permissions, ...data } = body;
     const role = await this.prisma.$transaction(async (tx) => {
       if (permissions) {
@@ -169,6 +178,9 @@ export class MenusController {
 }
 
 // ============================================================================ Settings
+/** settings that decide which program the server runs (lead finder scraper) */
+const SUPER_ADMIN_ONLY_SETTINGS = new Set(['marketing.scraperPath']);
+
 @Controller('system/settings')
 export class SettingsController {
   constructor(
@@ -217,12 +229,15 @@ export class SettingsController {
     for (const v of body.values) {
       if (v.key.startsWith('security.') && v.key.endsWith('Key')) throw new BadRequestException('Cryptographic keys cannot be changed here');
       if (v.scope === 'global' && !u.isSuperAdmin) throw new BadRequestException('Only a super administrator can change global settings');
+      // settings that make the server start a program: never in the hands of a company administrator
+      if (SUPER_ADMIN_ONLY_SETTINGS.has(v.key) && !u.isSuperAdmin) throw new ForbiddenException(`Only a super administrator can change "${v.key}"`);
       await this.settings.set(v.key, v.value, v.scope === 'global' ? null : u.companyId, u.id);
     }
     await this.audit.record('Setting', null, 'UPDATE', undefined, { keys: body.values.map((v) => v.key) });
     return this.settings.list(u.companyId);
   }
 }
+
 
 // ============================================================================ Audit, activity & sessions
 const logQuery = z.object({
@@ -238,7 +253,7 @@ const logQuery = z.object({
 
 @Controller('system')
 export class LogsController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly access: AccessService) {}
 
   private range(q: z.infer<typeof logQuery>) {
     return q.from || q.to ? { createdAt: { ...(q.from ? { gte: new Date(q.from) } : {}), ...(q.to ? { lte: new Date(q.to + 'T23:59:59.999Z') } : {}) } } : {};
@@ -299,9 +314,12 @@ export class LogsController {
   @Post('sessions/:id/revoke')
   @Permission('system.session.revoke')
   async revoke(@Param('id') id: string) {
-    const s = await this.prisma.session.findUnique({ where: { id } });
+    const u = RequestCtx.user();
+    // only sessions of users of the current company (same rule as the list)
+    const s = /^[0-9a-f-]{36}$/i.test(id) ? await this.prisma.session.findFirst({ where: { id, ...(u.isSuperAdmin ? {} : { user: { assignments: { some: { companyId: u.companyId } } } }) } }) : null;
     if (!s) throw new NotFoundException('Session not found');
     await this.prisma.session.updateMany({ where: { familyId: s.familyId, revokedAt: null }, data: { revokedAt: new Date() } });
+    this.access.invalidateSessions();
     await this.audit.record('Session', id, 'REVOKE', undefined, { userId: s.userId });
     return { success: true };
   }

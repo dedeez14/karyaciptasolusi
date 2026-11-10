@@ -2051,28 +2051,31 @@ model ScrapeJob {
 
 /// One business found on Google Maps (deduplicated per company by place id / cid)
 model MapPlace {
-  id             String   @id @default(uuid()) @db.Uuid
-  companyId      String   @db.Uuid
-  jobId          String?  @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  jobId          String?   @db.Uuid
   /// Google place id or cid - dedupe key
-  placeKey       String   @db.VarChar(120)
-  query          String?  @db.VarChar(300)
-  title          String   @db.VarChar(300)
-  category       String?  @db.VarChar(200)
+  placeKey       String    @db.VarChar(120)
+  query          String?   @db.VarChar(300)
+  title          String    @db.VarChar(300)
+  category       String?   @db.VarChar(200)
   address        String?
-  phone          String?  @db.VarChar(80)
-  website        String?  @db.VarChar(500)
-  emails         String?  @db.VarChar(1000)
-  rating         Decimal? @db.Decimal(3, 2)
+  phone          String?   @db.VarChar(80)
+  website        String?   @db.VarChar(500)
+  emails         String?   @db.VarChar(1000)
+  /// when the website was read for e-mail addresses, and what came out of it
+  emailCheckedAt DateTime?
+  emailNote      String?   @db.VarChar(200)
+  rating         Decimal?  @db.Decimal(3, 2)
   reviewCount    Int?
-  latitude       Decimal? @db.Decimal(10, 7)
-  longitude      Decimal? @db.Decimal(10, 7)
-  mapsUrl        String?  @db.VarChar(1000)
-  businessStatus String?  @db.VarChar(50)
-  statusCode     String   @default("NEW") @db.VarChar(20) // lookup MAP_PLACE_STATUS
-  leadId         String?  @db.Uuid
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  latitude       Decimal?  @db.Decimal(10, 7)
+  longitude      Decimal?  @db.Decimal(10, 7)
+  mapsUrl        String?   @db.VarChar(1000)
+  businessStatus String?   @db.VarChar(50)
+  statusCode     String    @default("NEW") @db.VarChar(20) // lookup MAP_PLACE_STATUS
+  leadId         String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@unique([companyId, placeKey])
   @@index([companyId, statusCode])

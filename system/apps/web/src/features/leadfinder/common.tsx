@@ -27,6 +27,7 @@ export interface ScrapeJob {
   createdAt: string;
   live: { elapsedSeconds: number; rows: number; log: string } | null;
   places?: { new: number; imported: number; ignored: number };
+  emailLookup?: { withWebsite: number; withEmail: number; checked: number; pending: number };
   queuePosition?: number | null;
 }
 
@@ -39,6 +40,11 @@ export interface Place {
   phone: string | null;
   website: string | null;
   emails: string[];
+  /** when the website was read for e-mail addresses, and the outcome */
+  emailCheckedAt: string | null;
+  emailNote: string | null;
+  /** the website is waiting to be read / being read right now */
+  emailPending?: boolean;
   rating: number | null;
   reviewCount: number | null;
   latitude: number | null;

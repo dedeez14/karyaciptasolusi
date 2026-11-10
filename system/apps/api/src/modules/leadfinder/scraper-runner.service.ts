@@ -1,13 +1,14 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { SettingsService } from '../../common/settings/settings.service';
 import { NotificationBus } from '../../common/events/notification-bus';
 import { StorageService } from '../files/storage.service';
 import { csvRecords } from './csv';
+import { EmailFinderService } from './email-finder.service';
 import { PlaceImportService } from './place-import.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -49,6 +50,7 @@ export class ScraperRunnerService implements OnModuleInit, OnModuleDestroy {
     private readonly bus: NotificationBus,
     private readonly storage: StorageService,
     private readonly importer: PlaceImportService,
+    private readonly emails: EmailFinderService,
   ) {}
 
   async onModuleInit() {
@@ -83,6 +85,11 @@ export class ScraperRunnerService implements OnModuleInit, OnModuleDestroy {
   async program(companyId: string): Promise<{ path: string | null; problem: string | null }> {
     const path = (await this.settings.str('marketing.scraperPath', companyId, '')).trim();
     if (!path) return { path: null, problem: SCRAPER_PATH_HELP };
+    // only the google-maps-scraper program itself, on a local absolute path (no other program, no network share)
+    const name = path.split(/[\\/]/).pop() ?? '';
+    const programName = process.platform === 'win32' ? /^google-maps-scraper[\w.-]*\.exe$/i : /^google-maps-scraper[\w.-]*$/i;
+    if (!isAbsolute(path) || /^[\\/]{2}/.test(path) || !programName.test(name) || /\.(sh|bash|py|pl|rb|js|bat|cmd|ps1)$/i.test(name))
+      return { path: null, problem: `"${path}" is not the google-maps-scraper program. Set the full local path of google-maps-scraper(.exe) in System > Settings > Marketing.` };
     try {
       if (!existsSync(path) || !statSync(path).isFile()) return { path: null, problem: `The scraper program was not found at "${path}". Check System > Settings > Marketing > "Google Maps scraper program".` };
     } catch {
@@ -232,6 +239,11 @@ export class ScraperRunnerService implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`search ${run.jobId}: ${(e as Error).message}`);
     }
     this.logger.log(`search ${run.jobId} ${status}: ${imported.rows} rows, ${imported.created} new places`);
+    // e-mail addresses: the scraper's fast mode never opens the websites, so the ERP reads them itself
+    if (imported.rows && !run.cancelled) {
+      const job = await this.prisma.scrapeJob.findUnique({ where: { id: run.jobId }, select: { extractEmails: true } }).catch(() => null);
+      if (job?.extractEmails) await this.emails.enqueueJob(run.companyId, run.jobId).catch((e) => this.logger.warn(`e-mail lookup not started: ${(e as Error).message}`));
+    }
     this.current = null;
     this.bus.emit(run.companyId);
     this.kick();

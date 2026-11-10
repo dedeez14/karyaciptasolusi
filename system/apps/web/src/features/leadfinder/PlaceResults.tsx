@@ -96,6 +96,18 @@ export function PlaceResults({ jobId, live }: { jobId?: string; live?: boolean }
       setBusy(false);
     }
   };
+  const findEmails = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post<{ places: number; websites: number }>('/leadfinder/places/find-emails', target());
+      toast.success(r.websites ? `Reading ${plural(r.websites, 'website')} for e-mail addresses` : 'None of these places has a website');
+      refresh();
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
   const doExport = async (format: 'xlsx' | 'csv') => {
     try {
       await download('/leadfinder/places/export', { ...filter, format });
@@ -111,8 +123,18 @@ export function PlaceResults({ jobId, live }: { jobId?: string; live?: boolean }
       header: 'Name',
       sortable: true,
       render: (p) => (
-        <div className="max-w-56 min-w-36">
+        <div className="max-w-48 min-w-32">
           <p className="font-medium text-slate-900">{p.title}</p>
+          {p.statusCode !== 'NEW' && (
+            <span className="mt-0.5 flex items-center gap-1.5">
+              <PlaceStatus code={p.statusCode} />
+              {p.leadId && (
+                <Link to={`/r/leads?open=${p.leadId}`} className="text-xs text-brand-700 hover:underline" onClick={(e) => e.stopPropagation()}>
+                  {p.leadCode ?? 'Lead'}
+                </Link>
+              )}
+            </span>
+          )}
           <p className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
             {p.category && <span>{p.category}</span>}
             {p.rating !== null && (
@@ -126,12 +148,13 @@ export function PlaceResults({ jobId, live }: { jobId?: string; live?: boolean }
       ),
     },
     {
-      key: 'address',
+      // custom keys: DataTable gives long raw values a 16rem minimum width, these cells size themselves
+      key: 'addressCell',
       header: 'Address',
       hideOnMobile: true,
       render: (p) =>
         p.address ? (
-          <span className="line-clamp-2 max-w-64 min-w-40 text-sm text-slate-700" title={p.address}>
+          <span className="line-clamp-2 max-w-48 min-w-32 text-sm whitespace-normal text-slate-700" title={p.address}>
             {p.address}
           </span>
         ) : (
@@ -151,12 +174,12 @@ export function PlaceResults({ jobId, live }: { jobId?: string; live?: boolean }
         ),
     },
     {
-      key: 'website',
+      key: 'websiteCell',
       header: 'Website',
       hideOnMobile: true,
       render: (p) =>
         p.website ? (
-          <a href={p.website} target="_blank" rel="noopener noreferrer" title={p.website} className="block max-w-40 truncate text-sm text-brand-700 hover:underline" onClick={(e) => e.stopPropagation()}>
+          <a href={p.website} target="_blank" rel="noopener noreferrer" title={p.website} className="block max-w-32 truncate text-sm text-brand-700 hover:underline" onClick={(e) => e.stopPropagation()}>
             {p.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
           </a>
         ) : (
@@ -164,34 +187,28 @@ export function PlaceResults({ jobId, live }: { jobId?: string; live?: boolean }
         ),
     },
     {
-      key: 'emails',
+      key: 'emailCell',
       header: 'E-mail',
       render: (p) =>
         p.emails.length ? (
-          <div className="space-y-0.5 text-sm text-slate-700">
+          <div className="min-w-52 space-y-0.5 text-sm whitespace-nowrap text-slate-700">
             {p.emails.map((e) => (
-              <p key={e} className="break-all">
+              <p key={e}>
                 {e}
               </p>
             ))}
           </div>
+        ) : p.emailPending ? (
+          <span className="inline-flex items-center gap-1.5 text-xs whitespace-nowrap text-brand-700">
+            <Icon name="loader-circle" className="h-3.5 w-3.5 animate-spin" /> Reading website…
+          </span>
+        ) : !p.website ? (
+          <span className="text-xs text-slate-400" title="E-mail addresses are read from the business website">No website</span>
         ) : (
-          dash
+          <span className="line-clamp-2 max-w-40 text-xs whitespace-normal text-slate-400" title={p.emailNote ?? undefined}>
+            {p.emailNote ? (/^No e-mail/.test(p.emailNote) ? 'Not on the website' : p.emailNote) : 'Not checked yet'}
+          </span>
         ),
-    },
-    {
-      key: 'statusCode',
-      header: 'Status',
-      render: (p) => (
-        <div className="space-y-1">
-          <PlaceStatus code={p.statusCode} />
-          {p.leadId && (
-            <Link to="/r/leads" className="block text-xs text-brand-700 hover:underline" onClick={(e) => e.stopPropagation()}>
-              {p.leadCode ?? 'Lead'}
-            </Link>
-          )}
-        </div>
-      ),
     },
     {
       key: 'map',
@@ -261,6 +278,7 @@ export function PlaceResults({ jobId, live }: { jobId?: string; live?: boolean }
           <Dropdown
             trigger={<Button variant="outline" size="sm" icon="more-horizontal" aria-label="More actions" />}
             items={[
+              { label: 'Find e-mails on websites', icon: 'mail-search', onClick: findEmails, hidden: !can('crm.leadfinder.run') },
               { label: 'Ignore', icon: 'eye-off', onClick: () => act('ignore', 'Ignore'), hidden: !can('crm.leadfinder.import') },
               { label: 'Restore ignored', icon: 'undo-2', onClick: () => act('restore', 'Restore'), hidden: !can('crm.leadfinder.import') },
               'divider',

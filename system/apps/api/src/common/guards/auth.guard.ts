@@ -38,7 +38,7 @@ export class AuthGuard implements CanActivate {
     }
     if (!token) throw new UnauthorizedException('Authentication required');
 
-    let payload: { sub: string; cid?: string; typ?: string };
+    let payload: { sub: string; cid?: string; typ?: string; sid?: string; iat?: number };
     try {
       payload = await this.jwt.verifyAsync(token);
     } catch {
@@ -52,6 +52,14 @@ export class AuthGuard implements CanActivate {
     if (branchHeader && !UUID.test(branchHeader)) throw new ForbiddenException('Invalid branch');
 
     const user = await this.access.profile(payload.sub, companyHeader, branchHeader);
+    // an access token dies with its login (logout / revoked session) and with a password change
+    if (payload.sid && !(await this.access.sessionAlive(payload.sid))) throw new UnauthorizedException('Session expired');
+    const flags = await this.access.accountFlags(payload.sub);
+    if (flags.passwordChangedAt && payload.iat && payload.iat * 1000 < flags.passwordChangedAt.getTime() - 1000) throw new UnauthorizedException('Session expired');
+    // a temporary password (new user / reset by an administrator) only allows changing it
+    if (flags.mustChangePassword && !/^\/(auth\/|notifications(\/|$))/.test(req.path.replace(/^\/api\/v1/, ''))) {
+      throw new ForbiddenException({ message: 'Change your temporary password first', code: 'PASSWORD_CHANGE_REQUIRED' });
+    }
     const ctx = RequestCtx.get();
     if (ctx) ctx.user = user;
 

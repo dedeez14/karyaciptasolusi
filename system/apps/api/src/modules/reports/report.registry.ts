@@ -37,7 +37,17 @@ export interface ReportCtx {
   decrypt?: (value: string | null | undefined) => string | null;
   /** permission check of the current user */
   can?: (code: string) => boolean;
+  /** branches the user is limited to (null = all); only used by branch aware reports */
+  branchIds?: string[] | null;
 }
+
+/** sales / purchase documents and payments of the branches the user may see (documents without a branch stay visible) */
+const branchOf = (ctx: ReportCtx) => (ctx.branchIds ? { OR: [{ branchId: { in: ctx.branchIds } }, { branchId: null }] } : {});
+/** stock: warehouses of the user's branches (warehouses without a branch stay visible) */
+const warehouseSql = (ctx: ReportCtx, column: string) =>
+  ctx.branchIds ? Prisma.sql`AND ${Prisma.raw(column)} IN (SELECT id FROM warehouses WHERE "branchId" IS NULL OR "branchId" IN (${Prisma.join(ctx.branchIds.map((b) => Prisma.sql`${b}::uuid`))}))` : Prisma.empty;
+const branchSql = (ctx: ReportCtx, alias: string) =>
+  ctx.branchIds ? Prisma.sql`AND (${Prisma.raw(`${alias}."branchId"`)} IS NULL OR ${Prisma.raw(`${alias}."branchId"`)} IN (${Prisma.join(ctx.branchIds.map((b) => Prisma.sql`${b}::uuid`))}))` : Prisma.empty;
 
 export interface ReportDef {
   key: string;
@@ -45,6 +55,8 @@ export interface ReportDef {
   module: 'sales' | 'purchase' | 'inventory' | 'accounting' | 'crm' | 'hris';
   description: string;
   params: ReportParam[];
+  /** filters to the user's branches; other reports cover the whole company and need company-wide data access */
+  branchAware?: boolean;
   run: (ctx: ReportCtx) => Promise<ReportResult>;
 }
 
@@ -63,7 +75,7 @@ const totalsOf = (rows: Record<string, unknown>[], keys: string[]) => Object.fro
 async function register(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportResult> {
   const { prisma, companyId, p } = ctx;
   const docs = await prisma.tradeDocument.findMany({
-    where: { companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, date: { gte: from(p), lte: to(p) }, ...(p.status ? { status: p.status as any } : {}) },
+    where: { ...branchOf(ctx), companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, date: { gte: from(p), lte: to(p) }, ...(p.status ? { status: p.status as any } : {}) },
     orderBy: [{ date: 'asc' }, { number: 'asc' }],
   });
   const ids = docs.map((d) => (docType === 'SI' ? d.customerId : d.supplierId)).filter(Boolean) as string[];
@@ -105,7 +117,7 @@ async function byPartner(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportRe
   const field = docType === 'SI' ? 'customerId' : 'supplierId';
   const g = await prisma.tradeDocument.groupBy({
     by: [field],
-    where: { companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, date: { gte: from(p), lte: to(p) } },
+    where: { ...branchOf(ctx), companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, date: { gte: from(p), lte: to(p) } },
     _sum: { grandTotal: true, paidAmount: true, taxTotal: true },
     _count: { _all: true },
   });
@@ -141,7 +153,7 @@ async function byProduct(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportRe
     JOIN trade_documents d ON d.id = l."documentId"
     LEFT JOIN products pr ON pr.id = l."productId"
     WHERE d."companyId" = ${companyId}::uuid AND d."docType" = ${docType} AND d."deletedAt" IS NULL
-      AND d.status <> 'CANCELLED' AND d.date BETWEEN ${from(p)} AND ${to(p)}
+      AND d.status <> 'CANCELLED' AND d.date BETWEEN ${from(p)} AND ${to(p)} ${branchSql(ctx, 'd')}
     GROUP BY 1, 2 ORDER BY amount DESC`;
   const out = rows.map((r) => ({ code: r.code ?? '', name: r.name ?? '', qty: n(r.qty), docs: Number(r.docs), amount: n(r.amount) }));
   return {
@@ -162,7 +174,7 @@ async function byProduct(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportRe
 async function aging(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportResult> {
   const { prisma, companyId, p } = ctx;
   const date = asOf(p);
-  const docs = await prisma.tradeDocument.findMany({ where: { companyId, docType, deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL'] }, date: { lte: date } } });
+  const docs = await prisma.tradeDocument.findMany({ where: { ...branchOf(ctx), companyId, docType, deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL'] }, date: { lte: date } } });
   const field = docType === 'SI' ? 'customerId' : 'supplierId';
   const ids = docs.map((d) => d[field]).filter(Boolean) as string[];
   const partners = docType === 'SI' ? await prisma.customer.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : await prisma.supplier.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
@@ -218,8 +230,8 @@ async function statement(ctx: ReportCtx, kind: 'customer' | 'supplier'): Promise
   const docType = kind === 'customer' ? 'SI' : 'PI';
   const dir = kind === 'customer' ? 'IN' : 'OUT';
   const field = kind === 'customer' ? 'customerId' : 'supplierId';
-  const docWhere = { companyId, docType, deletedAt: null, status: { notIn: ['DRAFT', 'CANCELLED'] as any }, [field]: partnerId };
-  const payWhere = { companyId, direction: dir as any, deletedAt: null, status: { not: 'CANCELLED' as any }, [field]: partnerId };
+  const docWhere = { ...branchOf(ctx), companyId, docType, deletedAt: null, status: { notIn: ['DRAFT', 'CANCELLED'] as any }, [field]: partnerId };
+  const payWhere = { ...branchOf(ctx), companyId, direction: dir as any, deletedAt: null, status: { not: 'CANCELLED' as any }, [field]: partnerId };
   const [docsBefore, paysBefore, docs, pays] = await Promise.all([
     prisma.tradeDocument.aggregate({ where: { ...docWhere, date: { lt: from(p) } }, _sum: { grandTotal: true } }),
     prisma.payment.aggregate({ where: { ...payWhere, date: { lt: from(p) } }, _sum: { amount: true } }),
@@ -253,43 +265,47 @@ async function statement(ctx: ReportCtx, kind: 'customer' | 'supplier'): Promise
 
 export const REPORTS: ReportDef[] = [
   // ------------------------------------------------------------- Sales
-  { key: 'sales-register', label: 'Sales Invoice Register', module: 'sales', description: 'All sales invoices with payment status', params: range, run: (c) => register(c, 'SI') },
-  { key: 'sales-by-customer', label: 'Sales by Customer', module: 'sales', description: 'Invoiced revenue grouped per customer', params: range, run: (c) => byPartner(c, 'SI') },
-  { key: 'sales-by-product', label: 'Sales by Product', module: 'sales', description: 'Quantity and revenue per product / service', params: range, run: (c) => byProduct(c, 'SI') },
+  { key: 'sales-register', branchAware: true, label: 'Sales Invoice Register', module: 'sales', description: 'All sales invoices with payment status', params: range, run: (c) => register(c, 'SI') },
+  { key: 'sales-by-customer', branchAware: true, label: 'Sales by Customer', module: 'sales', description: 'Invoiced revenue grouped per customer', params: range, run: (c) => byPartner(c, 'SI') },
+  { key: 'sales-by-product', branchAware: true, label: 'Sales by Product', module: 'sales', description: 'Quantity and revenue per product / service', params: range, run: (c) => byProduct(c, 'SI') },
   {
     key: 'customer-statement',
+    branchAware: true,
     label: 'Customer Statement',
     module: 'sales',
     description: 'Invoices, payments and running balance of one customer',
     params: [{ name: 'customerId', label: 'Customer', type: 'relation', relation: 'customers', required: true }, { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' }, { name: 'to', label: 'To', type: 'date', required: true, default: 'today' }],
     run: (c) => statement(c, 'customer'),
   },
-  { key: 'ar-aging', label: 'Receivables Aging', module: 'sales', description: 'Outstanding customer invoices by age', params: asOfParam, run: (c) => aging(c, 'SI') },
+  { key: 'ar-aging', branchAware: true, label: 'Receivables Aging', module: 'sales', description: 'Outstanding customer invoices by age', params: asOfParam, run: (c) => aging(c, 'SI') },
   {
     key: 'quotation-pipeline',
     label: 'Quotation Status',
     module: 'sales',
     description: 'Quotations issued and their conversion status',
     params: range,
-    run: async ({ prisma, companyId, p }) => {
-      const g = await prisma.tradeDocument.groupBy({ by: ['status'], where: { companyId, docType: 'SQ', deletedAt: null, date: { gte: from(p), lte: to(p) } }, _count: { _all: true }, _sum: { grandTotal: true } });
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId, p } = ctx;
+      const g = await prisma.tradeDocument.groupBy({ by: ['status'], where: { ...branchOf(ctx), companyId, docType: 'SQ', deletedAt: null, date: { gte: from(p), lte: to(p) } }, _count: { _all: true }, _sum: { grandTotal: true } });
       const rows = g.map((x) => ({ status: x.status, count: x._count._all, total: n(x._sum.grandTotal) }));
       return { subtitle: period(p), columns: [{ key: 'status', label: 'Status' }, { key: 'count', label: 'Quotations', type: 'number' }, { key: 'total', label: 'Value', type: 'money' }], rows, totals: totalsOf(rows, ['count', 'total']), chart: { type: 'pie', label: 'status', value: 'total' } };
     },
   },
   // ------------------------------------------------------------- Purchase
-  { key: 'purchase-register', label: 'Purchase Invoice Register', module: 'purchase', description: 'All supplier invoices with payment status', params: range, run: (c) => register(c, 'PI') },
-  { key: 'purchase-by-supplier', label: 'Purchases by Supplier', module: 'purchase', description: 'Purchases grouped per supplier', params: range, run: (c) => byPartner(c, 'PI') },
-  { key: 'purchase-by-product', label: 'Purchases by Product', module: 'purchase', description: 'Quantity and cost per purchased item', params: range, run: (c) => byProduct(c, 'PI') },
+  { key: 'purchase-register', branchAware: true, label: 'Purchase Invoice Register', module: 'purchase', description: 'All supplier invoices with payment status', params: range, run: (c) => register(c, 'PI') },
+  { key: 'purchase-by-supplier', branchAware: true, label: 'Purchases by Supplier', module: 'purchase', description: 'Purchases grouped per supplier', params: range, run: (c) => byPartner(c, 'PI') },
+  { key: 'purchase-by-product', branchAware: true, label: 'Purchases by Product', module: 'purchase', description: 'Quantity and cost per purchased item', params: range, run: (c) => byProduct(c, 'PI') },
   {
     key: 'supplier-statement',
+    branchAware: true,
     label: 'Supplier Statement',
     module: 'purchase',
     description: 'Bills, payments and running balance of one supplier',
     params: [{ name: 'supplierId', label: 'Supplier', type: 'relation', relation: 'suppliers', required: true }, { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' }, { name: 'to', label: 'To', type: 'date', required: true, default: 'today' }],
     run: (c) => statement(c, 'supplier'),
   },
-  { key: 'ap-aging', label: 'Payables Aging', module: 'purchase', description: 'Outstanding supplier invoices by age', params: asOfParam, run: (c) => aging(c, 'PI') },
+  { key: 'ap-aging', branchAware: true, label: 'Payables Aging', module: 'purchase', description: 'Outstanding supplier invoices by age', params: asOfParam, run: (c) => aging(c, 'PI') },
   // ------------------------------------------------------------- Inventory
   {
     key: 'stock-balance',
@@ -297,11 +313,13 @@ export const REPORTS: ReportDef[] = [
     module: 'inventory',
     description: 'Quantity on hand and value per product and warehouse',
     params: [{ name: 'warehouseId', label: 'Warehouse', type: 'relation', relation: 'warehouses' }],
-    run: async ({ prisma, companyId, p }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId, p } = ctx;
       const rows = await prisma.$queryRaw<any[]>`
         SELECT pr.code, pr.name, w.name AS warehouse, b.qty, b."avgCost" AS cost, (b.qty * b."avgCost") AS value, pr."minStock"
         FROM stock_balances b JOIN products pr ON pr.id = b."productId" JOIN warehouses w ON w.id = b."warehouseId"
-        WHERE b."companyId" = ${companyId}::uuid ${p.warehouseId ? Prisma.sql`AND b."warehouseId" = ${p.warehouseId}::uuid` : Prisma.empty}
+        WHERE b."companyId" = ${companyId}::uuid ${p.warehouseId ? Prisma.sql`AND b."warehouseId" = ${p.warehouseId}::uuid` : Prisma.empty} ${warehouseSql(ctx, 'b."warehouseId"')}
         ORDER BY pr.name, w.name`;
       const out = rows.map((r) => ({ code: r.code, name: r.name, warehouse: r.warehouse, qty: n(r.qty), cost: n(r.cost), value: n(r.value), status: n(r.qty) <= n(r.minStock) ? 'LOW' : 'OK' }));
       return {
@@ -325,13 +343,18 @@ export const REPORTS: ReportDef[] = [
     module: 'inventory',
     description: 'Movement history of a product',
     params: [{ name: 'productId', label: 'Product', type: 'relation', relation: 'products', required: true }, { name: 'warehouseId', label: 'Warehouse', type: 'relation', relation: 'warehouses' }, ...range],
-    run: async ({ prisma, companyId, p }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId, p } = ctx;
       if (!p.productId) return { columns: [], rows: [] };
-      const where = { companyId, productId: p.productId, ...(p.warehouseId ? { warehouseId: p.warehouseId } : {}) };
+      // warehouses of the user's branches only
+      const allowed = ctx.branchIds ? (await prisma.warehouse.findMany({ where: { companyId, OR: [{ branchId: { in: ctx.branchIds } }, { branchId: null }] }, select: { id: true } })).map((w) => w.id) : null;
+      const warehouseFilter = allowed ? { warehouseId: { in: p.warehouseId ? allowed.filter((w) => w === p.warehouseId) : allowed } } : p.warehouseId ? { warehouseId: p.warehouseId } : {};
+      const where = { companyId, productId: p.productId, ...warehouseFilter };
       const [opening, moves, whs] = await Promise.all([
         prisma.stockMovement.aggregate({ where: { ...where, date: { lt: from(p) } }, _sum: { qty: true } }),
         prisma.stockMovement.findMany({ where: { ...where, date: { gte: from(p), lte: to(p) } }, orderBy: [{ date: 'asc' }, { createdAt: 'asc' }] }),
-        prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } }),
+        prisma.warehouse.findMany({ where: { companyId, ...(ctx.branchIds ? { OR: [{ branchId: { in: ctx.branchIds } }, { branchId: null }] } : {}) }, select: { id: true, name: true } }),
       ]);
       const wn = new Map(whs.map((w) => [w.id, w.name]));
       let bal = n(opening._sum.qty);
@@ -361,10 +384,12 @@ export const REPORTS: ReportDef[] = [
     module: 'inventory',
     description: 'Stock products at or below their minimum level',
     params: [],
-    run: async ({ prisma, companyId }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId } = ctx;
       const rows = await prisma.$queryRaw<any[]>`
         SELECT pr.code, pr.name, pr."minStock", COALESCE(SUM(b.qty), 0) AS qty
-        FROM products pr LEFT JOIN stock_balances b ON b."productId" = pr.id
+        FROM products pr LEFT JOIN stock_balances b ON b."productId" = pr.id ${warehouseSql(ctx, 'b."warehouseId"')}
         WHERE pr."companyId" = ${companyId}::uuid AND pr.type = 'STOCK' AND pr."isActive" AND pr."deletedAt" IS NULL
         GROUP BY pr.id HAVING COALESCE(SUM(b.qty), 0) <= pr."minStock" ORDER BY pr.name`;
       return {
@@ -546,10 +571,12 @@ export const REPORTS: ReportDef[] = [
     module: 'crm',
     description: 'Leads by source and status',
     params: [...range, { name: 'groupBy', label: 'Group by', type: 'select', default: 'sourceCode', options: [{ value: 'sourceCode', label: 'Source' }, { value: 'statusCode', label: 'Status' }, { value: 'industryCode', label: 'Industry' }] }],
-    run: async ({ prisma, companyId, p }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId, p } = ctx;
       const by = (['sourceCode', 'statusCode', 'industryCode'].includes(p.groupBy ?? '') ? p.groupBy : 'sourceCode') as 'sourceCode';
-      const g = await prisma.lead.groupBy({ by: [by], where: { companyId, deletedAt: null, createdAt: { gte: from(p), lte: new Date(to(p).getTime() + 86_399_999) } }, _count: { _all: true }, _sum: { estimatedValue: true } });
-      const converted = await prisma.lead.groupBy({ by: [by], where: { companyId, deletedAt: null, customerId: { not: null }, createdAt: { gte: from(p), lte: new Date(to(p).getTime() + 86_399_999) } }, _count: { _all: true } });
+      const g = await prisma.lead.groupBy({ by: [by], where: { ...branchOf(ctx), companyId, deletedAt: null, createdAt: { gte: from(p), lte: new Date(to(p).getTime() + 86_399_999) } }, _count: { _all: true }, _sum: { estimatedValue: true } });
+      const converted = await prisma.lead.groupBy({ by: [by], where: { ...branchOf(ctx), companyId, deletedAt: null, customerId: { not: null }, createdAt: { gte: from(p), lte: new Date(to(p).getTime() + 86_399_999) } }, _count: { _all: true } });
       const cm = new Map(converted.map((x: any) => [x[by], x._count._all]));
       const labels = new Map((await prisma.lookupValue.findMany({ where: { category: { in: ['LEAD_SOURCE', 'LEAD_STATUS', 'INDUSTRY'] } } })).map((l) => [l.code, l.name]));
       const rows = g.map((x: any) => ({ group: labels.get(x[by]) ?? x[by] ?? '(none)', leads: x._count._all, converted: cm.get(x[by]) ?? 0, rate: x._count._all ? Math.round(((cm.get(x[by]) ?? 0) / x._count._all) * 1000) / 10 : 0, value: n(x._sum.estimatedValue) }));
@@ -568,9 +595,11 @@ export const REPORTS: ReportDef[] = [
     module: 'crm',
     description: 'Open opportunities and weighted value by stage',
     params: [],
-    run: async ({ prisma, companyId }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId } = ctx;
       const stages = await prisma.pipelineStage.findMany({ where: { companyId, deletedAt: null }, orderBy: { sortOrder: 'asc' } });
-      const g = await prisma.opportunity.groupBy({ by: ['stageId'], where: { companyId, deletedAt: null }, _count: { _all: true }, _sum: { amount: true } });
+      const g = await prisma.opportunity.groupBy({ by: ['stageId'], where: { ...branchOf(ctx), companyId, deletedAt: null }, _count: { _all: true }, _sum: { amount: true } });
       const gm = new Map(g.map((x) => [x.stageId, x]));
       const rows = stages.map((s) => {
         const x = gm.get(s.id);
@@ -591,10 +620,12 @@ export const REPORTS: ReportDef[] = [
     module: 'crm',
     description: 'Leads, conversion and cost per campaign',
     params: [],
-    run: async ({ prisma, companyId }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId } = ctx;
       const camps = await prisma.campaign.findMany({ where: { companyId, deletedAt: null }, orderBy: { startDate: 'desc' } });
-      const leads = await prisma.lead.groupBy({ by: ['campaignId'], where: { companyId, deletedAt: null, campaignId: { not: null } }, _count: { _all: true } });
-      const conv = await prisma.lead.groupBy({ by: ['campaignId'], where: { companyId, deletedAt: null, campaignId: { not: null }, customerId: { not: null } }, _count: { _all: true } });
+      const leads = await prisma.lead.groupBy({ by: ['campaignId'], where: { ...branchOf(ctx), companyId, deletedAt: null, campaignId: { not: null } }, _count: { _all: true } });
+      const conv = await prisma.lead.groupBy({ by: ['campaignId'], where: { ...branchOf(ctx), companyId, deletedAt: null, campaignId: { not: null }, customerId: { not: null } }, _count: { _all: true } });
       const lm = new Map(leads.map((x) => [x.campaignId, x._count._all]));
       const cm = new Map(conv.map((x) => [x.campaignId, x._count._all]));
       const rows = camps.map((c) => {

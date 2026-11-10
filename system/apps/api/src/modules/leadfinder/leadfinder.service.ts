@@ -13,6 +13,7 @@ import { csvRecords } from './csv';
 import { addressKey, nameKey, phoneKey } from './normalize';
 import { PlaceImportService } from './place-import.service';
 import { ScraperRunnerService } from './scraper-runner.service';
+import { EmailFinderService } from './email-finder.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // no control characters; the scraper reads one search per line
@@ -81,6 +82,7 @@ export class LeadFinderService {
     private readonly bus: NotificationBus,
     private readonly runner: ScraperRunnerService,
     private readonly importer: PlaceImportService,
+    private readonly emailFinder: EmailFinderService,
   ) {}
 
   // ------------------------------------------------------------------ searches
@@ -136,7 +138,14 @@ export class LeadFinderService {
     const counts = await this.prisma.mapPlace.groupBy({ by: ['statusCode'], where: { companyId: job.companyId, jobId: job.id }, _count: { _all: true } });
     const by = Object.fromEntries(counts.map((c) => [c.statusCode, c._count._all]));
     const position = job.statusCode === 'QUEUED' ? await this.prisma.scrapeJob.count({ where: { statusCode: 'QUEUED', deletedAt: null, createdAt: { lt: job.createdAt } } }) : null;
-    return { ...job, places: { new: by.NEW ?? 0, imported: by.IMPORTED ?? 0, ignored: by.IGNORED ?? 0 }, live: this.runner.live(job.id), queuePosition: position };
+    const [withWebsite, withEmail, checked, placeIds] = await Promise.all([
+      this.prisma.mapPlace.count({ where: { companyId: job.companyId, jobId: job.id, website: { not: null } } }),
+      this.prisma.mapPlace.count({ where: { companyId: job.companyId, jobId: job.id, emails: { not: null } } }),
+      this.prisma.mapPlace.count({ where: { companyId: job.companyId, jobId: job.id, website: { not: null }, emailCheckedAt: { not: null } } }),
+      this.prisma.mapPlace.findMany({ where: { companyId: job.companyId, jobId: job.id }, select: { id: true } }),
+    ]);
+    const emailLookup = { withWebsite, withEmail, checked, pending: this.emailFinder.pending(job.companyId, new Set(placeIds.map((p) => p.id))) };
+    return { ...job, places: { new: by.NEW ?? 0, imported: by.IMPORTED ?? 0, ignored: by.IGNORED ?? 0 }, emailLookup, live: this.runner.live(job.id), queuePosition: position };
   }
 
   async createJob(body: unknown) {
@@ -305,7 +314,7 @@ export class LeadFinderService {
     const lc = new Map(leads.map((l) => [l.id, l.code]));
     return {
       ...paged(
-        rows.map((r) => ({ ...r, rating: r.rating === null ? null : Number(r.rating), latitude: r.latitude === null ? null : Number(r.latitude), longitude: r.longitude === null ? null : Number(r.longitude), emails: r.emails ? r.emails.split(',') : [], leadCode: r.leadId ? (lc.get(r.leadId) ?? null) : null })),
+        rows.map((r) => ({ ...r, emailPending: this.emailFinder.isPending(r.id), rating: r.rating === null ? null : Number(r.rating), latitude: r.latitude === null ? null : Number(r.latitude), longitude: r.longitude === null ? null : Number(r.longitude), emails: r.emails ? r.emails.split(',') : [], leadCode: r.leadId ? (lc.get(r.leadId) ?? null) : null })),
         total,
         q,
       ),
@@ -318,6 +327,16 @@ export class LeadFinderService {
     const where: Prisma.MapPlaceWhereInput = sel.ids?.length ? { companyId: RequestCtx.companyId(), id: { in: sel.ids } } : this.placeWhere(sel.filter!);
     if (status) where.statusCode = sel.filter?.status && status.includes(sel.filter.status) ? sel.filter.status : { in: status };
     return this.prisma.mapPlace.findMany({ where, take: 1000, orderBy: { createdAt: 'asc' } });
+  }
+
+  /** Reads the websites of the chosen places (again) for e-mail addresses, in the background */
+  async findEmails(body: unknown) {
+    RequestCtx.assert('crm.leadfinder.run');
+    const sel = selectionSchema.parse(body);
+    const rows = await this.selected(sel);
+    const queued = await this.emailFinder.enqueuePlaces(RequestCtx.companyId(), rows.map((r) => r.id));
+    await this.audit.record('Found Place', null, 'FIND_EMAILS', undefined, { places: rows.length, websites: queued });
+    return { places: rows.length, websites: queued };
   }
 
   async setStatus(body: unknown, statusCode: 'IGNORED' | 'NEW') {

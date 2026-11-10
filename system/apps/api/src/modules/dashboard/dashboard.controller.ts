@@ -3,12 +3,13 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MemoryCache } from '../../common/cache/memory-cache';
 import { RequestCtx } from '../../common/context/request-context';
+import { AccessService } from '../../common/access/access.service';
 
 const n = (v: unknown) => Number(v ?? 0);
 
 @Controller('dashboard')
 export class DashboardController {
-  constructor(private readonly prisma: PrismaService, private readonly cache: MemoryCache) {}
+  constructor(private readonly prisma: PrismaService, private readonly cache: MemoryCache, private readonly access: AccessService) {}
 
   /** KPI overview. Each block is only included when the user may see that module. Cached 30s. */
   @Get()
@@ -16,7 +17,20 @@ export class DashboardController {
     const u = RequestCtx.user();
     const companyId = u.companyId;
     const can = (p: string) => RequestCtx.can(p);
-    const key = `dash:${companyId}:${[can('sales.invoice.read'), can('purchase.invoice.read'), can('crm.lead.read'), can('hris.employee.read'), can('accounting.journal.read'), can('inventory.stock.read')].join('')}`;
+    // users limited to their branch / own records see the same rows as in the lists; company-wide figures
+    // (cash, employees, stock) only for roles with company-wide data access
+    const companyWide = u.isSuperAdmin || u.dataScope === 'ALL' || u.dataScope === 'COMPANY';
+    const docScope = this.access.scopeWhere({ branchField: 'branchId', ownerField: 'createdById' }) as Prisma.TradeDocumentWhereInput;
+    const leadScope = this.access.scopeWhere({ branchField: 'branchId', ownerField: 'ownerId' });
+    const scopeKey = companyWide ? 'all' : `${u.dataScope}:${(u.branchIds ?? []).join(',')}:${u.dataScope === 'OWN' ? u.id : ''}`;
+    const docSql = companyWide
+      ? Prisma.empty
+      : u.dataScope === 'OWN'
+        ? Prisma.sql`AND "createdById" = ${u.id}::uuid`
+        : u.branchIds
+          ? Prisma.sql`AND ("branchId" IS NULL OR "branchId" IN (${Prisma.join(u.branchIds.map((b) => Prisma.sql`${b}::uuid`))}))`
+          : Prisma.empty;
+    const key = `dash:${companyId}:${scopeKey}:${[can('sales.invoice.read'), can('purchase.invoice.read'), can('crm.lead.read'), can('hris.employee.read'), can('accounting.journal.read'), can('inventory.stock.read')].join('')}`;
     return this.cache.wrap(key, 30, async () => {
       const now = new Date();
       const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
@@ -25,7 +39,7 @@ export class DashboardController {
       const kpi: { key: string; label: string; value: number; type: 'money' | 'number'; hint?: string }[] = [];
 
       const sumDocs = (docType: string, where: Prisma.TradeDocumentWhereInput = {}) =>
-        this.prisma.tradeDocument.aggregate({ where: { companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, NOT: { status: 'DRAFT' }, ...where }, _sum: { grandTotal: true, paidAmount: true }, _count: { _all: true } });
+        this.prisma.tradeDocument.aggregate({ where: { ...docScope, companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, NOT: { status: 'DRAFT' }, ...where }, _sum: { grandTotal: true, paidAmount: true }, _count: { _all: true } });
 
       if (can('sales.invoice.read')) {
         const [month, open, overdue] = await Promise.all([
@@ -35,10 +49,10 @@ export class DashboardController {
         ]);
         kpi.push({ key: 'salesMonth', label: 'Sales this month', value: n(month._sum.grandTotal), type: 'money', hint: `${month._count._all} ${month._count._all === 1 ? 'invoice' : 'invoices'}` });
         kpi.push({ key: 'receivable', label: 'Receivables', value: n(open._sum.grandTotal) - n(open._sum.paidAmount), type: 'money', hint: `${overdue._count._all} overdue` });
-        const topCustomers = await this.prisma.tradeDocument.groupBy({ by: ['customerId'], where: { companyId, docType: 'SI', deletedAt: null, status: { notIn: ['CANCELLED', 'DRAFT'] }, date: { gte: yearAgo } }, _sum: { grandTotal: true }, orderBy: { _sum: { grandTotal: 'desc' } }, take: 5 });
+        const topCustomers = await this.prisma.tradeDocument.groupBy({ by: ['customerId'], where: { ...docScope, companyId, docType: 'SI', deletedAt: null, status: { notIn: ['CANCELLED', 'DRAFT'] }, date: { gte: yearAgo } }, _sum: { grandTotal: true }, orderBy: { _sum: { grandTotal: 'desc' } }, take: 5 });
         const names = new Map((await this.prisma.customer.findMany({ where: { id: { in: topCustomers.map((t) => t.customerId!).filter(Boolean) } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
         out.topCustomers = topCustomers.map((t) => ({ name: names.get(t.customerId ?? '') ?? '-', value: n(t._sum.grandTotal) }));
-        out.recentInvoices = await this.prisma.tradeDocument.findMany({ where: { companyId, docType: 'SI', deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 6, select: { id: true, number: true, date: true, grandTotal: true, paidAmount: true, status: true } });
+        out.recentInvoices = await this.prisma.tradeDocument.findMany({ where: { ...docScope, companyId, docType: 'SI', deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 6, select: { id: true, number: true, date: true, grandTotal: true, paidAmount: true, status: true } });
       }
       if (can('purchase.invoice.read')) {
         const [month, open] = await Promise.all([sumDocs('PI', { date: { gte: monthStart } }), sumDocs('PI', { status: { in: ['CONFIRMED', 'PARTIAL'] } })]);
@@ -52,7 +66,7 @@ export class DashboardController {
             SUM(CASE WHEN "docType" = 'PI' THEN "grandTotal" ELSE 0 END) AS purchases
           FROM trade_documents
           WHERE "companyId" = ${companyId}::uuid AND "deletedAt" IS NULL AND status NOT IN ('DRAFT','CANCELLED')
-            AND "docType" IN ('SI','PI') AND date >= ${yearAgo}
+            AND "docType" IN ('SI','PI') AND date >= ${yearAgo} ${docSql}
           GROUP BY 1 ORDER BY 1`;
         const map = new Map(rows.map((r) => [r.m, r]));
         out.monthly = Array.from({ length: 12 }, (_, i) => {
@@ -61,7 +75,7 @@ export class DashboardController {
           return { month: k, sales: can('sales.invoice.read') ? n(map.get(k)?.sales) : 0, purchases: can('purchase.invoice.read') ? n(map.get(k)?.purchases) : 0 };
         });
       }
-      if (can('accounting.journal.read')) {
+      if (can('accounting.journal.read') && companyWide) {
         const [cash] = await this.prisma.$queryRaw<{ v: Prisma.Decimal }[]>`
           SELECT COALESCE(SUM(l.debit - l.credit), 0) AS v FROM journal_lines l
           JOIN journal_entries e ON e.id = l."entryId" AND e.status = 'POSTED'
@@ -70,20 +84,20 @@ export class DashboardController {
       }
       if (can('crm.lead.read')) {
         const [leads, opp] = await Promise.all([
-          this.prisma.lead.count({ where: { companyId, deletedAt: null, customerId: null } }),
-          this.prisma.opportunity.aggregate({ where: { companyId, deletedAt: null }, _sum: { amount: true }, _count: { _all: true } }),
+          this.prisma.lead.count({ where: { ...leadScope, companyId, deletedAt: null, customerId: null } }),
+          this.prisma.opportunity.aggregate({ where: { ...leadScope, companyId, deletedAt: null }, _sum: { amount: true }, _count: { _all: true } }),
         ]);
         kpi.push({ key: 'openLeads', label: 'Open leads', value: leads, type: 'number' });
         kpi.push({ key: 'pipeline', label: 'Pipeline value', value: n(opp._sum.amount), type: 'money', hint: `${opp._count._all} opportunities` });
       }
-      if (can('hris.employee.read')) {
+      if (can('hris.employee.read') && companyWide) {
         const [emps, pending] = await Promise.all([
           this.prisma.employee.count({ where: { companyId, deletedAt: null, isActive: true } }),
           this.prisma.leaveRequest.count({ where: { companyId, deletedAt: null, status: 'PENDING' } }),
         ]);
         kpi.push({ key: 'employees', label: 'Employees', value: emps, type: 'number', hint: `${pending} leave requests pending` });
       }
-      if (can('inventory.stock.read')) {
+      if (can('inventory.stock.read') && companyWide) {
         const [low] = await this.prisma.$queryRaw<{ c: bigint }[]>`
           SELECT COUNT(*) AS c FROM (SELECT pr.id FROM products pr LEFT JOIN stock_balances b ON b."productId" = pr.id
           WHERE pr."companyId" = ${companyId}::uuid AND pr.type = 'STOCK' AND pr."isActive" AND pr."deletedAt" IS NULL

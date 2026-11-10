@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { assertSafeZip } from '../../common/export/zip-guard';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestCtx } from '../../common/context/request-context';
@@ -68,6 +69,7 @@ export class ResourceImportService {
     const ext = filename.toLowerCase().split('.').pop();
     if (ext === 'csv' || ext === 'txt') return parseCsv(buffer.toString('utf8').replace(/^﻿/, ''));
     if (ext !== 'xlsx') throw new BadRequestException('Upload an .xlsx or .csv file');
+    assertSafeZip(buffer, { maxUncompressed: 60 * 1024 * 1024 });
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer as any);
     const ws = wb.worksheets[0];

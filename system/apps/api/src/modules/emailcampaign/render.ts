@@ -149,6 +149,14 @@ export interface MergeData {
 
 export const MERGE_TAGS = ['name', 'company', 'email', 'city', 'sender', 'unsubscribe_url'] as const;
 
+/**
+ * Merge values can end up inside href / src (a template may write href="{{name}}"): after merging, every
+ * link and image URL is checked again and dropped unless it is http(s), mailto, tel or an anchor.
+ */
+export function scrubUrls(html: string): string {
+  return html.replace(/\s(href|src)="([^"]*)"/gi, (whole, attr: string, value: string) => (safeUrl(value, attr.toLowerCase() === 'src' ? 'src' : 'href') !== null && !MERGE_URL.test(value.trim()) ? whole : ''));
+}
+
 /** Replaces {{tag}} placeholders. HTML mode escapes every value. Unknown tags are removed. */
 export function merge(template: string, data: MergeData & { sender: string; unsubscribe_url: string }, html: boolean): string {
   return template.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_, raw: string) => {
@@ -190,7 +198,7 @@ export function renderEmail(input: {
   openPixelUrl?: string | null;
 }): Rendered {
   const vars = { ...input.data, sender: input.sender, unsubscribe_url: input.unsubscribeUrl };
-  const body = merge(sanitizeHtml(input.body), vars, true);
+  const body = scrubUrls(merge(sanitizeHtml(input.body), vars, true));
   const subject = merge(input.subject, vars, false).replace(/[\r\n]+/g, ' ').trim();
   const address = input.footerAddress.trim();
   const footerHtml =

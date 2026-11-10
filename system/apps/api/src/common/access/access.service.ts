@@ -29,7 +29,7 @@ export class AccessService {
     return this.cache.wrap(`user:${userId}`, 60, () =>
       this.prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, username: true, fullName: true, isActive: true, isSuperAdmin: true, deletedAt: true, defaultCompanyId: true, defaultBranchId: true, lockedUntil: true },
+        select: { id: true, username: true, fullName: true, isActive: true, isSuperAdmin: true, deletedAt: true, defaultCompanyId: true, defaultBranchId: true, lockedUntil: true, mustChangePassword: true, passwordChangedAt: true },
       }),
     );
   }
@@ -65,6 +65,21 @@ export class AccessService {
       select: { id: true, code: true, name: true },
       orderBy: { name: 'asc' },
     });
+  }
+
+  /** password state used by the auth guard (same short cache as the profile) */
+  async accountFlags(userId: string) {
+    const u = await this.loadUser(userId);
+    return { mustChangePassword: !!u?.mustChangePassword, passwordChangedAt: u?.passwordChangedAt ? new Date(u.passwordChangedAt) : null };
+  }
+
+  /** false once every refresh token of a login (session family) was revoked: logout, password change, reuse */
+  async sessionAlive(familyId: string) {
+    return this.cache.wrap(`sid:${familyId}`, 30, async () => !!(await this.prisma.session.findFirst({ where: { familyId, revokedAt: null, expiresAt: { gt: new Date() } }, select: { id: true } })));
+  }
+
+  invalidateSessions() {
+    this.cache.invalidate('sid:');
   }
 
   async profile(userId: string, companyId?: string | null, branchId?: string | null): Promise<AuthUser> {

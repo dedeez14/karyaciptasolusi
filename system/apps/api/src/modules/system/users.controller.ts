@@ -137,6 +137,7 @@ export class UsersController {
     });
     if (body.isActive === false) await this.prisma.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
     this.access.invalidateUser(id);
+    this.access.invalidateSessions();
     return this.present(user);
   }
 
@@ -150,6 +151,7 @@ export class UsersController {
     await this.prisma.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
     await this.audit.record('User', id, 'RESET_PASSWORD');
     this.access.invalidateUser(id);
+    this.access.invalidateSessions();
     return { success: true };
   }
 
@@ -160,6 +162,7 @@ export class UsersController {
     await this.prisma.user.update({ where: { id }, data: { failedLoginCount: 0, lockedUntil: null } });
     await this.audit.record('User', id, 'UNLOCK');
     this.access.invalidateUser(id);
+    this.access.invalidateSessions();
     return { success: true };
   }
 
@@ -174,6 +177,7 @@ export class UsersController {
       await this.audit.record('User', id, 'DELETE', before, undefined, tx);
     });
     this.access.invalidateUser(id);
+    this.access.invalidateSessions();
     return { success: true };
   }
 }

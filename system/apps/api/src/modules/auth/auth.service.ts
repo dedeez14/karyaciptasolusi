@@ -29,26 +29,30 @@ export class AuthService {
   async login(username: string, password: string): Promise<IssuedTokens & { userId: string }> {
     const ident = username.trim().toLowerCase();
     const user = await this.prisma.user.findFirst({ where: { deletedAt: null, OR: [{ username: ident }, { email: ident }] } });
-    const generic = new UnauthorizedException('Invalid username or password');
+    // one answer for unknown users, wrong passwords and locked accounts: nothing tells which usernames exist
+    const generic = new UnauthorizedException('Invalid username or password. After several failed attempts, sign-in is paused for a few minutes.');
 
     if (!user) {
       await this.crypto.hashPassword(password); // equalize timing to prevent user enumeration
       this.audit.activity('auth.login.failed', { username: ident, reason: 'unknown user' });
       throw generic;
     }
+    const ok = await this.crypto.verifyPassword(user.passwordHash, password); // always: same timing for every outcome
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       this.audit.activity('auth.login.locked', { username: ident }, { userId: user.id, username: user.username });
-      throw new UnauthorizedException('Account is temporarily locked. Please try again later.');
+      throw generic;
     }
-    const ok = await this.crypto.verifyPassword(user.passwordHash, password);
     if (!ok || !user.isActive) {
       const max = await this.settings.num('security.maxLoginAttempts', null, 5);
       const lockMinutes = await this.settings.num('security.lockoutMinutes', null, 15);
       const failed = user.failedLoginCount + 1;
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { failedLoginCount: failed >= max ? 0 : failed, lockedUntil: failed >= max ? new Date(Date.now() + lockMinutes * 60_000) : null },
-      });
+      // not awaited: the extra write would make existing usernames measurably slower than unknown ones
+      void this.prisma.user
+        .update({
+          where: { id: user.id },
+          data: { failedLoginCount: failed >= max ? 0 : failed, lockedUntil: failed >= max ? new Date(Date.now() + lockMinutes * 60_000) : null },
+        })
+        .catch(() => undefined);
       this.audit.activity('auth.login.failed', { username: ident, attempts: failed }, { userId: user.id, username: user.username });
       throw generic;
     }
@@ -65,7 +69,7 @@ export class AuthService {
   }
 
   private async issue(userId: string, companyId: string, familyId: string): Promise<IssuedTokens> {
-    const accessToken = await this.jwt.signAsync({ sub: userId, cid: companyId, typ: 'access' }, { expiresIn: env.JWT_ACCESS_TTL as any });
+    const accessToken = await this.jwt.signAsync({ sub: userId, cid: companyId, typ: 'access', sid: familyId }, { expiresIn: env.JWT_ACCESS_TTL as any });
     const refreshToken = this.crypto.randomToken(48);
     const refreshExpires = new Date(Date.now() + env.REFRESH_TTL_DAYS * 86_400_000);
     const ctx = RequestCtx.get();
@@ -82,6 +86,7 @@ export class AuthService {
     if (!session) throw new UnauthorizedException('Session expired');
     if (session.revokedAt) {
       await this.prisma.session.updateMany({ where: { familyId: session.familyId, revokedAt: null }, data: { revokedAt: new Date() } });
+      this.access.invalidateSessions();
       this.audit.activity('auth.refresh.reuse_detected', { familyId: session.familyId }, { userId: session.userId });
       throw new UnauthorizedException('Session expired');
     }
@@ -98,6 +103,7 @@ export class AuthService {
     const s = await this.prisma.session.findUnique({ where: { tokenHash: this.crypto.sha256(refreshToken) } });
     if (s) {
       await this.prisma.session.updateMany({ where: { familyId: s.familyId, revokedAt: null }, data: { revokedAt: new Date() } });
+      this.access.invalidateSessions();
       this.audit.activity('auth.logout', {}, { userId: s.userId });
     }
   }
@@ -120,6 +126,8 @@ export class AuthService {
     await this.validatePasswordPolicy(next);
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash: await this.crypto.hashPassword(next), passwordChangedAt: new Date(), mustChangePassword: false } });
     await this.prisma.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+    this.access.invalidateUser(userId);
+    this.access.invalidateSessions();
     await this.audit.record('User', userId, 'CHANGE_PASSWORD');
   }
 }

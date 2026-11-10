@@ -310,7 +310,7 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['system.sessions', 'system', 'Active Sessions', 'monitor-smartphone', '/system/sessions', 'system.session.read'],
 ];
 
-/** role code -> [name, dataScope, permission prefixes] ("*" = everything, "*.read" = every read/view) */
+/** role code -> [name, dataScope, permission prefixes] ("*" = everything, "*.read" = every read/view, "!prefix" = except) */
 export const ROLES: [string, string, 'ALL' | 'COMPANY' | 'BRANCH' | 'OWN', string[]][] = [
   ['ADMINISTRATOR', 'Administrator', 'COMPANY', ['*']],
   ['SALES', 'Sales & Marketing', 'BRANCH', ['task.timesheet.', 'approval.request.', 'support.ticket.', 'sales.subscription.read', 'hris.expense.read', 'hris.expense.create', 'hris.expense.update', 'task.task.', 'task.stage.read', 'crm.', 'sales.', 'master.customer', 'master.product.read', 'master.project', 'report.sales-', 'report.ar-aging', 'report.quotation-', 'report.lead-', 'report.sales-pipeline', 'report.campaign-', 'files.file.read', 'files.file.upload', 'files.file.download', 'inventory.stock.read', 'report.stock-balance']],
@@ -319,5 +319,6 @@ export const ROLES: [string, string, 'ALL' | 'COMPANY' | 'BRANCH' | 'OWN', strin
   ['FINANCE', 'Finance & Accounting', 'COMPANY', ['approval.request.', 'sales.subscription.', 'hris.expense.', 'support.ticket.read', 'task.task.', 'task.stage.read', 'accounting.', 'sales.invoice.', 'sales.payment.', 'purchase.invoice.', 'purchase.payment.', 'master.bank-account', 'master.tax', 'master.currency', 'master.exchange-rate', 'report.', 'files.', 'hris.payroll.read', 'hris.payroll.pay', 'task.timesheet.read', 'task.billing.create']],
   ['HR', 'Human Resources', 'COMPANY', ['task.timesheet.', 'approval.request.', 'task.task.', 'task.stage.read', 'hris.', 'report.employee-', 'report.attendance-', 'report.leave-', 'report.payroll-', 'files.file.']],
   ['EMPLOYEE', 'Employee (Self Service)', 'OWN', ['task.timesheet.read', 'hris.expense.read', 'hris.expense.create', 'hris.expense.update', 'hris.expense.delete', 'support.ticket.read', 'support.ticket.create', 'task.task.read', 'task.task.create', 'task.task.update', 'task.stage.read', 'hris.leave.read', 'hris.leave.create', 'hris.attendance.read', 'files.file.read', 'files.file.upload', 'files.file.download']],
-  ['VIEWER', 'Read Only', 'COMPANY', ['*.read', '*.view']],
+  // read only business data: no payroll, security, sessions, audit trail, settings or integrations (least privilege)
+  ['VIEWER', 'Read Only', 'COMPANY', ['*.read', '*.view', '!hris.payroll.', '!report.payroll-', '!hris.salary-component.', '!system.security.', '!system.session.', '!system.audit.', '!system.activity.', '!system.setting.', '!system.user.', '!system.role.', '!integration.']],
 ];

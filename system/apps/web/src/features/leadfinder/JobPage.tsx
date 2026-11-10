@@ -19,7 +19,7 @@ export default function JobPage() {
   const q = useQuery({
     queryKey: ['leadfinder', 'job', id],
     queryFn: () => api.get<ScrapeJob>(`/leadfinder/jobs/${id}`),
-    refetchInterval: (s) => (s.state.data && isActive(s.state.data.statusCode) ? 3000 : false),
+    refetchInterval: (s) => (s.state.data && (isActive(s.state.data.statusCode) || (s.state.data.emailLookup?.pending ?? 0) > 0) ? 3000 : false),
   });
   const j = q.data;
   if (q.isLoading)
@@ -90,6 +90,8 @@ export default function JobPage() {
         <StatCard label={active ? 'Running for' : 'Duration'} value={elapsed !== null ? duration(elapsed) : j.statusCode === 'QUEUED' ? 'Waiting' : '—'} hint={j.statusCode === 'QUEUED' && j.queuePosition ? `${j.queuePosition} search(es) ahead` : undefined} icon="timer" tone="violet" />
       </div>
 
+      {!active && j.emailLookup && (j.resultCount > 0 || j.emailLookup.withWebsite > 0) && <EmailLookup jobId={j.id} lookup={j.emailLookup} total={j.resultCount} extract={j.extractEmails} />}
+
       {j.error && (
         <div className={`mb-4 flex gap-3 rounded-2xl border p-4 text-sm ${j.statusCode === 'FAILED' ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
           <Icon name="triangle-alert" className="mt-0.5 h-5 w-5 shrink-0" />
@@ -147,7 +149,50 @@ export default function JobPage() {
         </Card>
       )}
 
-      <PlaceResults jobId={j.id} live={active} />
+      <PlaceResults jobId={j.id} live={active || (j.emailLookup?.pending ?? 0) > 0} />
+    </div>
+  );
+}
+
+/** Progress of reading the business websites for e-mail addresses (Google Maps itself has no e-mails) */
+function EmailLookup({ jobId, lookup, total, extract }: { jobId: string; lookup: NonNullable<ScrapeJob['emailLookup']>; total: number; extract: boolean }) {
+  const qc = useQueryClient();
+  const can = useSession((s) => s.can);
+  const [busy, setBusy] = useState(false);
+  const running = lookup.pending > 0;
+  const noWebsite = Math.max(0, total - lookup.withWebsite);
+  const again = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post<{ websites: number }>('/leadfinder/places/find-emails', { filter: { jobId } });
+      toast.success(r.websites ? `Reading ${r.websites} website${r.websites > 1 ? 's' : ''} for e-mail addresses` : 'None of these places has a website');
+      qc.invalidateQueries({ queryKey: ['leadfinder'] });
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className={`mb-4 flex flex-col gap-3 rounded-2xl border p-4 text-sm sm:flex-row sm:items-center ${running ? 'border-brand-200 bg-brand-50 text-brand-900' : 'border-line bg-white text-slate-700'}`}>
+      <Icon name={running ? 'loader-circle' : 'mail-search'} className={`h-5 w-5 shrink-0 ${running ? 'animate-spin text-brand-600' : 'text-slate-400'}`} />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">
+          {running
+            ? `Reading websites for e-mail addresses: ${lookup.checked} of ${lookup.withWebsite} done`
+            : `${lookup.withEmail} of ${total} places have an e-mail address`}
+        </p>
+        <p className="text-xs text-slate-500">
+          Google Maps does not list e-mail addresses: they are read from each business website (home and contact page).
+          {noWebsite > 0 && ` ${noWebsite} place${noWebsite > 1 ? 's have' : ' has'} no website, so no e-mail can be found for ${noWebsite > 1 ? 'them' : 'it'} - use the phone number instead.`}
+          {!extract && !lookup.checked && ' E-mail lookup was off for this search.'}
+        </p>
+      </div>
+      {can('crm.leadfinder.run') && lookup.withWebsite > 0 && !running && (
+        <Button size="sm" variant="outline" icon="mail-search" loading={busy} onClick={again}>
+          {lookup.checked ? 'Read websites again' : 'Find e-mails on websites'}
+        </Button>
+      )}
     </div>
   );
 }
