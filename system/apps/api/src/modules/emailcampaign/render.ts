@@ -153,7 +153,9 @@ export const MERGE_TAGS = ['name', 'company', 'email', 'city', 'sender', 'unsubs
 export function merge(template: string, data: MergeData & { sender: string; unsubscribe_url: string }, html: boolean): string {
   return template.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_, raw: string) => {
     const key = raw.toLowerCase() as keyof typeof data;
-    const fallback = key === 'name' ? 'there' : '';
+    // name and company stand in for each other (Google Maps places have no contact name, pasted lists no company);
+    // no English filler word, so Indonesian copy reads naturally
+    const fallback = key === 'name' ? String(data.company ?? '') : key === 'company' ? String(data.name ?? '') : '';
     const v = String(data[key] ?? '').trim() || fallback;
     return html ? escapeHtml(v) : v;
   });

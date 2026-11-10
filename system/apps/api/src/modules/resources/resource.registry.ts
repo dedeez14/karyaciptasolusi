@@ -451,7 +451,7 @@ export const RESOURCES: ResourceDef[] = [
       area('address', 'Address'),
       { name: 'mapsUrl', label: 'Google Maps link', type: 'url', max: 500, help: 'Filled in when the lead comes from the Google Maps lead finder' },
       lookup('sourceCode', 'Source', 'LEAD_SOURCE', { list: true, filter: true }),
-      lookup('statusCode', 'Status', 'LEAD_STATUS', { list: true, filter: true }),
+      lookup('statusCode', 'Status', 'LEAD_STATUS', { list: true, filter: true, default: 'NEW' }),
       lookup('industryCode', 'Industry', 'INDUSTRY', { filter: true }),
       rel('campaignId', 'Campaign', 'campaigns', { filter: true }),
       money('estimatedValue', 'Estimated Value', { list: true }),

@@ -145,7 +145,7 @@ export default function CampaignViewPage() {
         actions={
           <>
             {c.can.sendNow && (
-              <Button icon="send" loading={act.isPending && act.variables === 'send-now'} onClick={() => run('send-now', 'Send now?', c.automatic ? 'E-mails go out right away within the sending limits, and new matching contacts keep receiving it until you pause or cancel.' : `About ${c.totalCount || 'all'} recipients receive this e-mail within the sending limits.`)}>
+              <Button icon="send" loading={act.isPending && act.variables === 'send-now'} onClick={() => run('send-now', 'Send now?', c.automatic ? 'E-mails go out right away within the sending limits, and new matching contacts keep receiving it until you pause or cancel.' : c.totalCount ? `${c.totalCount === 1 ? '1 recipient receives' : `${c.totalCount} recipients receive`} this e-mail within the sending limits.` : 'Everyone in the audience receives this e-mail within the sending limits.')}>
                 Send now
               </Button>
             )}
