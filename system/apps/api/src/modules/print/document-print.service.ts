@@ -1,0 +1,161 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CryptoService } from '../../common/crypto/crypto.service';
+import { SettingsService } from '../../common/settings/settings.service';
+import { RequestCtx } from '../../common/context/request-context';
+import { D } from '../../common/utils/money';
+import { DocTypeDef } from '../documents/document.registry';
+import { PdfService, PrintableDocument } from './pdf.service';
+
+const fmtDate = (d: Date | string | null | undefined) =>
+  d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
+
+/** Maps business records to the single PrintableDocument layout (consistent format for all documents). */
+@Injectable()
+export class DocumentPrintService {
+  constructor(private readonly prisma: PrismaService, private readonly crypto: CryptoService, private readonly settings: SettingsService, private readonly pdf: PdfService) {}
+
+  private async party(kind: 'customer' | 'supplier', id: string | null) {
+    if (!id) return null;
+    const p: any = kind === 'customer' ? await this.prisma.customer.findUnique({ where: { id } }) : await this.prisma.supplier.findUnique({ where: { id } });
+    if (!p) return null;
+    const tax = this.crypto.decrypt(p.taxId);
+    return {
+      name: p.name,
+      lines: [p.contactPerson && `Attn: ${p.contactPerson}`, p.address, p.city, [p.phone, p.email].filter(Boolean).join('  |  '), tax && `Tax ID: ${tax}`].filter(Boolean) as string[],
+    };
+  }
+
+  async trade(def: DocTypeDef, doc: any): Promise<PrintableDocument> {
+    const companyId = RequestCtx.companyId();
+    const locale = await this.settings.str('general.locale', companyId, 'en-US');
+    const m = (v: unknown) => this.pdf.money(v, locale);
+    const q = (v: unknown) => new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(Number(v));
+    const company = await this.prisma.company.findUniqueOrThrow({ where: { id: companyId }, select: { currencyCode: true } });
+
+    const parties: PrintableDocument['parties'] = [];
+    if (def.partner) {
+      const p = await this.party(def.partner, doc.customerId ?? doc.supplierId);
+      if (p) parties.push({ label: def.partyLabel ?? (def.partner === 'customer' ? 'Customer' : 'Supplier'), ...p });
+    }
+    if (def.warehouse === 'transfer') {
+      parties.push({ label: 'From Warehouse', name: doc.warehouseName ?? '-', lines: [] });
+      parties.push({ label: 'To Warehouse', name: doc.toWarehouseName ?? '-', lines: [] });
+    } else if (doc.warehouseName && !def.priced) parties.push({ label: 'Warehouse', name: doc.warehouseName, lines: [] });
+
+    const [term, owner, project] = await Promise.all([
+      doc.paymentTermId ? this.prisma.paymentTerm.findUnique({ where: { id: doc.paymentTermId }, select: { name: true } }) : null,
+      doc.ownerId ? this.prisma.user.findUnique({ where: { id: doc.ownerId }, select: { fullName: true } }) : null,
+      doc.projectId ? this.prisma.project.findUnique({ where: { id: doc.projectId }, select: { name: true } }) : null,
+    ]);
+
+    const meta = [
+      { label: 'Date', value: fmtDate(doc.date) },
+      ...(def.dueDate ? [{ label: def.code === 'SQ' ? 'Valid Until' : 'Due Date', value: fmtDate(doc.dueDate) }] : []),
+      { label: 'Reference', value: doc.reference ?? '' },
+      { label: 'Source', value: doc.source?.number ?? '' },
+      { label: 'Payment Term', value: term?.name ?? '' },
+      { label: 'Project', value: project?.name ?? '' },
+      { label: def.module === 'sales' ? 'Sales Person' : 'Requested By', value: owner?.fullName ?? '' },
+      ...(doc.currencyCode !== company.currencyCode ? [{ label: 'Currency', value: `${doc.currencyCode} @ ${doc.exchangeRate}` }] : []),
+    ];
+
+    const hasDisc = doc.lines.some((l: any) => Number(l.discountPct) > 0);
+    const hasTax = doc.lines.some((l: any) => Number(l.lineTax) > 0);
+    const columns: PrintableDocument['columns'] = def.priced
+      ? [
+          { key: 'no', label: '#', width: 0.4, align: 'center' },
+          { key: 'item', label: 'Description', width: 4 },
+          { key: 'qty', label: 'Qty', width: 0.9, align: 'right' },
+          { key: 'uom', label: 'Unit', width: 0.8 },
+          { key: 'price', label: 'Unit Price', width: 1.5, align: 'right' },
+          ...(hasDisc ? [{ key: 'disc', label: 'Disc %', width: 0.8, align: 'right' as const }] : []),
+          ...(hasTax ? [{ key: 'tax', label: 'Tax', width: 0.7, align: 'center' as const }] : []),
+          { key: 'amount', label: 'Amount', width: 1.7, align: 'right' },
+        ]
+      : [
+          { key: 'no', label: '#', width: 0.4, align: 'center' },
+          { key: 'code', label: 'Code', width: 1.3 },
+          { key: 'item', label: 'Description', width: 4 },
+          { key: 'qty', label: 'Qty', width: 1, align: 'right' },
+          { key: 'uom', label: 'Unit', width: 0.8 },
+        ];
+    const rows = doc.lines.map((l: any, i: number) => ({
+      no: String(i + 1),
+      code: l.product?.code ?? '',
+      item: [l.product && def.priced ? `${l.product.name}` : null, l.description && l.description !== l.product?.name ? l.description : null].filter(Boolean).join('\n') || l.description || '',
+      qty: q(l.qty),
+      uom: l.uomCode ?? '',
+      price: m(l.unitPrice),
+      disc: Number(l.discountPct) ? `${Number(l.discountPct)}` : '',
+      tax: Number(l.taxRate) ? `${Number(l.taxRate)}%` : '',
+      amount: m(D(l.lineSubtotal).minus(D(l.lineDiscount))),
+    }));
+
+    const totals: PrintableDocument['totals'] = [];
+    if (def.priced) {
+      totals.push({ label: 'Subtotal', value: m(doc.subtotal) });
+      if (D(doc.discountTotal).gt(0)) totals.push({ label: 'Discount', value: `-${m(doc.discountTotal)}` });
+      if (D(doc.taxTotal).gt(0)) totals.push({ label: 'Tax', value: m(doc.taxTotal) });
+      totals.push({ label: `Total (${doc.currencyCode})`, value: m(doc.grandTotal), bold: !def.payable || D(doc.paidAmount).isZero() });
+      if (def.payable && D(doc.paidAmount).gt(0)) {
+        totals.push({ label: 'Paid', value: `-${m(doc.paidAmount)}` });
+        totals.push({ label: 'Balance Due', value: m(D(doc.grandTotal).minus(D(doc.paidAmount))), bold: true });
+      }
+    }
+    return {
+      title: def.printTitle,
+      number: doc.number,
+      status: doc.status === 'DRAFT' ? 'Draft' : doc.status === 'CANCELLED' ? 'Cancelled' : def.payable && doc.status === 'COMPLETED' ? 'Paid' : undefined,
+      parties,
+      meta,
+      columns,
+      rows,
+      totals,
+      amount: def.priced ? { value: Number(doc.grandTotal), currency: doc.currencyCode } : undefined,
+      notes: doc.notes,
+      terms: doc.terms,
+      paymentInfo: def.code === 'SI' ? await this.settings.str('document.paymentInfo', companyId, '') : null,
+      signatures: def.signatures,
+    };
+  }
+
+  async payment(p: any): Promise<PrintableDocument> {
+    const companyId = RequestCtx.companyId();
+    const locale = await this.settings.str('general.locale', companyId, 'en-US');
+    const m = (v: unknown) => this.pdf.money(v, locale);
+    const isIn = p.direction === 'IN';
+    const party = await this.party(isIn ? 'customer' : 'supplier', isIn ? p.customerId : p.supplierId);
+    const method = p.paymentMethodId ? await this.prisma.paymentMethod.findUnique({ where: { id: p.paymentMethodId }, select: { name: true } }) : null;
+    const company = await this.prisma.company.findUniqueOrThrow({ where: { id: companyId }, select: { currencyCode: true } });
+    const allocated = p.allocations.reduce((a: number, x: any) => a + Number(x.amount), 0);
+    return {
+      title: isIn ? 'Official Receipt' : 'Payment Voucher',
+      number: p.number,
+      status: p.status === 'CANCELLED' ? 'Cancelled' : undefined,
+      parties: party ? [{ label: isIn ? 'Received From' : 'Paid To', ...party }] : [],
+      meta: [
+        { label: 'Date', value: fmtDate(p.date) },
+        { label: 'Method', value: method?.name ?? '' },
+        { label: isIn ? 'Deposited To' : 'Paid From', value: p.bankAccountName ?? '' },
+        { label: 'Reference', value: p.reference ?? '' },
+      ],
+      columns: [
+        { key: 'no', label: '#', width: 0.4, align: 'center' },
+        { key: 'doc', label: 'Invoice', width: 2.5 },
+        { key: 'date', label: 'Invoice Date', width: 1.5 },
+        { key: 'total', label: 'Invoice Total', width: 1.6, align: 'right' },
+        { key: 'amount', label: 'Amount Applied', width: 1.6, align: 'right' },
+      ],
+      rows: p.allocations.map((a: any, i: number) => ({ no: String(i + 1), doc: a.document.number, date: fmtDate(a.document.date), total: m(a.document.grandTotal), amount: m(a.amount) })),
+      totals: [
+        { label: 'Applied to Invoices', value: m(allocated) },
+        ...(Number(p.amount) - allocated > 0 ? [{ label: 'Unapplied (Advance)', value: m(Number(p.amount) - allocated) }] : []),
+        { label: `Total (${company.currencyCode})`, value: m(p.amount), bold: true },
+      ],
+      amount: { value: Number(p.amount), currency: company.currencyCode },
+      notes: p.notes,
+      signatures: isIn ? ['Received by'] : ['Prepared by', 'Approved by', 'Received by'],
+    };
+  }
+}
