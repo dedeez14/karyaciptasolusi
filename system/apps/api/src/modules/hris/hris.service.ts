@@ -221,6 +221,8 @@ export class HrisService {
         amount: { value: Number(slip.netPay), currency: 'IDR' },
         notes: 'This payslip is confidential.',
         signatures: ['HR Department', 'Employee'],
+        // salary is never put into the (readable) signed payload
+        verify: { k: 'PAYSLIP', id: slip.id, n: `${run.number}/${emp.code}`, d: run.payDate.toISOString().slice(0, 10), a: null, cur: null },
       },
     };
   }

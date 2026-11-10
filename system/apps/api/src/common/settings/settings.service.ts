@@ -55,6 +55,7 @@ export class SettingsService {
   async list(companyId: string) {
     const map = await this.all(companyId);
     return [...map.values()]
+      .filter((s) => s.group !== 'internal')
       .sort((a, b) => a.group.localeCompare(b.group) || a.key.localeCompare(b.key))
       .map((s) => ({
         key: s.key,

@@ -334,6 +334,9 @@ model AuditLog {
   userAgent String?  @db.VarChar(255)
   requestId String?  @db.VarChar(64)
   createdAt DateTime @default(now())
+  /// tamper-evident chain: HMAC(prevHash | canonical entry)
+  prevHash  String?  @db.VarChar(64)
+  hash      String?  @db.VarChar(64)
 
   @@index([companyId, createdAt])
   @@index([entity, entityId])

@@ -48,6 +48,11 @@ import { NotificationController } from './modules/notifications/notification.con
 import { NotificationService } from './modules/notifications/notification.service';
 import { TaskController } from './modules/tasks/task.controller';
 import { TaskService } from './modules/tasks/task.service';
+import { SecurityController } from './modules/security/security.controller';
+import { SigningService } from './modules/security/signing.service';
+import { TransportService } from './modules/security/transport.service';
+import { TransportInterceptor } from './modules/security/transport.interceptor';
+import { WatermarkService } from './modules/security/watermark.service';
 
 const webDist = join(__dirname, '..', '..', 'web', 'dist');
 
@@ -98,11 +103,13 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     CashController,
     NotificationController,
     TaskController,
+    SecurityController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: TransportInterceptor },
     { provide: APP_INTERCEPTOR, useClass: ActivityInterceptor },
     AuthService,
     MenuService,
@@ -125,6 +132,9 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     CashService,
     NotificationService,
     TaskService,
+    SigningService,
+    TransportService,
+    WatermarkService,
   ],
 })
 export class AppModule {}

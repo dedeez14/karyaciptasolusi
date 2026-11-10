@@ -4,7 +4,9 @@
  * - Refresh token is an httpOnly SameSite=Strict cookie handled by the browser
  * - Automatic, de-duplicated token refresh on 401
  * - Company / branch context headers on every request
+ * - Encrypted & signed request/response bodies (see ./transport)
  */
+import { transport } from './transport';
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -46,10 +48,13 @@ function headers(extra?: HeadersInit, json = true): Headers {
 
 export async function refreshToken(): Promise<boolean> {
   if (!refreshing) {
-    refreshing = fetch(`${BASE}/auth/refresh`, { method: 'POST', credentials: 'same-origin', headers: headers(undefined, false) })
-      .then(async (r) => {
+    const url = `${BASE}/auth/refresh`;
+    refreshing = transport
+      .seal('POST', url)
+      .then((sealed) => fetch(url, { method: 'POST', credentials: 'same-origin', headers: headers(sealed.headers, false) }).then(async (r) => ({ r, nonce: sealed.nonce })))
+      .then(async ({ r, nonce }) => {
         if (!r.ok) return false;
-        accessToken = (await r.json()).accessToken;
+        accessToken = (await transport.open<{ accessToken: string }>(await r.json(), nonce)).accessToken;
         return true;
       })
       .catch(() => false)
@@ -58,20 +63,37 @@ export async function refreshToken(): Promise<boolean> {
   return refreshing;
 }
 
-async function raw(path: string, init: RequestInit & { json?: boolean } = {}, retry = true): Promise<Response> {
+type SealedResponse = Response & { nonce?: string };
+
+async function raw(path: string, init: RequestInit & { json?: boolean } = {}, retry = true, resealed = false): Promise<SealedResponse> {
   const isForm = init.body instanceof FormData;
-  const res = await fetch(BASE + path, { ...init, credentials: 'same-origin', headers: headers(init.headers, !isForm && init.json !== false) });
+  const url = BASE + path;
+  const method = (init.method ?? 'GET').toUpperCase();
+  // a fresh nonce / signature for every attempt (retries are never replays)
+  const sealed = await transport.seal(method, url, isForm || init.body === undefined ? undefined : String(init.body));
+  const h = headers(init.headers, !isForm && init.json !== false);
+  for (const [k, v] of Object.entries(sealed.headers)) h.set(k, v);
+  const res = (await fetch(url, { ...init, body: isForm ? init.body : sealed.body ?? init.body, credentials: 'same-origin', headers: h })) as SealedResponse;
+  res.nonce = sealed.nonce;
   if (res.status === 401 && retry && !path.startsWith('/auth/login')) {
-    if (await refreshToken()) return raw(path, init, false);
+    if (await refreshToken()) return raw(path, init, false, resealed);
     accessToken = null;
     onAuthLost?.();
+  }
+  if (res.status === 400 && !resealed && res.headers.get('content-type')?.includes('json')) {
+    // the server key may have changed (restart / rotation): renegotiate once
+    const probe = await res.clone().json().catch(() => null);
+    if (probe && !probe.__enc && /signature|client key|transport/i.test(String(probe.message ?? ''))) {
+      transport.reset();
+      return raw(path, init, retry, true);
+    }
   }
   return res;
 }
 
-async function parse<T>(res: Response): Promise<T> {
+async function parse<T>(res: SealedResponse): Promise<T> {
   const ct = res.headers.get('content-type') ?? '';
-  const body = ct.includes('application/json') ? await res.json() : null;
+  const body = ct.includes('application/json') ? await transport.open<any>(await res.json(), res.nonce) : null;
   if (!res.ok) throw new ApiError(res.status, body?.message ?? res.statusText ?? 'Request failed', body?.errors, body?.requestId);
   return body as T;
 }
@@ -131,6 +153,8 @@ export function subscribe<T = unknown>(path: string, handlers: { onEvent: (e: St
       try {
         const h = headers(undefined, false);
         h.set('Accept', 'text/event-stream');
+        const sealed = await transport.seal('GET', BASE + path);
+        for (const [k, v] of Object.entries(sealed.headers)) h.set(k, v);
         const res = await fetch(BASE + path, { headers: h, credentials: 'same-origin', signal: controller.signal, cache: 'no-store' });
         if (res.status === 401) {
           if (!(await refreshToken())) {
@@ -162,7 +186,7 @@ export function subscribe<T = unknown>(path: string, handlers: { onEvent: (e: St
             }
             if (!data.length) continue;
             try {
-              handlers.onEvent({ event, data: JSON.parse(data.join('\n')) as T });
+              handlers.onEvent({ event, data: await transport.open<T>(JSON.parse(data.join('\n')), sealed.nonce) });
             } catch {
               /* ignore malformed event */
             }

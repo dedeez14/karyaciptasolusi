@@ -38,6 +38,8 @@ const AuditPage = lazy(() => import('@/features/system/AuditPage'));
 const ActivityPage = lazy(() => import('@/features/system/ActivityPage'));
 const SessionsPage = lazy(() => import('@/features/system/SessionsPage'));
 const NotFoundPage = lazy(() => import('@/features/auth/NotFoundPage'));
+const VerifyPage = lazy(() => import('@/features/auth/VerifyPage'));
+const SecurityCenterPage = lazy(() => import('@/features/system/SecurityCenterPage'));
 
 function FullScreenSpinner() {
   return (
@@ -67,6 +69,7 @@ export default function App() {
       <Suspense fallback={<FullScreenSpinner />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/verify" element={<VerifyPage />} />
           <Route element={<Protected />}>
             <Route index element={<DashboardPage />} />
             <Route path="profile" element={<ProfilePage />} />
@@ -98,6 +101,7 @@ export default function App() {
             <Route path="system/settings" element={<SettingsPage />} />
             <Route path="system/hostinger" element={<HostingerPage />} />
             <Route path="system/audit" element={<AuditPage />} />
+            <Route path="system/security" element={<SecurityCenterPage />} />
             <Route path="system/activity" element={<ActivityPage />} />
             <Route path="system/sessions" element={<SessionsPage />} />
             <Route path="*" element={<NotFoundPage />} />

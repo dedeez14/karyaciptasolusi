@@ -54,7 +54,10 @@ export class AuthService {
     }
 
     const ctx = RequestCtx.get();
-    await this.prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(), lastLoginIp: ctx?.ip } });
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(), lastLoginIp: ctx?.ip, ...(this.crypto.needsRehash(user.passwordHash) ? { passwordHash: await this.crypto.hashPassword(password) } : {}) },
+    });
     this.access.invalidateUser(user.id);
     const profile = await this.access.profile(user.id); // validates the account has company access
     this.audit.activity('auth.login', { companyId: profile.companyId }, { userId: user.id, username: user.username, companyId: profile.companyId });

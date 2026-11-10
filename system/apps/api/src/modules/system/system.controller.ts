@@ -183,6 +183,7 @@ export class SettingsController {
   async save(@Body(new ZodPipe(z.object({ values: z.array(z.object({ key: z.string().max(100), value: z.string().max(10000).nullable(), scope: z.enum(['company', 'global']).default('company') })).max(200) }))) body: { values: { key: string; value: string | null; scope: 'company' | 'global' }[] }) {
     const u = RequestCtx.user();
     for (const v of body.values) {
+      if (v.key.startsWith('security.') && v.key.endsWith('Key')) throw new BadRequestException('Cryptographic keys cannot be changed here');
       if (v.scope === 'global' && !u.isSuperAdmin) throw new BadRequestException('Only a super administrator can change global settings');
       await this.settings.set(v.key, v.value, v.scope === 'global' ? null : u.companyId, u.id);
     }
@@ -221,6 +222,15 @@ export class LogsController {
     if (q.search) where.OR = [{ entityId: q.search }, { username: { contains: q.search, mode: 'insensitive' } }, { entity: { contains: q.search, mode: 'insensitive' } }];
     const [rows, total] = await Promise.all([this.prisma.auditLog.findMany({ where, orderBy: { id: 'desc' }, skip: (q.page - 1) * q.pageSize, take: q.pageSize }), this.prisma.auditLog.count({ where })]);
     return paged(rows, total, q);
+  }
+
+  /** Tamper-evidence check of the audit trail hash chain */
+  @Get('audit-logs/verify')
+  @Permission('system.audit.read')
+  async verifyAudit() {
+    const r = await this.audit.verifyChain(RequestCtx.companyId());
+    this.audit.activity('audit.verify', { valid: r.valid, checked: r.checked });
+    return r;
   }
 
   @Get('audit-logs/entities')

@@ -22,7 +22,7 @@ export class DocumentPrintService {
     const tax = this.crypto.decrypt(p.taxId);
     return {
       name: p.name,
-      lines: [p.contactPerson && `Attn: ${p.contactPerson}`, p.address, p.city, [p.phone, p.email].filter(Boolean).join('  |  '), tax && `Tax ID: ${tax}`].filter(Boolean) as string[],
+      lines: [p.contactPerson && `Attn: ${p.contactPerson}`, this.crypto.decrypt(p.address), p.city, [p.phone, p.email].filter(Boolean).join('  |  '), tax && `Tax ID: ${tax}`].filter(Boolean) as string[],
     };
   }
 
@@ -117,6 +117,7 @@ export class DocumentPrintService {
       terms: doc.terms,
       paymentInfo: def.code === 'SI' ? await this.settings.str('document.paymentInfo', companyId, '') : null,
       signatures: def.signatures,
+      verify: { k: def.code, id: doc.id, n: doc.number, d: new Date(doc.date).toISOString().slice(0, 10), a: def.priced ? Number(doc.grandTotal) : null, cur: def.priced ? doc.currencyCode : null },
     };
   }
 
@@ -156,6 +157,7 @@ export class DocumentPrintService {
       amount: { value: Number(p.amount), currency: company.currencyCode },
       notes: p.notes,
       signatures: isIn ? ['Received by'] : ['Prepared by', 'Approved by', 'Received by'],
+      verify: { k: isIn ? 'PAY_IN' : 'PAY_OUT', id: p.id, n: p.number, d: new Date(p.date).toISOString().slice(0, 10), a: Number(p.amount), cur: company.currencyCode },
     };
   }
 
@@ -193,6 +195,7 @@ export class DocumentPrintService {
       totals: [{ label: `Total (${company.currencyCode})`, value: m(t.amount), bold: true }],
       amount: { value: Number(t.amount), currency: company.currencyCode },
       signatures: ['Prepared by', 'Approved by', t.type === 'RECEIPT' ? 'Paid by' : 'Received by'],
+      verify: { k: 'CASH', id: t.id, n: t.number, d: new Date(t.date).toISOString().slice(0, 10), a: Number(t.amount), cur: company.currencyCode },
     };
   }
 }

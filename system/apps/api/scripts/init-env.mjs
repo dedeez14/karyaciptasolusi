@@ -20,6 +20,7 @@ let env = readFileSync(join(root, '.env.example'), 'utf8')
   .replace(/^JWT_ACCESS_SECRET=.*$/m, `JWT_ACCESS_SECRET=${rnd(48)}`)
   .replace(/^ENCRYPTION_KEY=.*$/m, `ENCRYPTION_KEY=${rnd()}`)
   .replace(/^HMAC_KEY=.*$/m, `HMAC_KEY=${rnd()}`)
+  .replace(/^PASSWORD_PEPPER=.*$/m, `PASSWORD_PEPPER=${rnd()}`)
   .replace(/kcs_app:CHANGE_ME/, `kcs_app:${appPw}`)
   .replace(/kcs_owner:CHANGE_ME/, `kcs_owner:${ownerPw}`)
   .replace(/^SEED_ADMIN_PASSWORD=.*$/m, `SEED_ADMIN_PASSWORD=${adminPw}`);

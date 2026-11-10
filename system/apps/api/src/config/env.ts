@@ -18,6 +18,7 @@ const schema = z.object({
   JWT_ACCESS_SECRET: base64Key(32),
   ENCRYPTION_KEY: base64Key(32),
   HMAC_KEY: base64Key(32),
+  PASSWORD_PEPPER: base64Key(32),
   JWT_ACCESS_TTL: z.string().default('15m'),
   REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
   STORAGE_DIR: z.string().default('./storage'),

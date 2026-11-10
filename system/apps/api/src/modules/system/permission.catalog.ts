@@ -73,6 +73,7 @@ export function permissionCatalog(): PermissionDef[] {
     ['task.task.update', 'Edit, move, comment and log time on tasks'],
     ['task.task.delete', 'Delete tasks'],
     ['task.task.manage', 'Manage every task of the company (not only own)'],
+    ['system.security.read', 'Open the Security Center (keys, integrity checks, watermark detection)'],
     ['integration.hostinger.read', 'View Hostinger services'],
     ['integration.hostinger.manage', 'Control Hostinger services (start/stop VPS)'],
   ];

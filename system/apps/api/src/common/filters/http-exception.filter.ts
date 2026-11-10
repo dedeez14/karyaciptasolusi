@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
 import { ZodError } from 'zod';
 import { RequestCtx } from '../context/request-context';
+import { createCipheriv, randomBytes } from 'node:crypto';
 
 /** Uniform error envelope. Never leaks stack traces or SQL details to clients. */
 @Catch()
@@ -58,6 +59,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.error(`[${requestId}] ${(exception as Error)?.stack ?? exception}`);
     }
 
-    res.status(status).json({ success: false, statusCode: status, message, errors, requestId });
+    const body = { success: false, statusCode: status, message, errors, requestId };
+    const t = (RequestCtx.get() as any)?.transport as { key: Buffer; nonce: string } | undefined;
+    if (t && !res.headersSent) {
+      const iv = randomBytes(12);
+      const c = createCipheriv('aes-256-gcm', t.key, iv);
+      c.setAAD(Buffer.from(`RES\n${t.nonce}`));
+      const ct = Buffer.concat([c.update(JSON.stringify(body)), c.final(), c.getAuthTag()]);
+      res.status(status).json({ __enc: 1, iv: iv.toString('base64url'), ct: ct.toString('base64url') });
+      return;
+    }
+    res.status(status).json(body);
   }
 }

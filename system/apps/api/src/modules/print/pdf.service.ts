@@ -5,6 +5,8 @@ import { SettingsService } from '../../common/settings/settings.service';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { StorageService } from '../files/storage.service';
 import { amountInWords } from './amount-in-words';
+import QRCode from 'qrcode';
+import { SignedFacts, SigningService } from '../security/signing.service';
 
 export interface PrintColumn {
   key: string;
@@ -30,6 +32,8 @@ export interface PrintableDocument {
   paymentInfo?: string | null;
   signatures?: string[];
   landscape?: boolean;
+  /** facts to digitally sign; adds a verification QR code */
+  verify?: SignedFacts;
 }
 
 interface Brand {
@@ -54,6 +58,7 @@ export class PdfService {
     private readonly settings: SettingsService,
     private readonly crypto: CryptoService,
     private readonly storage: StorageService,
+    private readonly signing: SigningService,
   ) {}
 
   async brand(companyId: string): Promise<Brand> {
@@ -87,12 +92,14 @@ export class PdfService {
 
   async render(companyId: string, d: PrintableDocument): Promise<Buffer> {
     const b = await this.brand(companyId);
+    const token = d.verify ? await this.signing.sign(companyId, d.verify) : null;
+    const verifyUrl = token ? `${(await this.settings.str('general.publicUrl', companyId, 'http://localhost:3000')).replace(/\/$/, '')}/verify?t=${token}` : null;
     const doc = new PDFDocument({
       size: b.paper,
       layout: d.landscape ? 'landscape' : 'portrait',
       margins: { top: 40, bottom: 50, left: 40, right: 40 },
       bufferPages: true,
-      info: { Title: `${d.title}${d.number ? ' ' + d.number : ''}`, Author: b.name, Creator: 'KCS ERP' },
+      info: { Title: `${d.title}${d.number ? ' ' + d.number : ''}`, Author: b.name, Creator: 'KCS ERP', ...(token ? { Subject: 'Digitally signed (Ed25519)', Keywords: `kcs-signature:${token}` } : {}) },
     });
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
@@ -194,6 +201,22 @@ export class PdfService {
         doc.font('Helvetica').fontSize(8.5).fillColor(GREY).text(s, x, y, { width: sw - 20, align: 'center' });
         doc.moveTo(x + 15, y + 60).lineTo(x + sw - 35, y + 60).lineWidth(0.5).strokeColor('#9ca3af').stroke();
       });
+      y += 66; // keep following blocks (verification QR) below the signature lines
+    }
+
+    // ---------- Digital signature: QR code to verify authenticity
+    if (verifyUrl) {
+      const qr = await QRCode.toBuffer(verifyUrl, { margin: 1, width: 220, errorCorrectionLevel: 'M', color: { dark: '#111827', light: '#ffffff' } });
+      const size = 68;
+      y = this.ensure(doc, y + 18, size + 10);
+      doc.roundedRect(L, y - 4, W, size + 8, 6).lineWidth(0.5).strokeColor(LINE).stroke();
+      doc.image(qr, L + 4, y, { width: size, height: size });
+      const tx = L + size + 16;
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#111827').text('Digitally signed document', tx, y + 6, { width: W - size - 24 });
+      doc.font('Helvetica').fontSize(7.5).fillColor(GREY).text('Scan the QR code to verify that this document was issued by us and has not been altered.', tx, doc.y + 2, { width: W - size - 24 });
+      const fp = (await this.signing.publicKey(companyId)).fingerprint;
+      doc.font('Courier').fontSize(6.5).fillColor(GREY).text(`Ed25519 key ${fp}`, tx, doc.y + 3, { width: W - size - 24 });
+      y += size + 10;
     }
 
     // ---------- Footer on every page
