@@ -279,6 +279,7 @@ export class ResourceService {
     const data: Row = update.parse(body);
     for (const k of Object.keys(data)) if (data[k] === undefined) delete data[k];
     await this.prepare(def, data);
+    await this.hooks.prepareUpdate(def, before, data);
     if (has(def.model, 'updatedById')) data.updatedById = u.id;
     const idField = def.idField ?? 'id';
     const updated = await this.prisma.$transaction(async (tx) => {

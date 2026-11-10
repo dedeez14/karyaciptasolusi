@@ -47,6 +47,16 @@ export class JournalService {
     return m.accountId;
   }
 
+  /**
+   * "Current Year Earnings" is maintained by the year-end closing only. Manual journals and cash/bank entries
+   * must not post to it (a mistaken pick would silently move profit into equity).
+   */
+  async assertNotClosingAccount(companyId: string, accountIds: (string | null | undefined)[]) {
+    const m = await this.prisma.accountMapping.findUnique({ where: { companyId_key: { companyId, key: 'CURRENT_EARNINGS' } } });
+    if (m?.accountId && accountIds.includes(m.accountId))
+      throw new BadRequestException({ message: 'Validation failed', errors: { accountId: '"Current Year Earnings" is updated by the year-end closing only - choose another account' } });
+  }
+
   async assertOpenPeriod(tx: Tx, companyId: string, date: Date) {
     const closed = await tx.fiscalPeriod.findFirst({ where: { companyId, isClosed: true, deletedAt: null, startDate: { lte: date }, endDate: { gte: date } } });
     if (closed) throw new ConflictException(`Fiscal period ${closed.name} is closed`);
@@ -159,6 +169,7 @@ export class JournalService {
     const u = RequestCtx.user();
     const accounts = await this.prisma.account.findMany({ where: { id: { in: body.lines.map((l) => l.accountId) }, companyId: u.companyId, isGroup: false, deletedAt: null } });
     if (accounts.length !== new Set(body.lines.map((l) => l.accountId)).size) throw new BadRequestException('Invalid or header account selected');
+    await this.assertNotClosingAccount(u.companyId, body.lines.map((l) => l.accountId));
     const totalDebit = round(sum(body.lines.map((l) => D(l.debit))));
     const totalCredit = round(sum(body.lines.map((l) => D(l.credit))));
     if (!totalDebit.equals(totalCredit) || totalDebit.isZero()) throw new BadRequestException('Journal must be balanced and non-zero');

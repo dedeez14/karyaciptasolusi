@@ -80,7 +80,7 @@ export function DepartmentTreeView({ edit, meta, params }: ResourceViewProps) {
               )}
             </div>
             <span className="text-xs whitespace-nowrap text-slate-500">
-              <b className="text-slate-800">{n.headcount}</b> people{n.children.length ? ` · ${n.total} incl. sub-units` : ''}
+              <b className="text-slate-800">{n.headcount}</b> {n.headcount === 1 ? 'person' : 'people'}{n.children.length ? ` · ${n.total} incl. sub-units` : ''}
             </span>
           </div>
         )}

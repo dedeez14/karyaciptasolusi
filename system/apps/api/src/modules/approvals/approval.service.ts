@@ -112,15 +112,16 @@ export class ApprovalService {
   }
 
   /** Where-clause of the pending requests a user may decide */
-  async waitingWhere(u: Pick<AuthUser, 'id' | 'companyId'>): Promise<Prisma.ApprovalRequestWhereInput> {
+  async waitingWhere(u: Pick<AuthUser, 'id' | 'companyId'> & { isSuperAdmin?: boolean }): Promise<Prisma.ApprovalRequestWhereInput> {
     const roleIds = await this.roleIdsOf(u.id, u.companyId);
     return {
       companyId: u.companyId,
       statusCode: 'PENDING',
       AND: [
         { OR: [{ approverUserId: u.id }, ...(roleIds.length ? [{ approverRoleId: { in: roleIds } }] : [])] },
-        // nobody approves their own request
-        { OR: [{ requestedById: null }, { requestedById: { not: u.id } }] },
+        // nobody approves their own request - except a super administrator (same rule as canDecide), so the inbox
+        // lists exactly what the document page lets them approve
+        ...(u.isSuperAdmin ? [] : [{ OR: [{ requestedById: null }, { requestedById: { not: u.id } }] }]),
       ],
     };
   }

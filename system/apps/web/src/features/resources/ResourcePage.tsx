@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
 import { download } from '@/lib/download';
-import { fmtByType } from '@/lib/format';
+import { fmtByType, plural } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useSession } from '@/stores/session';
 import { AsyncSelect, Badge, Button, Card, confirm, DataTable, Dropdown, EmptyState, Icon, Input, Pagination, PageHeader, Select, Spinner, toast, type Column } from '@/components/ui';
@@ -141,6 +141,7 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
       await api.delete(`/resources/${meta.key}/${r[idField]}`);
       toast.success(`${meta.singular} deleted`);
       qc.invalidateQueries({ queryKey: ['resource', meta.key] });
+      qc.invalidateQueries({ queryKey: ['insights'] });
     } catch (e) {
       toast.error(e);
     }
@@ -152,6 +153,7 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
       await a.run(r);
       toast.success(a.success);
       qc.invalidateQueries({ queryKey: ['resource'] });
+      qc.invalidateQueries({ queryKey: ['insights'] });
     } catch (e) {
       toast.error(e);
     }
@@ -170,7 +172,10 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
     edit: (id) => setEditing(id),
     renderValue,
     field: (name) => meta.fields.find((f) => f.name === name),
-    refresh: () => list.refetch(),
+    refresh: () => {
+      list.refetch();
+      qc.invalidateQueries({ queryKey: ['insights'] });
+    },
   };
   const Header = ui.header;
 
@@ -194,7 +199,7 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
       {!embedded && (
         <PageHeader
           title={meta.label}
-          subtitle={list.data ? `${list.data.meta.total} records` : undefined}
+          subtitle={list.data ? plural(list.data.meta.total, 'record') : undefined}
           actions={
             <>
               {meta.can.export && (
@@ -291,7 +296,7 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
               New {meta.singular}
             </Button>
           )}
-          <Button variant="ghost" size="icon" icon="refresh-cw" onClick={() => list.refetch()} aria-label="Refresh" />
+          <Button variant="ghost" size="icon" icon="refresh-cw" onClick={() => viewProps.refresh()} aria-label="Refresh" />
         </div>
         {showFilters && filterFields.length > 0 && (
           <div className="grid grid-cols-1 gap-3 border-b border-line bg-slate-50/60 p-3 sm:grid-cols-2 lg:grid-cols-4">

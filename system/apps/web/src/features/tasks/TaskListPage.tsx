@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
-import { fmtNumber } from '@/lib/format';
+import { fmtNumber, plural } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useSession } from '@/stores/session';
 import { AsyncSelect, Button, Card, DataTable, EmptyState, Icon, Input, Pagination, PageHeader, Select, type Column } from '@/components/ui';
@@ -81,7 +81,7 @@ export default function TaskListPage() {
     <div>
       <PageHeader
         title="All Tasks"
-        subtitle={q.data ? `${q.data.meta.total} tasks` : undefined}
+        subtitle={q.data ? plural(q.data.meta.total, 'task') : undefined}
         actions={
           can('task.task.create') && (
             <Button icon="plus" onClick={() => setOpen(null)}>

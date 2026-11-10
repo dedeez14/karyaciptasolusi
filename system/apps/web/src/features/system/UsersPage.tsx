@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type Paged } from '@/lib/api';
-import { fmtDateTime } from '@/lib/format';
+import { fmtDateTime, plural } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useSession } from '@/stores/session';
 import { AsyncSelect, Badge, Button, Card, confirm, DataTable, Drawer, Dropdown, Field, Icon, Input, Modal, Pagination, PageHeader, Select, Switch, toast, type Column } from '@/components/ui';
@@ -103,7 +103,7 @@ export default function UsersPage() {
     <div>
       <PageHeader
         title="Users"
-        subtitle={list.data ? `${list.data.meta.total} users` : undefined}
+        subtitle={list.data ? plural(list.data.meta.total, 'user') : undefined}
         actions={
           can('system.user.create') && (
             <Button icon="user-plus" onClick={() => setEditing(null)}>

@@ -181,9 +181,19 @@ export class DocumentService {
   /** Validates references & computes every amount server side (client totals are never trusted) */
   private async build(def: DocTypeDef, input: DocInput) {
     const companyId = RequestCtx.companyId();
-    if (def.partner === 'customer') await this.assertRef('customer', input.customerId, 'customerId');
-    if (def.partner === 'supplier') await this.assertRef('supplier', input.supplierId, 'supplierId');
+    const partner =
+      def.partner === 'customer' ? await this.assertRef('customer', input.customerId, 'customerId') : def.partner === 'supplier' ? await this.assertRef('supplier', input.supplierId, 'supplierId') : null;
+    // no payment term chosen on the document -> the customer's / supplier's own term (drives the due date)
+    if (!input.paymentTermId && partner?.paymentTermId) input.paymentTermId = partner.paymentTermId;
     const term = await this.assertRef('paymentTerm', input.paymentTermId, 'paymentTermId');
+    // stock documents without a warehouse: use the branch's warehouse, or the only one there is (never guess between several)
+    if (def.warehouse !== 'none' && def.warehouse !== 'optional' && !input.warehouseId) {
+      const whs = await this.prisma.warehouse.findMany({ where: { companyId, isActive: true, deletedAt: null }, orderBy: { code: 'asc' }, select: { id: true, branchId: true } });
+      const branchId = input.branchId ?? RequestCtx.user().branchId;
+      const inBranch = whs.filter((w) => branchId && w.branchId === branchId);
+      const pick = inBranch.length === 1 ? inBranch[0] : whs.length === 1 ? whs[0] : null;
+      if (pick) input.warehouseId = pick.id;
+    }
     await this.assertRef('warehouse', input.warehouseId, 'warehouseId');
     await this.assertRef('warehouse', input.toWarehouseId, 'toWarehouseId');
     await this.assertRef('project', input.projectId, 'projectId');

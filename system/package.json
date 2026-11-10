@@ -17,6 +17,7 @@
     "db:migrate": "npm run db:migrate --workspace=apps/api",
     "db:seed": "npm run db:seed --workspace=apps/api",
     "db:backup": "node scripts/backup.mjs",
+    "db:reset-data": "node apps/api/scripts/reset-business-data.mjs",
     "typecheck": "npm run typecheck --workspace=apps/api && npm run typecheck --workspace=apps/web",
     "setup": "node apps/api/scripts/init-env.mjs && npm run db:setup --workspace=apps/api",
     "db:security": "node apps/api/scripts/db-security.mjs"

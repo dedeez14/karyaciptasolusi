@@ -54,3 +54,6 @@ export const fmtByType = (v: unknown, type?: string) => {
       return String(v);
   }
 };
+
+/** '1 record', '3 records' (pass the plural when it is irregular: plural(1, 'person', 'people')) */
+export const plural = (n: number, one: string, many = `${one}s`) => `${Number(n).toLocaleString()} ${Number(n) === 1 ? one : many}`;

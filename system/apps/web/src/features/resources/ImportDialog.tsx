@@ -49,6 +49,7 @@ export function ImportDialog({ meta, open, onClose }: { meta: ResourceMeta; open
         toast.success(`${r.created} ${meta.label.toLowerCase()} imported`);
         qc.invalidateQueries({ queryKey: ['resource', meta.key] });
         qc.invalidateQueries({ queryKey: ['options', meta.key] });
+        qc.invalidateQueries({ queryKey: ['insights'] });
       }
     } catch (e) {
       toast.error(e);

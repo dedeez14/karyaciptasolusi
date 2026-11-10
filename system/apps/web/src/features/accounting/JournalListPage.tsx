@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
-import { fmtDate, fmtMoney } from '@/lib/format';
+import { fmtDate, fmtMoney, plural } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useSession } from '@/stores/session';
 import { useLookupLabel, useLookupOptions } from '@/hooks/useLookups';
@@ -44,7 +44,7 @@ export default function JournalListPage() {
     <div>
       <PageHeader
         title="Journal Entries"
-        subtitle={list.data ? `${list.data.meta.total} entries` : undefined}
+        subtitle={list.data ? plural(list.data.meta.total, 'entry', 'entries') : undefined}
         actions={
           can('accounting.journal.create') && (
             <Button icon="plus" onClick={() => navigate('/accounting/journals/new')}>

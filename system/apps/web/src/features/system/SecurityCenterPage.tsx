@@ -97,8 +97,12 @@ export default function SecurityCenterPage() {
     }
   };
   const openVerify = () => {
-    const t = /[?&]t=([^&\s]+)/.exec(verifyLink)?.[1] ?? verifyLink.trim();
-    if (t) window.open(`/verify?t=${t}`, '_blank', 'noopener');
+    // QR codes carry a short code (?c=...); older documents carry the full signed token (?t=...)
+    const link = verifyLink.trim();
+    const c = /[?&]c=([0-9a-f]{20})/i.exec(link)?.[1] ?? (/^[0-9a-f]{20}$/i.test(link) ? link : null);
+    const t = /[?&]t=([^&\s]+)/.exec(link)?.[1] ?? link;
+    if (c) window.open(`/verify?c=${c.toLowerCase()}`, '_blank', 'noopener');
+    else if (t) window.open(`/verify?t=${encodeURIComponent(t)}`, '_blank', 'noopener');
   };
   const downloadKey = () => {
     if (!o) return;
@@ -153,7 +157,7 @@ export default function SecurityCenterPage() {
           >
             <Row label="Algorithm" value={o.signing.algorithm} />
             <Row label="Key fingerprint" value={o.signing.fingerprint} mono />
-            <p className="mt-2 text-xs text-slate-500">Every generated PDF carries a QR code. Anyone can scan it to confirm the document is genuine and unchanged.</p>
+            <p className="mt-2 text-xs text-slate-500">Every generated PDF carries a QR code. Scanning it shows who issued the document and its key facts; the verify page also checks the PDF file itself and reports an edited copy.</p>
           </Card>
           <Card title="Encryption at rest">
             <Row label="Cipher" value={o.atRest.cipher} />
@@ -224,7 +228,7 @@ export default function SecurityCenterPage() {
           </Card>
           <Card title="Verify a document" subtitle="Paste the link from a document's QR code">
             <div className="flex gap-2">
-              <Input value={verifyLink} onChange={(e) => setVerifyLink(e.target.value)} placeholder="https://.../verify?t=..." />
+              <Input value={verifyLink} onChange={(e) => setVerifyLink(e.target.value)} placeholder="https://.../verify?c=..." />
               <Button icon="external-link" onClick={openVerify} disabled={!verifyLink.trim()}>
                 Verify
               </Button>

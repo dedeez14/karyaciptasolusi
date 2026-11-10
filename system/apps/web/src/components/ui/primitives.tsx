@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { forwardRef, useId, useLayoutEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { Icon } from './Icon';
 
 export const cn = clsx;
@@ -86,10 +86,23 @@ export function Switch({ checked, onChange, label, disabled }: { checked: boolea
 }
 
 export function Field({ label, error, required, help, children, className }: { label?: ReactNode; error?: string; required?: boolean; help?: string; children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const labelId = useId();
+  const control = () => ref.current?.querySelector<HTMLElement>('input:not([type=hidden]),textarea,select,button');
+  // name the control after its label (screen readers) - custom selects keep their current value in the name
+  useLayoutEffect(() => {
+    if (!label) return;
+    const c = control();
+    if (!c || c.getAttribute('aria-labelledby')) return;
+    if (c.tagName === 'BUTTON') {
+      if (!c.id) c.id = `${labelId}-control`;
+      c.setAttribute('aria-labelledby', `${labelId} ${c.id}`);
+    } else c.setAttribute('aria-labelledby', labelId);
+  });
   return (
-    <div className={className}>
+    <div className={className} ref={ref}>
       {label && (
-        <label className="label">
+        <label id={labelId} className="label" onClick={() => control()?.focus()}>
           {label}
           {required && <span className="ml-0.5 text-red-500">*</span>}
         </label>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { plural } from '@/lib/format';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -69,7 +70,7 @@ export default function TaskBoardPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Task Board"
-        subtitle={tasksQ.data ? `${tasksQ.data.meta.total} tasks` : undefined}
+        subtitle={tasksQ.data ? plural(tasksQ.data.meta.total, 'task') : undefined}
         actions={
           can('task.task.create') && (
             <Button icon="plus" onClick={() => setOpen({ id: null })}>

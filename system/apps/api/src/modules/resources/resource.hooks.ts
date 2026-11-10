@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import type { Tx } from '../../common/prisma/prisma.service';
 import { RequestCtx } from '../../common/context/request-context';
 import { AccessService } from '../../common/access/access.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { SettingsService } from '../../common/settings/settings.service';
 import { CompanyBootstrapService } from '../system/company-bootstrap.service';
 import { ResourceDef } from './resource.types';
 import { SYSTEM_LOOKUPS } from './resource.registry';
@@ -11,7 +13,47 @@ type Row = Record<string, any>;
 /** Resource specific business rules plugged into the generic engine. */
 @Injectable()
 export class ResourceHooks {
-  constructor(private readonly bootstrap: CompanyBootstrapService, private readonly access: AccessService) {}
+  constructor(
+    private readonly bootstrap: CompanyBootstrapService,
+    private readonly access: AccessService,
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
+
+  /** Working days between two dates (inclusive): work days from settings, public holidays excluded */
+  private async leaveDays(companyId: string, startDate: unknown, endDate: unknown) {
+    const start = new Date(startDate as string);
+    const end = new Date(endDate as string);
+    const work = new Set(
+      (await this.settings.str('hris.workDays', companyId, '1,2,3,4,5'))
+        .split(',')
+        .map((x) => Number(x.trim()))
+        .filter((x) => x >= 1 && x <= 7),
+    );
+    const holidays = await this.prisma.holiday.findMany({ where: { companyId, isActive: true, deletedAt: null, date: { gte: start, lte: end } }, select: { date: true } });
+    const off = new Set(holidays.map((h) => h.date.toISOString().slice(0, 10)));
+    let n = 0;
+    for (const d = new Date(start); d <= end && n < 400; d.setUTCDate(d.getUTCDate() + 1)) {
+      const weekday = ((d.getUTCDay() + 6) % 7) + 1;
+      if (work.has(weekday) && !off.has(d.toISOString().slice(0, 10))) n++;
+    }
+    return n;
+  }
+
+  private async fillLeaveDays(data: Row) {
+    if (data.days) return;
+    data.days = await this.leaveDays(RequestCtx.companyId(), data.startDate, data.endDate);
+    if (!data.days) throw new BadRequestException({ message: 'Validation failed', errors: { days: 'The selected dates contain no working days' } });
+  }
+
+  /** Called after an update payload is parsed (before it is saved) */
+  async prepareUpdate(def: ResourceDef, before: Row, data: Row) {
+    if (def.key === 'leave-requests' && (data.startDate || data.endDate) && !data.days) {
+      const merged = { startDate: data.startDate ?? before.startDate, endDate: data.endDate ?? before.endDate };
+      if (new Date(merged.endDate) < new Date(merged.startDate)) throw new BadRequestException('End date must be after start date');
+      await this.fillLeaveDays(Object.assign(data, { startDate: merged.startDate, endDate: merged.endDate }));
+    }
+  }
 
   async beforeCreate(def: ResourceDef, data: Row) {
     switch (def.key) {
@@ -22,6 +64,7 @@ export class ResourceHooks {
       case 'leave-requests':
         data.status = 'PENDING';
         if (new Date(data.endDate) < new Date(data.startDate)) throw new BadRequestException('End date must be after start date');
+        await this.fillLeaveDays(data);
         break;
       case 'lookups':
         data.category = String(data.category).toUpperCase().replace(/[^A-Z0-9_]/g, '_');

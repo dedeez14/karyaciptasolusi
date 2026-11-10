@@ -128,7 +128,8 @@ export default function DocumentFormPage() {
         reference: h.reference,
         notes: h.notes,
         terms: h.terms,
-        lines: lines.map((l) => ({
+        // completely blank lines (no product, no description) are ignored instead of blocking the save
+        lines: (lines.some((l) => l.productId || l.description?.trim()) ? lines.filter((l) => l.productId || l.description?.trim()) : lines).map((l) => ({
           productId: l.productId,
           description: l.description,
           qty: Number(l.qty),
@@ -235,7 +236,15 @@ export default function DocumentFormPage() {
                 <AsyncSelect
                   resource={def.partner === 'customer' ? 'customers' : 'suppliers'}
                   value={def.partner === 'customer' ? h.customerId : h.supplierId}
-                  onChange={(v) => set(def.partner === 'customer' ? 'customerId' : 'supplierId', v)}
+                  onChange={(v) => {
+                    set(def.partner === 'customer' ? 'customerId' : 'supplierId', v);
+                    // take over the partner's payment term (drives the due date) unless one was chosen already
+                    if (v && !h.paymentTermId)
+                      api
+                        .get<{ paymentTermId?: string | null }>(`/resources/${def.partner === 'customer' ? 'customers' : 'suppliers'}/${v}`)
+                        .then((p) => p.paymentTermId && setH((s) => (s.paymentTermId ? s : { ...s, paymentTermId: p.paymentTermId ?? null })))
+                        .catch(() => undefined);
+                  }}
                   invalid={!!(errors.customerId ?? errors.supplierId)}
                 />
               </Field>

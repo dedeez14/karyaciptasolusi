@@ -104,6 +104,7 @@ export class CashService {
     const bank = await own('bankAccount', input.bankAccountId, 'bankAccountId');
     const toBank = await own('bankAccount', input.toBankAccountId, 'toBankAccountId');
     const counter = await own('account', input.accountId, 'accountId');
+    await this.journal.assertNotClosingAccount(RequestCtx.companyId(), [input.accountId]);
     await own('costCenter', input.costCenterId, 'costCenterId');
     await own('project', input.projectId, 'projectId');
     if (!bank.accountId || (toBank && !toBank.accountId)) throw new BadRequestException('The cash/bank account has no ledger account');

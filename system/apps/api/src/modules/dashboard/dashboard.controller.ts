@@ -33,7 +33,7 @@ export class DashboardController {
           sumDocs('SI', { status: { in: ['CONFIRMED', 'PARTIAL'] } }),
           sumDocs('SI', { status: { in: ['CONFIRMED', 'PARTIAL'] }, dueDate: { lt: now } }),
         ]);
-        kpi.push({ key: 'salesMonth', label: 'Sales this month', value: n(month._sum.grandTotal), type: 'money', hint: `${month._count._all} invoices` });
+        kpi.push({ key: 'salesMonth', label: 'Sales this month', value: n(month._sum.grandTotal), type: 'money', hint: `${month._count._all} ${month._count._all === 1 ? 'invoice' : 'invoices'}` });
         kpi.push({ key: 'receivable', label: 'Receivables', value: n(open._sum.grandTotal) - n(open._sum.paidAmount), type: 'money', hint: `${overdue._count._all} overdue` });
         const topCustomers = await this.prisma.tradeDocument.groupBy({ by: ['customerId'], where: { companyId, docType: 'SI', deletedAt: null, status: { notIn: ['CANCELLED', 'DRAFT'] }, date: { gte: yearAgo } }, _sum: { grandTotal: true }, orderBy: { _sum: { grandTotal: 'desc' } }, take: 5 });
         const names = new Map((await this.prisma.customer.findMany({ where: { id: { in: topCustomers.map((t) => t.customerId!).filter(Boolean) } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
@@ -42,7 +42,7 @@ export class DashboardController {
       }
       if (can('purchase.invoice.read')) {
         const [month, open] = await Promise.all([sumDocs('PI', { date: { gte: monthStart } }), sumDocs('PI', { status: { in: ['CONFIRMED', 'PARTIAL'] } })]);
-        kpi.push({ key: 'purchaseMonth', label: 'Purchases this month', value: n(month._sum.grandTotal), type: 'money', hint: `${month._count._all} bills` });
+        kpi.push({ key: 'purchaseMonth', label: 'Purchases this month', value: n(month._sum.grandTotal), type: 'money', hint: `${month._count._all} ${month._count._all === 1 ? 'bill' : 'bills'}` });
         kpi.push({ key: 'payable', label: 'Payables', value: n(open._sum.grandTotal) - n(open._sum.paidAmount), type: 'money' });
       }
       if (can('sales.invoice.read') || can('purchase.invoice.read')) {

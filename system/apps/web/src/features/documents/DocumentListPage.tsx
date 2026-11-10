@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
-import { fmtDate, fmtMoney, isoDate } from '@/lib/format';
+import { fmtDate, fmtMoney, isoDate, plural } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { AsyncSelect, Badge, Button, Card, type Column, DataTable, DatePicker, EmptyState, Icon, Input, PageHeader, Pagination, Select, Spinner, StatusBadge } from '@/components/ui';
 import { statusLabel, useDocType, type TradeDoc } from './useDocTypes';
@@ -122,7 +122,7 @@ export default function DocumentListPage() {
     <div>
       <PageHeader
         title={def.label}
-        subtitle={list.data ? `${list.data.meta.total} documents` : undefined}
+        subtitle={list.data ? plural(list.data.meta.total, 'document') : undefined}
         actions={
           def.can.create && (
             <Button icon="plus" onClick={() => navigate(`/documents/${def.code}/new`)}>

@@ -654,7 +654,7 @@ export const RESOURCES: ResourceDef[] = [
       rel('leaveTypeId', 'Leave Type', 'leave-types', { required: true, list: true, filter: true }),
       date('startDate', 'Start', { required: true, list: true, sortable: true }),
       date('endDate', 'End', { required: true, list: true }),
-      num('days', 'Days', { required: true, min: 0.5, max: 365, list: true }),
+      num('days', 'Days', { min: 0.5, max: 365, list: true, help: 'Leave empty to count the working days automatically (weekends and public holidays excluded)' }),
       area('reason', 'Reason'),
       lookup('status', 'Status', 'REQUEST_STATUS', { readOnly: true, list: true, filter: true }),
     ],
