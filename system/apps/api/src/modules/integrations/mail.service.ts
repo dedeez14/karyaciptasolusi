@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, OnModuleDestroy } from '@nestjs/common';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { SettingsService } from '../../common/settings/settings.service';
@@ -16,6 +17,18 @@ export interface MailMessage {
   /** extra headers, e.g. List-Unsubscribe */
   headers?: Record<string, string>;
   attachments?: { filename: string; content: Buffer }[];
+  /** own Message-ID ("<id@domain>"), so replies can be matched to this e-mail */
+  messageId?: string;
+  /** threading: the Message-ID this e-mail follows up on */
+  inReplyTo?: string;
+  references?: string[];
+}
+
+export interface ImapConfig {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
 }
 
 interface SmtpConfig {
@@ -55,6 +68,23 @@ export class MailService implements OnModuleDestroy {
     return { host, port, user, pass, from, insecureLocal: isLocalHost(host) && port !== 465 && port !== 587 };
   }
 
+  /** A new Message-ID on the domain of the sender address */
+  async newMessageId(companyId: string) {
+    const c = await this.config(companyId);
+    const address = c ? (/<([^>]+)>/.exec(c.from)?.[1] ?? c.from) : '';
+    const domain = (address.split('@')[1] ?? 'localhost').replace(/[^a-z0-9.-]/gi, '') || 'localhost';
+    return `<${randomUUID()}@${domain}>`;
+  }
+
+  /** Incoming mail (IMAP over TLS) with the same mailbox login as SMTP; null when not configured */
+  async imapConfig(companyId: string): Promise<ImapConfig | null> {
+    const host = await this.settings.str('mail.imapHost', companyId);
+    const user = await this.settings.str('mail.username', companyId);
+    const pass = await this.settings.str('mail.password', companyId);
+    if (!host || !user || !pass) return null;
+    return { host, port: await this.settings.num('mail.imapPort', companyId, 993), user, pass };
+  }
+
   /** true when SMTP host, user and password are set for the company */
   async isConfigured(companyId: string = RequestCtx.companyId()) {
     return (await this.config(companyId)) !== null;
@@ -79,6 +109,9 @@ export class MailService implements OnModuleDestroy {
       html: msg.html,
       headers: msg.headers ? Object.fromEntries(Object.entries(msg.headers).map(([k, v]) => [clean(k), clean(v)])) : undefined,
       attachments: msg.attachments,
+      messageId: msg.messageId ? clean(msg.messageId) : undefined,
+      inReplyTo: msg.inReplyTo ? clean(msg.inReplyTo) : undefined,
+      references: msg.references?.length ? msg.references.map(clean) : undefined,
     };
   }
 

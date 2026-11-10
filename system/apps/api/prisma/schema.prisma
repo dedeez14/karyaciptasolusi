@@ -2110,6 +2110,9 @@ model EmailCampaign {
   failedCount      Int       @default(0)
   openCount        Int       @default(0)
   unsubscribeCount Int       @default(0)
+  replyCount       Int       @default(0)
+  /// follow-ups are sent in office hours only (Mon-Fri 08:00-17:00, company time zone)
+  followUpWeekdays Boolean   @default(true)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   createdById      String?   @db.Uuid
@@ -2117,6 +2120,7 @@ model EmailCampaign {
   deletedAt        DateTime?
 
   recipients EmailRecipient[]
+  steps      EmailCampaignStep[]
 
   @@unique([companyId, code])
   @@index([companyId, statusCode])
@@ -2124,30 +2128,113 @@ model EmailCampaign {
 }
 
 model EmailRecipient {
-  id         String    @id @default(uuid()) @db.Uuid
-  campaignId String    @db.Uuid
-  companyId  String    @db.Uuid
-  email      String    @db.VarChar(200)
-  name       String?   @db.VarChar(200)
+  id            String    @id @default(uuid()) @db.Uuid
+  campaignId    String    @db.Uuid
+  companyId     String    @db.Uuid
+  email         String    @db.VarChar(200)
+  name          String?   @db.VarChar(200)
   /// where the contact came from: LEAD / CUSTOMER / MAP_PLACE / MANUAL
-  entityType String?   @db.VarChar(20)
-  entityId   String?   @db.Uuid
+  entityType    String?   @db.VarChar(20)
+  entityId      String?   @db.Uuid
   /// merge data snapshot ({ name, company, city, ... })
-  data       Json?
-  statusCode String    @default("QUEUED") @db.VarChar(20) // lookup EMAIL_RECIPIENT_STATUS
+  data          Json?
+  statusCode    String    @default("QUEUED") @db.VarChar(20) // lookup EMAIL_RECIPIENT_STATUS
   /// random token for unsubscribe / open links
-  token      String    @db.VarChar(64)
-  error      String?   @db.VarChar(500)
-  sentAt     DateTime?
-  openedAt   DateTime?
-  createdAt  DateTime  @default(now())
+  token         String    @db.VarChar(64)
+  error         String?   @db.VarChar(500)
+  sentAt        DateTime?
+  openedAt      DateTime?
+  /// last e-mail of the sequence sent to this recipient (0 = the campaign e-mail, 1.. = follow-ups)
+  step          Int       @default(0)
+  lastSentAt    DateTime?
+  /// Message-ID of the last e-mail, so the next follow-up continues the same thread
+  lastMessageId String?   @db.VarChar(250)
+  /// when the next follow-up is due (null = nothing more to send)
+  nextSendAt    DateTime?
+  repliedAt     DateTime?
+  createdAt     DateTime  @default(now())
 
   campaign EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId, email])
   @@unique([token])
   @@index([campaignId, statusCode])
+  @@index([campaignId, nextSendAt])
+  @@index([companyId, email])
   @@map("email_recipients")
+}
+
+/// Follow-up e-mail of a campaign, sent when the recipient has not replied after the delay
+model EmailCampaignStep {
+  id         String   @id @default(uuid()) @db.Uuid
+  campaignId String   @db.Uuid
+  /// 1 = first follow-up
+  position   Int
+  /// days after the previous e-mail of the sequence
+  delayDays  Int
+  /// empty = "Re: <campaign subject>" in the same thread
+  subject    String?  @db.VarChar(300)
+  body       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, position])
+  @@map("email_campaign_steps")
+}
+
+/// One sent campaign e-mail (daily limit, thread matching of replies)
+model EmailMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  campaignId  String   @db.Uuid
+  recipientId String   @db.Uuid
+  step        Int      @default(0)
+  messageId   String?  @db.VarChar(250)
+  sentAt      DateTime @default(now())
+
+  @@index([companyId, sentAt])
+  @@index([campaignId, sentAt])
+  @@index([messageId])
+  @@map("email_messages")
+}
+
+/// A reply, automatic reply or bounce found in the mailbox for a campaign e-mail.
+/// Only messages that belong to a campaign are stored, and only a short excerpt of them.
+model EmailReply {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  campaignId  String?   @db.Uuid
+  recipientId String?   @db.Uuid
+  kindCode    String    @db.VarChar(20) // lookup EMAIL_REPLY_KIND
+  fromEmail   String    @db.VarChar(200)
+  fromName    String?   @db.VarChar(200)
+  subject     String?   @db.VarChar(300)
+  snippet     String?   @db.VarChar(600)
+  messageId   String    @db.VarChar(250)
+  receivedAt  DateTime
+  handledAt   DateTime?
+  handledById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+
+  @@unique([companyId, messageId])
+  @@index([companyId, handledAt])
+  @@index([campaignId])
+  @@map("email_replies")
+}
+
+/// Where the reply check stopped in the mailbox of a company
+model EmailInboxState {
+  companyId     String    @id @db.Uuid
+  uidValidity   String?   @db.VarChar(30)
+  lastUid       Int       @default(0)
+  lastCheckedAt DateTime?
+  lastError     String?   @db.VarChar(500)
+  lastErrorAt   DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  @@map("email_inbox_states")
 }
 
 /// Addresses that must never receive marketing e-mail (unsubscribed, bounced, added by hand)

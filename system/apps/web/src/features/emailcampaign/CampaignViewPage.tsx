@@ -4,8 +4,10 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, type Paged } from '@/lib/api';
 import { download } from '@/lib/download';
 import { fmtDateTime } from '@/lib/format';
+import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, DataTable, DatePicker, Dropdown, EmptyState, Field, Icon, Input, LookupSelect, Modal, Pagination, PageHeader, Spinner, StatCard, toast, type Column } from '@/components/ui';
-import { EmailFrame, SmtpWarning, StatusBadge, useStatusLookup, type CampaignDetail } from './common';
+import { EmailFrame, InboxBanner, SmtpWarning, StatusBadge, useStatusLookup, type CampaignDetail } from './common';
+import { RepliesPanel } from './RepliesPanel';
 
 interface RecipientRow {
   id: string;
@@ -18,6 +20,10 @@ interface RecipientRow {
   sentAt: string | null;
   openedAt: string | null;
   attempts: number;
+  step: number;
+  lastSentAt: string | null;
+  nextSendAt: string | null;
+  repliedAt: string | null;
 }
 
 const SOURCE_LABEL: Record<string, string> = { LEAD: 'Lead', CUSTOMER: 'Customer', MAP_PLACE: 'Google Maps', MANUAL: 'Pasted list' };
@@ -37,8 +43,9 @@ export default function CampaignViewPage() {
     refetchInterval: q.data?.statusCode === 'SENDING' ? 15_000 : false,
   });
   const [scheduling, setScheduling] = useState(false);
-  const [testing, setTesting] = useState(false);
+  const [testing, setTesting] = useState<number | null>(null);
   const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null);
+  const { can } = useSession();
   const recipientStatus = useStatusLookup('EMAIL_RECIPIENT_STATUS');
 
   const refresh = () => {
@@ -53,6 +60,14 @@ export default function CampaignViewPage() {
     },
     onError: (e) => toast.error(e),
   });
+  const markReplied = useMutation({
+    mutationFn: (r: RecipientRow) => api.post(`/email-campaigns/${id}/recipients/${r.id}/replied`),
+    onSuccess: (_x, r) => {
+      toast.success(`${r.email} marked as replied: no more follow-ups`);
+      refresh();
+    },
+    onError: (e) => toast.error(e),
+  });
 
   if (q.isLoading)
     return (
@@ -62,6 +77,8 @@ export default function CampaignViewPage() {
     );
   if (!q.data) return <EmptyState icon="mail-x" title="Campaign not found" />;
   const c = q.data;
+  const hasSteps = c.steps.length > 0;
+  const totalEmails = c.steps.length + 1;
   const queued = c.counts.QUEUED ?? 0;
   const done = c.totalCount - queued;
   const pct = c.totalCount ? Math.round((done / c.totalCount) * 100) : 0;
@@ -90,9 +107,9 @@ export default function CampaignViewPage() {
       toast.error(e);
     }
   };
-  const openPreview = async (email?: string) => {
+  const openPreview = async (email?: string, step?: number) => {
     try {
-      setPreview(await api.get<{ subject: string; html: string }>(`/email-campaigns/${id}/preview`, { email }));
+      setPreview(await api.get<{ subject: string; html: string }>(`/email-campaigns/${id}/preview`, { email, step: step || undefined }));
     } catch (e) {
       toast.error(e);
     }
@@ -124,7 +141,60 @@ export default function CampaignViewPage() {
       ),
     },
     { key: 'sentAt', header: 'Sent', hideOnMobile: true, render: (r) => <span className="text-xs whitespace-nowrap">{r.sentAt ? fmtDateTime(r.sentAt) : '—'}</span> },
+    ...(hasSteps
+      ? [
+          {
+            key: 'sequence',
+            header: 'Sequence',
+            hideOnMobile: true,
+            render: (r: RecipientRow) =>
+              !r.sentAt ? (
+                <span className="text-xs text-slate-400">—</span>
+              ) : (
+                <div className="text-xs whitespace-nowrap">
+                  <span className="font-medium text-slate-700">
+                    {r.step + 1} of {totalEmails} sent
+                  </span>
+                  {r.repliedAt ? (
+                    <span className="block text-violet-700">Replied {fmtDateTime(r.repliedAt)}</span>
+                  ) : r.nextSendAt ? (
+                    <span className="block text-slate-500">Next {fmtDateTime(r.nextSendAt)}</span>
+                  ) : r.step + 1 >= totalEmails ? (
+                    <span className="block text-emerald-700">Sequence finished</span>
+                  ) : (
+                    <span className="block text-slate-500">Stopped</span>
+                  )}
+                </div>
+              ),
+          },
+        ]
+      : []),
     ...(c.trackOpens ? [{ key: 'openedAt', header: 'Opened', hideOnMobile: true, render: (r: RecipientRow) => <span className="text-xs whitespace-nowrap">{r.openedAt ? fmtDateTime(r.openedAt) : '—'}</span> }] : []),
+    ...(can('crm.emailcampaign.update')
+      ? [
+          {
+            key: 'actions',
+            header: '',
+            align: 'right' as const,
+            render: (r: RecipientRow) =>
+              r.sentAt && !r.repliedAt && ['SENT'].includes(r.statusCode) ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon="message-square-reply"
+                  title="Replied by phone, WhatsApp or another mailbox: stop the follow-ups"
+                  loading={markReplied.isPending && markReplied.variables?.id === r.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markReplied.mutate(r);
+                  }}
+                >
+                  Mark replied
+                </Button>
+              ) : null,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -145,7 +215,14 @@ export default function CampaignViewPage() {
         actions={
           <>
             {c.can.sendNow && (
-              <Button icon="send" loading={act.isPending && act.variables === 'send-now'} onClick={() => run('send-now', 'Send now?', c.automatic ? 'E-mails go out right away within the sending limits, and new matching contacts keep receiving it until you pause or cancel.' : c.totalCount ? `${c.totalCount === 1 ? '1 recipient receives' : `${c.totalCount} recipients receive`} this e-mail within the sending limits.` : 'Everyone in the audience receives this e-mail within the sending limits.')}>
+              <Button icon="send" loading={act.isPending && act.variables === 'send-now'} onClick={() =>
+                  run(
+                    'send-now',
+                    'Send now?',
+                    (c.automatic ? 'E-mails go out right away within the sending limits, and new matching contacts keep receiving it until you pause or cancel.' : c.totalCount ? `${c.totalCount === 1 ? '1 recipient receives' : `${c.totalCount} recipients receive`} this e-mail within the sending limits.` : 'Everyone in the audience receives this e-mail within the sending limits.') +
+                      (hasSteps ? ` ${c.steps.length === 1 ? '1 follow-up follows' : `${c.steps.length} follow-ups follow`} for those who do not reply (day ${c.steps.reduce<number[]>((a, st) => [...a, (a[a.length - 1] ?? 0) + st.delayDays], []).join(', day ')}).` : ''),
+                  )
+                }>
                 Send now
               </Button>
             )}
@@ -173,7 +250,7 @@ export default function CampaignViewPage() {
               trigger={<Button variant="ghost" size="icon" icon="more-vertical" aria-label="More actions" />}
               items={[
                 { label: 'Preview e-mail', icon: 'eye', onClick: () => openPreview() },
-                { label: 'Send a test e-mail', icon: 'flask-conical', onClick: () => setTesting(true), hidden: !c.can.test },
+                { label: 'Send a test e-mail', icon: 'flask-conical', onClick: () => setTesting(0), hidden: !c.can.test },
                 { label: 'Duplicate', icon: 'copy', onClick: duplicate },
                 { label: 'Export recipients (Excel)', icon: 'file-spreadsheet', onClick: () => download(`/email-campaigns/${id}/recipients/export`, { format: 'xlsx', status: status || undefined }).catch((e) => toast.error(e)) },
                 'divider',
@@ -186,6 +263,7 @@ export default function CampaignViewPage() {
       />
 
       <SmtpWarning ready={c.smtpReady} />
+      {!['DRAFT', 'CANCELLED'].includes(c.statusCode) && <InboxBanner inbox={c.inbox} followUps={hasSteps} />}
       {c.statusCode === 'PAUSED' && c.pausedReason && (
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <Icon name="circle-pause" className="mt-0.5 h-4 w-4 shrink-0" />
@@ -200,9 +278,10 @@ export default function CampaignViewPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
         <StatCard label="Recipients" value={c.totalCount.toLocaleString()} hint={queued ? `${queued} waiting` : c.automatic ? 'Grows with new contacts' : undefined} icon="users" />
-        <StatCard label="Sent" value={c.sentCount.toLocaleString()} icon="send" tone="green" />
+        <StatCard label="Reached" value={c.sentCount.toLocaleString()} hint={hasSteps ? `${c.sequence.reduce((a, x) => a + x.sent, 0).toLocaleString()} e-mails incl. follow-ups` : undefined} icon="send" tone="green" />
+        <StatCard label="Replied" value={c.replyCount.toLocaleString()} hint={c.sentCount ? `${Math.round((c.replyCount / c.sentCount) * 100)}% of reached` : 'Replies stop the follow-ups'} icon="message-square-reply" tone="violet" />
         <StatCard label="Failed / bounced" value={c.failedCount.toLocaleString()} icon="mail-x" tone="red" />
         <StatCard label="Unsubscribed" value={c.unsubscribeCount.toLocaleString()} icon="user-minus" tone="amber" />
         <StatCard label="Opened" value={c.trackOpens ? c.openCount.toLocaleString() : 'Off'} hint={c.trackOpens && c.sentCount ? `${Math.round((c.openCount / c.sentCount) * 100)}% of sent` : 'Open tracking disabled'} icon="mail-open" tone="violet" />
@@ -223,6 +302,40 @@ export default function CampaignViewPage() {
             {c.startedAt ? `Started ${fmtDateTime(c.startedAt)}` : 'Not started'}
             {c.finishedAt ? ` · finished ${fmtDateTime(c.finishedAt)}` : ''} · up to {c.ratePerMinute} e-mails per minute
           </p>
+        </Card>
+      )}
+
+      {hasSteps && (
+        <Card title="Sequence" subtitle={c.followUpWeekdays ? 'Follow-ups go only to people who have not replied · office hours, Mon–Fri' : 'Follow-ups go only to people who have not replied'} bodyClass="p-0">
+          <ol className="divide-y divide-line">
+            {c.sequence.map((st, i) => {
+              const day = c.sequence.slice(1, i + 1).reduce((a, x) => a + x.delayDays, 0);
+              return (
+                <li key={st.step} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${i === 0 ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-700'}`}>{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-800">
+                      {i === 0 ? 'First e-mail' : `Follow-up ${i}`} <span className="font-normal text-slate-500">· day {day}{i > 0 ? ` (${st.delayDays} day${st.delayDays > 1 ? 's' : ''} after the previous one)` : ''}</span>
+                    </p>
+                    <p className="truncate text-xs text-slate-500">{st.subject}</p>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm tabular-nums">
+                    <span>
+                      <span className="font-semibold text-slate-800">{st.sent.toLocaleString()}</span> <span className="text-slate-500">sent</span>
+                    </span>
+                    {i > 0 && (
+                      <span>
+                        <span className="font-semibold text-slate-800">{st.waiting.toLocaleString()}</span> <span className="text-slate-500">waiting</span>
+                      </span>
+                    )}
+                    <Button size="sm" variant="ghost" icon="eye" aria-label={`Preview ${i === 0 ? 'first e-mail' : `follow-up ${i}`}`} onClick={() => openPreview(undefined, st.step)} />
+                    {c.can.test && <Button size="sm" variant="ghost" icon="flask-conical" aria-label={`Send a test of ${i === 0 ? 'the first e-mail' : `follow-up ${i}`}`} onClick={() => setTesting(st.step)} />}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          {c.nextFollowUpAt && <p className="border-t border-line px-4 py-2.5 text-xs text-slate-500">Next follow-up due {fmtDateTime(c.nextFollowUpAt)}{c.statusCode === 'PAUSED' ? ' (paused: resume to send it)' : ''}</p>}
         </Card>
       )}
 
@@ -279,8 +392,10 @@ export default function CampaignViewPage() {
         </Card>
       </div>
 
+      {c.startedAt && <RepliesPanel campaignId={id} inbox={c.inbox} compact />}
+
       {scheduling && <ScheduleModal id={id} current={c.scheduledAt} onClose={() => setScheduling(false)} onDone={refresh} />}
-      {testing && <TestModal id={id} onClose={() => setTesting(false)} />}
+      {testing !== null && <TestModal id={id} step={testing} onClose={() => setTesting(null)} />}
       <Modal open={!!preview} onClose={() => setPreview(null)} title={preview?.subject ?? 'Preview'} size="lg">
         {preview && <EmailFrame html={preview.html} className="h-[65vh]" />}
       </Modal>
@@ -336,13 +451,13 @@ function ScheduleModal({ id, current, onClose, onDone }: { id: string; current: 
   );
 }
 
-function TestModal({ id, onClose }: { id: string; onClose: () => void }) {
+function TestModal({ id, step, onClose }: { id: string; step: number; onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const send = async () => {
     setBusy(true);
     try {
-      await api.post(`/email-campaigns/${id}/test`, { email });
+      await api.post(`/email-campaigns/${id}/test`, { email, step });
       toast.success(`Test e-mail sent to ${email}`);
       onClose();
     } catch (e) {
@@ -355,7 +470,7 @@ function TestModal({ id, onClose }: { id: string; onClose: () => void }) {
     <Modal
       open
       onClose={onClose}
-      title="Send a test e-mail"
+      title={step ? `Send a test of follow-up ${step}` : 'Send a test e-mail'}
       size="sm"
       footer={
         <>

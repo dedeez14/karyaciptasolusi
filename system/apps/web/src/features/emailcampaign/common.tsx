@@ -29,6 +29,45 @@ export interface CampaignCounters {
   failedCount: number;
   openCount: number;
   unsubscribeCount: number;
+  replyCount: number;
+}
+
+/** reading replies and bounces from the mailbox */
+export interface InboxStatus {
+  enabled: boolean;
+  configured: boolean;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+  lastErrorAt: string | null;
+}
+
+export interface CampaignStep {
+  delayDays: number;
+  subject: string | null;
+  body: string;
+}
+
+export interface SequenceRow {
+  step: number;
+  delayDays: number;
+  subject: string;
+  sent: number;
+  waiting: number;
+}
+
+export interface ReplyRow {
+  id: string;
+  campaignId: string | null;
+  recipientId: string | null;
+  kindCode: 'REPLY' | 'AUTO_REPLY' | 'BOUNCE';
+  fromEmail: string;
+  fromName: string | null;
+  subject: string | null;
+  snippet: string | null;
+  receivedAt: string;
+  handledAt: string | null;
+  campaign?: { id: string; code: string; name: string } | null;
+  contact?: { name: string | null; company: string | null; entityType: string | null; entityId: string | null } | null;
 }
 
 export interface CampaignRow extends CampaignCounters {
@@ -43,6 +82,7 @@ export interface CampaignRow extends CampaignCounters {
   startedAt: string | null;
   finishedAt: string | null;
   audienceSource: AudienceSource | null;
+  followUps: number;
   createdAt: string;
 }
 
@@ -68,6 +108,12 @@ export interface CampaignDetail extends CampaignCounters {
   pausedReason: string | null;
   smtpReady: boolean;
   can: { edit: boolean; editAudience: boolean; schedule: boolean; sendNow: boolean; pause: boolean; resume: boolean; cancel: boolean; test: boolean; delete: boolean };
+  steps: CampaignStep[];
+  followUpWeekdays: boolean;
+  sequence: SequenceRow[];
+  nextFollowUpAt: string | null;
+  replies: ReplyRow[];
+  inbox: InboxStatus;
   createdAt: string;
 }
 
@@ -80,6 +126,7 @@ export interface Defaults {
   ratePerMinute: number;
   dailyLimit: number;
   sentToday: number;
+  inbox: InboxStatus;
 }
 
 export interface AudiencePreview {
@@ -137,6 +184,50 @@ export function SmtpWarning({ ready }: { ready: boolean | undefined }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Whether replies stop the follow-ups: warns when reply detection is off, not configured or failing.
+ * Shown only where it matters (campaigns with follow-ups, the replies list).
+ */
+export function InboxBanner({ inbox, followUps = true }: { inbox: InboxStatus | undefined; followUps?: boolean }) {
+  if (!inbox || !followUps) return null;
+  if (!inbox.enabled)
+    return (
+      <div className="flex items-start gap-3 rounded-xl border border-line bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <Icon name="mail-question" className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+        <p>
+          Reply detection is off, so follow-ups are also sent to people who already replied. Turn on <span className="font-medium">Find replies and bounces</span> in{' '}
+          <Link to="/system/settings?tab=marketing" className="font-medium text-brand-700 underline">
+            System Settings → Marketing
+          </Link>
+          , or mark replies by hand.
+        </p>
+      </div>
+    );
+  if (!inbox.configured)
+    return (
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <Icon name="triangle-alert" className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>
+          Replies cannot be found yet: set the IMAP host in{' '}
+          <Link to="/system/settings?tab=mail" className="font-medium underline">
+            System Settings → E-mail
+          </Link>{' '}
+          (Hostinger: imap.hostinger.com, port 993). It uses the same mailbox login as sending.
+        </p>
+      </div>
+    );
+  if (inbox.lastError && (!inbox.lastCheckedAt || (inbox.lastErrorAt && inbox.lastErrorAt > inbox.lastCheckedAt)))
+    return (
+      <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <Icon name="mail-x" className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>
+          <span className="font-medium">The mailbox could not be checked for replies.</span> {inbox.lastError}
+        </p>
+      </div>
+    );
+  return null;
 }
 
 /** Toggle chips for several values of one lookup list */

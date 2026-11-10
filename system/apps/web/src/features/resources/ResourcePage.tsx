@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
 import { download } from '@/lib/download';
@@ -73,7 +73,18 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
   });
   const qc = useQueryClient();
   const can = useSession((s) => s.can);
-  const [editing, setEditing] = useState<string | null | undefined>(undefined);
+  // ?open=<id> opens that record (links from other pages, e.g. a reply to an e-mail campaign)
+  const [sp, setSp] = useSearchParams();
+  const openId = sp.get('open');
+  const [editing, setEditingState] = useState<string | null | undefined>(() => (openId && /^[0-9a-f-]{36}$/i.test(openId) ? openId : undefined));
+  const setEditing = (v: string | null | undefined) => {
+    setEditingState(v);
+    if (v === undefined && sp.has('open')) {
+      const next = new URLSearchParams(sp);
+      next.delete('open');
+      setSp(next, { replace: true });
+    }
+  };
   const [importing, setImporting] = useState(false);
   const [showFilters, setShowFilters] = useState(Object.keys(ls.filters).length > 0);
   const lookups = useLookups(meta.fields.filter((f) => f.type === 'lookup').map((f) => f.lookup!));

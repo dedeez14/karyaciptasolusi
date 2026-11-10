@@ -6,7 +6,8 @@ import { fmtDateTime, plural } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, DataTable, EmptyState, Field, Icon, Input, LookupSelect, Modal, Pagination, PageHeader, StatCard, Tabs, Textarea, toast, type Column } from '@/components/ui';
-import { SmtpWarning, StatusBadge, type CampaignRow } from './common';
+import { SmtpWarning, StatusBadge, type CampaignRow, type InboxStatus } from './common';
+import { RepliesPanel } from './RepliesPanel';
 
 interface Summary {
   active: number;
@@ -15,13 +16,15 @@ interface Summary {
   sentToday: number;
   dailyLimit: number;
   smtpReady: boolean;
+  newReplies: number;
+  inbox: InboxStatus;
 }
 
 const AUDIENCE_LABEL: Record<string, string> = { LEADS: 'Leads', CUSTOMERS: 'Customers', MAP_PLACES: 'Google Maps', MANUAL: 'Pasted list' };
 
 export default function CampaignListPage() {
   const [sp, setSp] = useSearchParams();
-  const tab = (sp.get('tab') as 'campaigns' | 'suppressions') ?? 'campaigns';
+  const tab = (sp.get('tab') as 'campaigns' | 'replies' | 'suppressions') ?? 'campaigns';
   const summary = useQuery({ queryKey: ['email-campaigns', 'summary'], queryFn: () => api.get<Summary>('/email-campaigns/summary') });
   const s = summary.data;
   return (
@@ -39,10 +42,19 @@ export default function CampaignListPage() {
         onChange={(v) => setSp(v === 'campaigns' ? {} : { tab: v })}
         tabs={[
           { value: 'campaigns', label: 'Campaigns' },
+          {
+            value: 'replies',
+            label: (
+              <span className="flex items-center gap-1.5">
+                Replies
+                {!!s?.newReplies && <span className={`rounded-full px-1.5 text-xs font-semibold ${tab === 'replies' ? 'bg-white/25 text-white' : 'bg-violet-100 text-violet-700'}`}>{s.newReplies}</span>}
+              </span>
+            ),
+          },
           { value: 'suppressions', label: 'Do-not-email list' },
         ]}
       />
-      {tab === 'campaigns' ? <Campaigns /> : <Suppressions />}
+      {tab === 'campaigns' ? <Campaigns /> : tab === 'replies' ? <RepliesPanel inbox={s?.inbox} /> : <Suppressions />}
     </div>
   );
 }
@@ -79,7 +91,10 @@ function Campaigns() {
             )}
           </span>
           <span className="block truncate text-sm text-slate-800">{r.name}</span>
-          <span className="block truncate text-xs text-slate-500">{r.subject}</span>
+          <span className="block truncate text-xs text-slate-500">
+            {r.subject}
+            {r.followUps > 0 && <span className="text-slate-400"> · +{plural(r.followUps, 'follow-up')}</span>}
+          </span>
         </div>
       ),
     },
@@ -92,11 +107,9 @@ function Campaigns() {
         <div className="text-right text-sm tabular-nums">
           <span className="font-medium">{r.sentCount.toLocaleString()}</span>
           <span className="text-slate-400"> / {r.totalCount.toLocaleString()}</span>
-          {(r.failedCount > 0 || r.unsubscribeCount > 0) && (
+          {(r.replyCount > 0 || r.failedCount > 0 || r.unsubscribeCount > 0) && (
             <span className="block text-xs text-slate-500">
-              {r.failedCount ? `${r.failedCount} failed` : ''}
-              {r.failedCount && r.unsubscribeCount ? ' · ' : ''}
-              {r.unsubscribeCount ? `${r.unsubscribeCount} unsubscribed` : ''}
+              {[r.replyCount ? `${r.replyCount} replied` : '', r.failedCount ? `${r.failedCount} failed` : '', r.unsubscribeCount ? `${r.unsubscribeCount} unsubscribed` : ''].filter(Boolean).join(' · ')}
             </span>
           )}
         </div>

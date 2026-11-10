@@ -75,6 +75,10 @@ export class NotificationService {
       });
       if (n) items.push({ key: 'bills', title: 'Supplier bills due', message: `${n} bill${n > 1 ? 's' : ''} due within ${days} days or overdue`, count: n, severity: 'warning', icon: 'banknote', link: '/documents/PI?unpaid=1' });
     }
+    if (can(u, 'crm.emailcampaign.read') && (await on('emailReplies'))) {
+      const n = await this.prisma.emailReply.count({ where: { companyId: c, kindCode: 'REPLY', handledAt: null } });
+      if (n) items.push({ key: 'email-replies', title: 'Replies to e-mail campaigns', message: `${n} repl${n > 1 ? 'ies are' : 'y is'} waiting for an answer`, count: n, severity: 'info', icon: 'mail-check', link: '/crm/email-campaigns?tab=replies' });
+    }
     if (can(u, 'inventory.stock.read') && (await on('lowStock'))) {
       const [row] = await this.prisma.$queryRaw<{ n: bigint }[]>`
         SELECT COUNT(*) AS n FROM (SELECT pr.id FROM products pr LEFT JOIN stock_balances b ON b."productId" = pr.id

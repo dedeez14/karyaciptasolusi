@@ -6,6 +6,7 @@ import { Activity, Public } from '../../common/decorators';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { FileOutputService } from '../files/file-output.service';
 import { CampaignService } from './campaign.service';
+import { InboxService } from './inbox.service';
 import { PublicEmailService } from './public-email.service';
 
 const code = z
@@ -26,12 +27,21 @@ const suppressionSchema = z.object({
   search: z.string().trim().max(100).optional(),
   reason: code,
 });
+const replySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).default(20),
+  search: z.string().trim().max(100).optional(),
+  kind: code,
+  open: z.preprocess((v) => v === 'true' || v === '1' || v === true, z.boolean()).optional(),
+  campaignId: z.uuid().optional(),
+});
 const exportSchema = z.object({ format: z.enum(['xlsx', 'csv']).default('xlsx'), status: code });
 
 @Controller('email-campaigns')
 export class EmailCampaignController {
   constructor(
     private readonly campaigns: CampaignService,
+    private readonly inbox: InboxService,
     private readonly output: FileOutputService,
   ) {}
 
@@ -76,6 +86,31 @@ export class EmailCampaignController {
     return this.campaigns.removeSuppression(id);
   }
 
+  @Get('replies')
+  replies(@Query(new ZodPipe(replySchema)) q: z.infer<typeof replySchema>) {
+    return this.inbox.list(q);
+  }
+
+  @Activity('email-campaign.check-replies')
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  @Post('replies/check')
+  @HttpCode(200)
+  checkReplies() {
+    return this.inbox.checkNow();
+  }
+
+  @Post('replies/:rid/handled')
+  @HttpCode(200)
+  handled(@Param('rid') rid: string, @Body() body: { handled?: unknown }) {
+    return this.inbox.setHandled(rid, body?.handled !== false);
+  }
+
+  @Post(':id/recipients/:rid/replied')
+  @HttpCode(200)
+  markReplied(@Param('id') id: string, @Param('rid') rid: string) {
+    return this.inbox.markReplied(id, rid);
+  }
+
   @Get(':id')
   get(@Param('id') id: string) {
     return this.campaigns.get(id);
@@ -93,8 +128,9 @@ export class EmailCampaignController {
   }
 
   @Get(':id/preview')
-  preview(@Param('id') id: string, @Query('email') email?: string) {
-    return this.campaigns.preview(id, email ? String(email).slice(0, 200) : undefined);
+  preview(@Param('id') id: string, @Query('email') email?: string, @Query('step') step?: string) {
+    const n = Number(step);
+    return this.campaigns.preview(id, email ? String(email).slice(0, 200) : undefined, Number.isInteger(n) && n > 0 && n <= 5 ? n : undefined);
   }
 
   @Post()

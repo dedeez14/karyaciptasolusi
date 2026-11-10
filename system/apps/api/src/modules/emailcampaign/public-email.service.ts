@@ -50,10 +50,11 @@ export class PublicEmailService {
         await this.audit.record('E-mail Suppression', null, 'UNSUBSCRIBE', undefined, { campaign: r.campaign.code });
       }
       if (r.statusCode === 'SENT' || r.statusCode === 'QUEUED') {
-        await this.prisma.emailRecipient.update({ where: { id: r.id }, data: { statusCode: r.sentAt ? 'UNSUBSCRIBED' : 'SKIPPED', error: r.sentAt ? null : 'Unsubscribed' } });
+        await this.prisma.emailRecipient.update({ where: { id: r.id }, data: { statusCode: r.sentAt ? 'UNSUBSCRIBED' : 'SKIPPED', error: r.sentAt ? null : 'Unsubscribed', nextSendAt: null } });
       }
       // the address leaves every other campaign that has not reached it yet
       await this.prisma.emailRecipient.updateMany({ where: { companyId: r.companyId, email: r.email, statusCode: 'QUEUED' }, data: { statusCode: 'SKIPPED', error: 'Unsubscribed' } });
+      await this.prisma.emailRecipient.updateMany({ where: { companyId: r.companyId, email: r.email, nextSendAt: { not: null } }, data: { nextSendAt: null, error: 'Unsubscribed: follow-ups stopped' } });
       await this.campaigns.refreshCounters(r.campaignId);
       this.bus.emit(r.companyId);
       return { unsubscribed: true };

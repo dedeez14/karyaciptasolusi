@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { EmailCampaign, Prisma } from '@prisma/client';
+import type { EmailCampaign, EmailCampaignStep, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -17,6 +17,44 @@ const ENTITY = 'E-mail Campaign';
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 const optText = (max: number) => z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(max).nullable().optional());
 
+const stepSchema = z.object({
+  delayDays: z.coerce.number({ error: 'Enter the number of days' }).int('Whole days only').min(1, 'At least 1 day').max(60, 'At most 60 days'),
+  subject: optText(300),
+  body: z.string().trim().min(1, 'Write the follow-up text').max(200_000),
+});
+
+const DAY = 86_400_000;
+const HOUR = 3_600_000;
+
+/** hour, minute and weekday (0 = Sunday) of a moment in a time zone */
+function localParts(d: Date, timeZone: string) {
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat('en-US', { timeZone, hour12: false, weekday: 'short', hour: 'numeric', minute: 'numeric' }).formatToParts(d);
+  } catch {
+    parts = new Intl.DateTimeFormat('en-US', { hour12: false, weekday: 'short', hour: 'numeric', minute: 'numeric' }).formatToParts(d);
+  }
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  return { hour: Number(get('hour')) % 24, minute: Number(get('minute')), weekday: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(get('weekday')) };
+}
+
+/**
+ * When a follow-up is due: the delay after the previous e-mail. With businessOnly it is moved into
+ * office hours of the company time zone (Mon-Fri, 08:00-17:00): too early -> 09:00 the same day,
+ * too late -> 09:00 the next day, Saturday / Sunday -> Monday.
+ */
+export function followUpTime(from: Date, days: number, businessOnly: boolean, timeZone = 'Asia/Jakarta') {
+  let t = from.getTime() + days * DAY;
+  if (!businessOnly) return new Date(t);
+  let p = localParts(new Date(t), timeZone);
+  if (p.hour < 8) t += (9 - p.hour) * HOUR - p.minute * 60_000;
+  else if (p.hour >= 17) t += (24 - p.hour + 9) * HOUR - p.minute * 60_000;
+  p = localParts(new Date(t), timeZone);
+  if (p.weekday === 6) t += 2 * DAY;
+  else if (p.weekday === 0) t += DAY;
+  return new Date(t);
+}
+
 export const campaignSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(200),
   subject: z.string().trim().min(1, 'Subject is required').max(300),
@@ -28,6 +66,9 @@ export const campaignSchema = z.object({
   automatic: z.boolean().default(false),
   ratePerMinute: z.coerce.number().int().min(1).max(500).default(20),
   trackOpens: z.boolean().default(false),
+  /** follow-ups sent to recipients who have not replied, in order */
+  steps: z.array(stepSchema).max(5, 'At most 5 follow-ups').default([]),
+  followUpWeekdays: z.boolean().default(true),
 });
 export type CampaignInput = z.infer<typeof campaignSchema>;
 
@@ -79,7 +120,8 @@ export class CampaignService {
     const replyTo = c.replyTo || (await this.settings.str('marketing.emailReplyTo', companyId)) || undefined;
     const footerAddress = await this.settings.str('marketing.emailFooterAddress', companyId);
     const publicUrl = (await this.settings.str('general.publicUrl', companyId, 'http://localhost:3000')).replace(/\/+$/, '');
-    return { sender, replyTo, footerAddress, publicUrl, companyName };
+    const timeZone = await this.settings.str('general.timezone', companyId, 'Asia/Jakarta');
+    return { sender, replyTo, footerAddress, publicUrl, companyName, timeZone };
   }
 
   private links(publicUrl: string, token: string) {
@@ -96,8 +138,49 @@ export class CampaignService {
     return d;
   }
 
+  /** every campaign e-mail counts, follow-ups included */
   async sentToday(companyId: string) {
-    return this.prisma.emailRecipient.count({ where: { companyId, sentAt: { gte: await this.startOfToday() } } });
+    return this.prisma.emailMessage.count({ where: { companyId, sentAt: { gte: await this.startOfToday() } } });
+  }
+
+  private steps(campaignId: string) {
+    return this.prisma.emailCampaignStep.findMany({ where: { campaignId }, orderBy: { position: 'asc' } });
+  }
+
+  private async saveSteps(tx: Prisma.TransactionClient, campaignId: string, steps: CampaignInput['steps']) {
+    await tx.emailCampaignStep.deleteMany({ where: { campaignId } });
+    if (steps.length)
+      await tx.emailCampaignStep.createMany({
+        data: steps.map((st, i) => ({ campaignId, position: i + 1, delayDays: st.delayDays, subject: st.subject ?? null, body: sanitizeHtml(st.body) })),
+      });
+  }
+
+  /**
+   * After the follow-ups of a running campaign changed: recompute when each recipient gets the next one.
+   * Recipients who replied, unsubscribed, bounced or whose follow-up failed are left alone.
+   */
+  private async rescheduleFollowUps(c: EmailCampaign) {
+    if (!c.startedAt) return 0;
+    const steps = await this.steps(c.id);
+    const tz = await this.settings.str('general.timezone', c.companyId, 'Asia/Jakarta');
+    const rows = await this.prisma.emailRecipient.findMany({ where: { campaignId: c.id, statusCode: 'SENT', repliedAt: null, error: null, lastSentAt: { not: null } }, select: { id: true, step: true, lastSentAt: true, nextSendAt: true } });
+    let changed = 0;
+    for (const r of rows) {
+      const next = steps[r.step];
+      const at = next ? followUpTime(r.lastSentAt!, next.delayDays, c.followUpWeekdays, tz) : null;
+      if ((at?.getTime() ?? null) === (r.nextSendAt?.getTime() ?? null)) continue;
+      await this.prisma.emailRecipient.update({ where: { id: r.id }, data: { nextSendAt: at } });
+      changed++;
+    }
+    return changed;
+  }
+
+  /** whether replies and bounces are read from the mailbox, and how the last check went */
+  async inboxStatus(companyId: string) {
+    const enabled = await this.settings.bool('marketing.replyTracking', companyId, true);
+    const configured = !!(await this.mail.imapConfig(companyId));
+    const state = await this.prisma.emailInboxState.findUnique({ where: { companyId } });
+    return { enabled, configured, lastCheckedAt: state?.lastCheckedAt ?? null, lastError: state?.lastError ?? null, lastErrorAt: state?.lastErrorAt ?? null };
   }
 
   private async limits(companyId: string) {
@@ -109,14 +192,15 @@ export class CampaignService {
 
   /** Counters are derived from the recipients (one source of truth) */
   async refreshCounters(campaignId: string) {
-    const [total, sent, failed, opened, unsub] = await Promise.all([
+    const [total, sent, failed, opened, unsub, replied] = await Promise.all([
       this.prisma.emailRecipient.count({ where: { campaignId } }),
       this.prisma.emailRecipient.count({ where: { campaignId, sentAt: { not: null } } }),
       this.prisma.emailRecipient.count({ where: { campaignId, statusCode: { in: ['FAILED', 'BOUNCED'] } } }),
       this.prisma.emailRecipient.count({ where: { campaignId, openedAt: { not: null } } }),
       this.prisma.emailRecipient.count({ where: { campaignId, statusCode: 'UNSUBSCRIBED' } }),
+      this.prisma.emailRecipient.count({ where: { campaignId, repliedAt: { not: null } } }),
     ]);
-    await this.prisma.emailCampaign.update({ where: { id: campaignId }, data: { totalCount: total, sentCount: sent, failedCount: failed, openCount: opened, unsubscribeCount: unsub } });
+    await this.prisma.emailCampaign.update({ where: { id: campaignId }, data: { totalCount: total, sentCount: sent, failedCount: failed, openCount: opened, unsubscribeCount: unsub, replyCount: replied } });
   }
 
   // ------------------------------------------------------------------ read
@@ -135,6 +219,7 @@ export class CampaignService {
       ratePerMinute: l.ratePerMinute,
       dailyLimit: l.dailyLimit,
       sentToday: await this.sentToday(companyId),
+      inbox: await this.inboxStatus(companyId),
     };
   }
 
@@ -149,23 +234,24 @@ export class CampaignService {
         orderBy: { createdAt: 'desc' },
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
-        select: { id: true, code: true, name: true, subject: true, statusCode: true, automatic: true, scheduledAt: true, startedAt: true, finishedAt: true, totalCount: true, sentCount: true, failedCount: true, openCount: true, unsubscribeCount: true, trackOpens: true, audience: true, createdAt: true },
+        select: { id: true, code: true, name: true, subject: true, statusCode: true, automatic: true, scheduledAt: true, startedAt: true, finishedAt: true, totalCount: true, sentCount: true, failedCount: true, openCount: true, unsubscribeCount: true, replyCount: true, trackOpens: true, audience: true, createdAt: true, _count: { select: { steps: true } } },
       }),
       this.prisma.emailCampaign.count({ where }),
     ]);
-    return paged(rows.map((r) => ({ ...r, audienceSource: (r.audience as { source?: string })?.source ?? null, audience: undefined })), total, q);
+    return paged(rows.map(({ _count, ...r }) => ({ ...r, followUps: _count.steps, audienceSource: (r.audience as { source?: string })?.source ?? null, audience: undefined })), total, q);
   }
 
   async summary() {
     RequestCtx.assert('crm.emailcampaign.read');
     const companyId = RequestCtx.companyId();
-    const [active, scheduled, suppressed] = await Promise.all([
+    const [active, scheduled, suppressed, newReplies] = await Promise.all([
       this.prisma.emailCampaign.count({ where: { companyId, deletedAt: null, statusCode: 'SENDING' } }),
       this.prisma.emailCampaign.count({ where: { companyId, deletedAt: null, statusCode: 'SCHEDULED' } }),
       this.prisma.emailSuppression.count({ where: { companyId } }),
+      this.prisma.emailReply.count({ where: { companyId, handledAt: null, kindCode: 'REPLY' } }),
     ]);
     const l = await this.limits(companyId);
-    return { active, scheduled, suppressed, sentToday: await this.sentToday(companyId), dailyLimit: l.dailyLimit, smtpReady: await this.mail.isConfigured(companyId) };
+    return { active, scheduled, suppressed, newReplies, sentToday: await this.sentToday(companyId), dailyLimit: l.dailyLimit, smtpReady: await this.mail.isConfigured(companyId), inbox: await this.inboxStatus(companyId) };
   }
 
   async get(id: string) {
@@ -177,8 +263,25 @@ export class CampaignService {
     const linked = c.campaignId ? await this.prisma.campaign.findFirst({ where: { id: c.campaignId, companyId }, select: { id: true, code: true, name: true } }) : null;
     const lastAuto = c.statusCode === 'PAUSED' ? await this.prisma.auditLog.findFirst({ where: { companyId, entity: ENTITY, entityId: id, action: 'AUTO_PAUSE' }, orderBy: { id: 'desc' }, select: { after: true, createdAt: true } }) : null;
     const lastPause = c.statusCode === 'PAUSED' ? await this.prisma.auditLog.findFirst({ where: { companyId, entity: ENTITY, entityId: id, action: { in: ['PAUSE', 'AUTO_PAUSE'] } }, orderBy: { id: 'desc' }, select: { action: true } }) : null;
+    const steps = await this.steps(id);
+    const [sentByStep, waitingByStep, nextDue, replies] = await Promise.all([
+      this.prisma.emailMessage.groupBy({ by: ['step'], where: { campaignId: id }, _count: { _all: true } }),
+      this.prisma.emailRecipient.groupBy({ by: ['step'], where: { campaignId: id, nextSendAt: { not: null } }, _count: { _all: true } }),
+      this.prisma.emailRecipient.findFirst({ where: { campaignId: id, nextSendAt: { not: null } }, orderBy: { nextSendAt: 'asc' }, select: { nextSendAt: true } }),
+      this.prisma.emailReply.findMany({ where: { companyId, campaignId: id }, orderBy: { receivedAt: 'desc' }, take: 10 }),
+    ]);
+    const sent = new Map(sentByStep.map((x) => [x.step, x._count._all]));
+    const waiting = new Map(waitingByStep.map((x) => [x.step + 1, x._count._all]));
     return {
       ...c,
+      steps,
+      sequence: [
+        { step: 0, delayDays: 0, subject: c.subject, sent: sent.get(0) ?? 0, waiting: counts.QUEUED ?? 0 },
+        ...steps.map((st) => ({ step: st.position, delayDays: st.delayDays, subject: st.subject || `Re: ${c.subject}`, sent: sent.get(st.position) ?? 0, waiting: waiting.get(st.position) ?? 0 })),
+      ],
+      nextFollowUpAt: nextDue?.nextSendAt ?? null,
+      replies,
+      inbox: await this.inboxStatus(companyId),
       linkedCampaign: linked,
       counts,
       pausedReason: lastPause?.action === 'AUTO_PAUSE' ? ((lastAuto?.after as { reason?: string } | null)?.reason ?? null) : null,
@@ -216,7 +319,7 @@ export class CampaignService {
         orderBy: [{ sentAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'asc' }],
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
-        select: { id: true, email: true, name: true, entityType: true, entityId: true, statusCode: true, error: true, sentAt: true, openedAt: true, createdAt: true, data: true },
+        select: { id: true, email: true, name: true, entityType: true, entityId: true, statusCode: true, error: true, sentAt: true, openedAt: true, createdAt: true, data: true, step: true, lastSentAt: true, nextSendAt: true, repliedAt: true },
       }),
       this.prisma.emailRecipient.count({ where }),
     ]);
@@ -241,9 +344,12 @@ export class CampaignService {
         { key: 'status', label: 'Status' },
         { key: 'sentAt', label: 'Sent at', type: 'datetime' },
         { key: 'openedAt', label: 'Opened at', type: 'datetime' },
+        { key: 'emails', label: 'E-mails sent' },
+        { key: 'nextSendAt', label: 'Next follow-up', type: 'datetime' },
+        { key: 'repliedAt', label: 'Replied at', type: 'datetime' },
         { key: 'error', label: 'Error' },
       ],
-      rows: rows.map((r) => ({ email: r.email, name: r.name ?? '', company: (r.data as MergeData | null)?.company ?? '', source: r.entityType ?? '', status: r.statusCode, sentAt: r.sentAt, openedAt: r.openedAt, error: r.error ?? '' })),
+      rows: rows.map((r) => ({ email: r.email, name: r.name ?? '', company: (r.data as MergeData | null)?.company ?? '', source: r.entityType ?? '', status: r.statusCode, sentAt: r.sentAt, openedAt: r.openedAt, emails: r.sentAt ? r.step + 1 : 0, nextSendAt: r.nextSendAt, repliedAt: r.repliedAt, error: r.error ?? '' })),
     };
   }
 
@@ -266,9 +372,22 @@ export class CampaignService {
   }
 
   /** Renders the e-mail for one contact of the audience (or a sample contact) */
-  async preview(id: string, email?: string) {
+  /** subject and body of the campaign e-mail (step 0) or of one follow-up */
+  private template(c: EmailCampaign, step: EmailCampaignStep | null) {
+    return step ? { subject: step.subject?.trim() || `Re: ${c.subject}`, body: step.body } : { subject: c.subject, body: c.body };
+  }
+
+  private async stepOf(c: EmailCampaign, stepNo?: number) {
+    if (!stepNo) return null;
+    const st = await this.prisma.emailCampaignStep.findFirst({ where: { campaignId: c.id, position: stepNo } });
+    if (!st) throw new NotFoundException('Follow-up not found');
+    return st;
+  }
+
+  async preview(id: string, email?: string, stepNo?: number) {
     RequestCtx.assert('crm.emailcampaign.read');
     const c = await this.owned(id);
+    const tpl = this.template(c, await this.stepOf(c, stepNo));
     let data: MergeData | null = null;
     if (email) {
       const r = await this.prisma.emailRecipient.findFirst({ where: { campaignId: id, email: email.toLowerCase() } });
@@ -279,7 +398,7 @@ export class CampaignService {
       data = first ?? { name: 'Budi Santoso', company: 'PT Contoh Usaha', email: 'budi@example.com', city: 'Jakarta' };
     }
     const s = await this.senderInfo(c.companyId, c);
-    const r = renderEmail({ subject: c.subject, body: c.body, data, sender: s.sender, footerAddress: s.footerAddress, unsubscribeUrl: this.links(s.publicUrl, 'preview').unsubscribe });
+    const r = renderEmail({ subject: tpl.subject, body: tpl.body, data, sender: s.sender, footerAddress: s.footerAddress, unsubscribeUrl: this.links(s.publicUrl, 'preview').unsubscribe });
     return { subject: r.subject, html: r.html, text: r.text, recipient: data };
   }
 
@@ -292,24 +411,29 @@ export class CampaignService {
     const u = RequestCtx.user();
     await this.assertLinkedCampaign(input.campaignId);
     const code = await this.sequence.next('EMAIL_CAMPAIGN', u.companyId);
-    const row = await this.prisma.emailCampaign.create({
-      data: {
-        companyId: u.companyId,
-        code,
-        name: input.name,
-        subject: input.subject,
-        body: sanitizeHtml(input.body),
-        fromName: input.fromName ?? null,
-        replyTo: input.replyTo ?? null,
-        campaignId: input.campaignId ?? null,
-        audience: input.audience as Prisma.InputJsonValue,
-        automatic: input.automatic,
-        ratePerMinute: input.ratePerMinute,
-        trackOpens: input.trackOpens,
-        createdById: u.id,
-      },
+    const row = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.emailCampaign.create({
+        data: {
+          companyId: u.companyId,
+          code,
+          name: input.name,
+          subject: input.subject,
+          body: sanitizeHtml(input.body),
+          fromName: input.fromName ?? null,
+          replyTo: input.replyTo ?? null,
+          campaignId: input.campaignId ?? null,
+          audience: input.audience as Prisma.InputJsonValue,
+          automatic: input.automatic,
+          ratePerMinute: input.ratePerMinute,
+          trackOpens: input.trackOpens,
+          followUpWeekdays: input.followUpWeekdays,
+          createdById: u.id,
+        },
+      });
+      await this.saveSteps(tx, created.id, input.steps);
+      return created;
     });
-    await this.audit.record(ENTITY, row.id, 'CREATE', undefined, { ...row, body: `${row.body.length} characters` });
+    await this.audit.record(ENTITY, row.id, 'CREATE', undefined, { ...row, body: `${row.body.length} characters`, followUps: input.steps.map((st) => st.delayDays) });
     return row;
   }
 
@@ -329,23 +453,36 @@ export class CampaignService {
     if (audienceChanged && !caps.editAudience) throw new ConflictException('The audience cannot be changed after sending started. Pause an automatic campaign to change it, or duplicate this campaign.');
     if (audienceChanged) this.assertAudienceAccess(input.audience);
     await this.assertLinkedCampaign(input.campaignId);
-    const after = await this.prisma.emailCampaign.update({
-      where: { id },
-      data: {
-        name: input.name,
-        subject: input.subject,
-        body: sanitizeHtml(input.body),
-        fromName: input.fromName ?? null,
-        replyTo: input.replyTo ?? null,
-        campaignId: input.campaignId ?? null,
-        audience: input.audience as Prisma.InputJsonValue,
-        automatic: before.startedAt ? before.automatic : input.automatic,
-        ratePerMinute: input.ratePerMinute,
-        trackOpens: input.trackOpens,
-        updatedById: RequestCtx.user().id,
-      },
+    const stepsBefore = await this.steps(id);
+    const after = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.emailCampaign.update({
+        where: { id },
+        data: {
+          name: input.name,
+          subject: input.subject,
+          body: sanitizeHtml(input.body),
+          fromName: input.fromName ?? null,
+          replyTo: input.replyTo ?? null,
+          campaignId: input.campaignId ?? null,
+          audience: input.audience as Prisma.InputJsonValue,
+          automatic: before.startedAt ? before.automatic : input.automatic,
+          ratePerMinute: input.ratePerMinute,
+          trackOpens: input.trackOpens,
+          followUpWeekdays: input.followUpWeekdays,
+          updatedById: RequestCtx.user().id,
+        },
+      });
+      await this.saveSteps(tx, id, input.steps);
+      return updated;
     });
-    await this.audit.record(ENTITY, id, 'UPDATE', { ...before, body: before.body.length }, { ...after, body: after.body.length });
+    const rescheduled = await this.rescheduleFollowUps(after);
+    await this.audit.record(
+      ENTITY,
+      id,
+      'UPDATE',
+      { ...before, body: before.body.length, followUps: stepsBefore.map((st) => st.delayDays) },
+      { ...after, body: after.body.length, followUps: input.steps.map((st) => st.delayDays), ...(rescheduled ? { followUpsRescheduled: rescheduled } : {}) },
+    );
     return after;
   }
 
@@ -361,7 +498,8 @@ export class CampaignService {
   async duplicate(id: string) {
     RequestCtx.assert('crm.emailcampaign.create');
     const c = await this.owned(id);
-    return this.create({ name: `${c.name} (copy)`.slice(0, 200), subject: c.subject, body: c.body, fromName: c.fromName, replyTo: c.replyTo, campaignId: c.campaignId, audience: c.audience, automatic: c.automatic, ratePerMinute: c.ratePerMinute, trackOpens: c.trackOpens });
+    const steps = (await this.steps(id)).map((st) => ({ delayDays: st.delayDays, subject: st.subject, body: st.body }));
+    return this.create({ name: `${c.name} (copy)`.slice(0, 200), subject: c.subject, body: c.body, fromName: c.fromName, replyTo: c.replyTo, campaignId: c.campaignId, audience: c.audience, automatic: c.automatic, ratePerMinute: c.ratePerMinute, trackOpens: c.trackOpens, steps, followUpWeekdays: c.followUpWeekdays });
   }
 
   private async setStatus(c: EmailCampaign, status: string, action: string, extra: Prisma.EmailCampaignUpdateInput = {}, auditAfter?: Record<string, unknown>) {
@@ -422,6 +560,7 @@ export class CampaignService {
     const c = await this.owned(id);
     if (!this.capabilities(c).cancel) throw new ConflictException('This campaign cannot be cancelled');
     const skipped = await this.prisma.emailRecipient.updateMany({ where: { campaignId: id, statusCode: 'QUEUED' }, data: { statusCode: 'SKIPPED', error: 'Campaign cancelled' } });
+    await this.prisma.emailRecipient.updateMany({ where: { campaignId: id, nextSendAt: { not: null } }, data: { nextSendAt: null } });
     const after = await this.setStatus(c, 'CANCELLED', 'CANCEL', { finishedAt: new Date() }, { skipped: skipped.count });
     await this.refreshCounters(id);
     return after;
@@ -431,13 +570,14 @@ export class CampaignService {
   async testSend(id: string, body: unknown) {
     RequestCtx.assert('crm.emailcampaign.send');
     const c = await this.owned(id);
-    const { email } = this.parse(z.object({ email: z.email('Not a valid e-mail address').max(150) }), body);
+    const { email, step: stepNo } = this.parse(z.object({ email: z.email('Not a valid e-mail address').max(150), step: z.coerce.number().int().min(0).max(5).optional() }), body);
+    const tpl = this.template(c, await this.stepOf(c, stepNo));
     const p = await this.preview(id);
     const s = await this.senderInfo(c.companyId, c);
     const links = this.links(s.publicUrl, 'test');
-    const r = renderEmail({ subject: c.subject, body: c.body, data: p.recipient, sender: s.sender, footerAddress: s.footerAddress, unsubscribeUrl: links.unsubscribe });
+    const r = renderEmail({ subject: tpl.subject, body: tpl.body, data: p.recipient, sender: s.sender, footerAddress: s.footerAddress, unsubscribeUrl: links.unsubscribe });
     await this.mail.send({ to: email, subject: `[Test] ${r.subject}`, text: r.text, html: r.html, fromName: s.sender, replyTo: s.replyTo, headers: { 'List-Unsubscribe': `<${links.oneClick}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } }, c.companyId);
-    await this.audit.record(ENTITY, id, 'TEST_SEND', undefined, { to: email });
+    await this.audit.record(ENTITY, id, 'TEST_SEND', undefined, { to: email, step: stepNo ?? 0 });
     return { sent: true, to: email };
   }
 
@@ -509,7 +649,10 @@ export class CampaignService {
     return { started: due.length, campaigns: sending.length, sent };
   }
 
-  /** Sends the next batch of one SENDING campaign. Returns how many e-mails were sent. */
+  /**
+   * Sends the next batch of one SENDING campaign: follow-ups that are due first (they are time bound),
+   * then new recipients. Returns how many e-mails were sent.
+   */
   async processCampaign(id: string): Promise<number> {
     const c = await this.prisma.emailCampaign.findUnique({ where: { id } });
     if (!c || c.statusCode !== 'SENDING' || c.deletedAt) return 0;
@@ -520,14 +663,18 @@ export class CampaignService {
     let sentNow = 0;
     if (budget > 0) {
       // e-mails already sent in the last minute count against the per-minute rate (Send now + scheduler tick)
-      const lastMinute = await this.prisma.emailRecipient.count({ where: { campaignId: id, sentAt: { gte: new Date(Date.now() - 60_000) } } });
-      const take = Math.max(0, budget - lastMinute);
-      const batch = take ? await this.prisma.emailRecipient.findMany({ where: { campaignId: id, statusCode: 'QUEUED' }, orderBy: { createdAt: 'asc' }, take }) : [];
+      const lastMinute = await this.prisma.emailMessage.count({ where: { campaignId: id, sentAt: { gte: new Date(Date.now() - 60_000) } } });
+      let take = Math.max(0, budget - lastMinute);
+      const followUps = take ? await this.prisma.emailRecipient.findMany({ where: { campaignId: id, statusCode: 'SENT', repliedAt: null, nextSendAt: { lte: new Date() } }, orderBy: { nextSendAt: 'asc' }, take }) : [];
+      take -= followUps.length;
+      const fresh = take > 0 ? await this.prisma.emailRecipient.findMany({ where: { campaignId: id, statusCode: 'QUEUED' }, orderBy: { createdAt: 'asc' }, take }) : [];
+      const batch = [...followUps, ...fresh];
       if (batch.length) {
-        const suppressed = new Set((await this.prisma.emailSuppression.findMany({ where: { companyId, email: { in: batch.map((b) => b.email) } }, select: { email: true } })).map((s) => s.email));
+        const suppressed = new Set((await this.prisma.emailSuppression.findMany({ where: { companyId, email: { in: batch.map((b) => b.email) } }, select: { email: true } })).map((x) => x.email));
         const s = await this.senderInfo(companyId, c);
+        const steps = await this.steps(id);
         for (const r of batch) {
-          const outcome = await this.sendOne(c, r, s, suppressed.has(r.email));
+          const outcome = await this.sendOne(c, r, s, suppressed.has(r.email), steps);
           if (outcome === 'sent') sentNow++;
           if (outcome === 'stop') {
             await this.autoPause(c, 'The mail server refused the login or could not be reached. Check the SMTP settings, then resume.');
@@ -538,9 +685,13 @@ export class CampaignService {
     }
     await this.refreshCounters(id);
     if (!c.automatic) {
-      const left = await this.prisma.emailRecipient.count({ where: { campaignId: id, statusCode: 'QUEUED' } });
+      // finished when nobody is waiting for the first e-mail or for a follow-up
+      const [queued, pending] = await Promise.all([
+        this.prisma.emailRecipient.count({ where: { campaignId: id, statusCode: 'QUEUED' } }),
+        this.prisma.emailRecipient.count({ where: { campaignId: id, nextSendAt: { not: null } } }),
+      ]);
       const current = await this.prisma.emailCampaign.findUnique({ where: { id }, select: { statusCode: true } });
-      if (!left && current?.statusCode === 'SENDING') {
+      if (!queued && !pending && current?.statusCode === 'SENDING') {
         await this.prisma.emailCampaign.update({ where: { id }, data: { statusCode: 'SENT', finishedAt: new Date() } });
         await this.audit.record(ENTITY, id, 'FINISH', { status: 'SENDING' }, { status: 'SENT' });
       }
@@ -549,13 +700,35 @@ export class CampaignService {
     return sentNow;
   }
 
-  private async sendOne(c: EmailCampaign, r: Recipient, s: Awaited<ReturnType<CampaignService['senderInfo']>>, suppressed: boolean): Promise<'sent' | 'skipped' | 'failed' | 'retry' | 'stop'> {
-    if (suppressed) {
-      await this.prisma.emailRecipient.update({ where: { id: r.id }, data: { statusCode: 'SKIPPED', error: 'On the do-not-email list' } });
+  private async sendOne(
+    c: EmailCampaign,
+    r: Recipient,
+    s: Awaited<ReturnType<CampaignService['senderInfo']>>,
+    suppressed: boolean,
+    steps: EmailCampaignStep[],
+  ): Promise<'sent' | 'skipped' | 'failed' | 'retry' | 'stop'> {
+    const stepNo = r.statusCode === 'QUEUED' ? 0 : r.step + 1;
+    const step = stepNo ? (steps[stepNo - 1] ?? null) : null;
+    const followUp = stepNo > 0;
+    if (followUp && !step) {
+      // the follow-up was removed from the campaign in the meantime
+      await this.prisma.emailRecipient.update({ where: { id: r.id }, data: { nextSendAt: null } });
       return 'skipped';
     }
+    if (suppressed) {
+      await this.prisma.emailRecipient.update({
+        where: { id: r.id },
+        data: followUp ? { nextSendAt: null, error: 'On the do-not-email list: follow-ups stopped' } : { statusCode: 'SKIPPED', error: 'On the do-not-email list' },
+      });
+      return 'skipped';
+    }
+    const tpl = this.template(c, step);
     const links = this.links(s.publicUrl, r.token);
-    const rendered = renderEmail({ subject: c.subject, body: c.body, data: { ...(r.data as MergeData), email: r.email }, sender: s.sender, footerAddress: s.footerAddress, unsubscribeUrl: links.unsubscribe, openPixelUrl: c.trackOpens ? links.pixel : null });
+    const rendered = renderEmail({ subject: tpl.subject, body: tpl.body, data: { ...(r.data as MergeData), email: r.email }, sender: s.sender, footerAddress: s.footerAddress, unsubscribeUrl: links.unsubscribe, openPixelUrl: c.trackOpens ? links.pixel : null });
+    const messageId = await this.mail.newMessageId(c.companyId);
+    // a follow-up continues the thread of the previous e-mail in the recipient's inbox
+    const thread = followUp && r.lastMessageId ? { inReplyTo: r.lastMessageId, references: [r.lastMessageId] } : {};
+    const { _attempts, ...cleanData } = (r.data as Record<string, unknown> | null) ?? {};
     try {
       await this.mail.sendBulk(
         {
@@ -565,22 +738,45 @@ export class CampaignService {
           html: rendered.html,
           fromName: s.sender,
           replyTo: s.replyTo,
+          messageId,
+          ...thread,
           headers: { 'List-Unsubscribe': `<${links.oneClick}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click', 'X-Campaign-Id': c.code },
         },
         c.companyId,
       );
-      await this.prisma.emailRecipient.update({ where: { id: r.id }, data: { statusCode: 'SENT', sentAt: new Date(), error: null } });
+      const sentAt = new Date();
+      const next = steps[stepNo]; // the follow-up after this e-mail
+      await this.prisma.$transaction([
+        this.prisma.emailRecipient.update({
+          where: { id: r.id },
+          data: {
+            statusCode: 'SENT',
+            sentAt: r.sentAt ?? sentAt,
+            lastSentAt: sentAt,
+            step: stepNo,
+            lastMessageId: messageId,
+            nextSendAt: next ? followUpTime(sentAt, next.delayDays, c.followUpWeekdays, s.timeZone) : null,
+            error: null,
+            data: cleanData as Prisma.InputJsonValue,
+          },
+        }),
+        this.prisma.emailMessage.create({ data: { companyId: c.companyId, campaignId: c.id, recipientId: r.id, step: stepNo, messageId, sentAt } }),
+      ]);
       return 'sent';
     } catch (e) {
       const err = e as { responseCode?: number; code?: string; message?: string };
-      const message = String(err.message ?? e).slice(0, 480);
+      const message = String(err.message ?? e).slice(0, 440);
+      const label = followUp ? `Follow-up ${stepNo}: ${message}` : message;
       if (err.code === 'EAUTH' || (!err.responseCode && /ECONNREFUSED|EDNS|ENOTFOUND/.test(String(err.code ?? '')))) {
         // the server itself is unusable: do not burn the recipient's attempts
         return 'stop';
       }
       if (err.responseCode && err.responseCode >= 500) {
         const bounced = BOUNCE_CODES.has(err.responseCode);
-        await this.prisma.emailRecipient.update({ where: { id: r.id }, data: { statusCode: bounced ? 'BOUNCED' : 'FAILED', error: message } });
+        await this.prisma.emailRecipient.update({
+          where: { id: r.id },
+          data: bounced ? { statusCode: 'BOUNCED', nextSendAt: null, error: label } : followUp ? { nextSendAt: null, error: label } : { statusCode: 'FAILED', error: label },
+        });
         if (bounced)
           await this.prisma.emailSuppression.upsert({
             where: { companyId_email: { companyId: c.companyId, email: r.email } },
@@ -589,13 +785,15 @@ export class CampaignService {
           });
         return 'failed';
       }
-      // temporary (4xx / network): retry on a later tick, at most MAX_ATTEMPTS times
-      const attempts = ((r.data as { _attempts?: number } | null)?._attempts ?? 0) + 1;
+      // temporary (4xx / network): retry on a later tick, at most MAX_ATTEMPTS times per e-mail
+      const attempts = (Number(_attempts) || 0) + 1;
+      const gaveUp = attempts >= MAX_ATTEMPTS;
+      const data = { ...cleanData, _attempts: gaveUp ? 0 : attempts } as Prisma.InputJsonValue;
       await this.prisma.emailRecipient.update({
         where: { id: r.id },
-        data: { statusCode: attempts >= MAX_ATTEMPTS ? 'FAILED' : 'QUEUED', error: message, data: { ...((r.data as object) ?? {}), _attempts: attempts } as Prisma.InputJsonValue },
+        data: followUp ? { error: label, data, ...(gaveUp ? { nextSendAt: null } : {}) } : { statusCode: gaveUp ? 'FAILED' : 'QUEUED', error: label, data },
       });
-      return attempts >= MAX_ATTEMPTS ? 'failed' : 'retry';
+      return gaveUp ? 'failed' : 'retry';
     }
   }
 
@@ -623,6 +821,7 @@ export class CampaignService {
     const res = await this.prisma.emailSuppression.createMany({ data: emails.map((email) => ({ companyId, email, reasonCode: input.reasonCode, note: input.note ?? null })), skipDuplicates: true });
     // queued recipients of running campaigns are skipped right away
     await this.prisma.emailRecipient.updateMany({ where: { companyId, email: { in: emails }, statusCode: 'QUEUED' }, data: { statusCode: 'SKIPPED', error: 'On the do-not-email list' } });
+    await this.prisma.emailRecipient.updateMany({ where: { companyId, email: { in: emails }, nextSendAt: { not: null } }, data: { nextSendAt: null, error: 'On the do-not-email list: follow-ups stopped' } });
     await this.audit.record('E-mail Suppression', null, 'ADD', undefined, { added: res.count, reason: input.reasonCode });
     return { added: res.count, alreadyListed: emails.length - res.count, invalid };
   }
