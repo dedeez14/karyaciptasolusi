@@ -88,11 +88,11 @@ export function AsyncSelect({
         </span>
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full min-w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-          <div className="border-b border-slate-100 p-2 dark:border-slate-800">
+        <div className="absolute z-50 mt-1.5 w-full min-w-56 overflow-hidden rounded-xl border border-line bg-white shadow-pop">
+          <div className="border-b border-line p-2">
             <input
               autoFocus
-              className="input py-1.5"
+              className="input h-9"
               placeholder="Search..."
               value={search}
               onChange={(e) => {
@@ -123,7 +123,7 @@ export function AsyncSelect({
                 aria-selected={o.value === value}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(o)}
-                className={cn('cursor-pointer px-3 py-2 text-sm', i === active && 'bg-brand-50 dark:bg-slate-800', o.value === value && 'font-semibold text-brand-700')}
+                className={cn('mx-1 cursor-pointer rounded-lg px-3 py-2 text-sm', i === active && 'bg-brand-50', o.value === value && 'font-semibold text-brand-700')}
               >
                 {o.label}
               </li>

@@ -58,8 +58,8 @@ export class HrisController {
 
   @Activity('payslip.print')
   @Get('payroll/:id/payslips/:slipId/pdf')
-  async payslip(@Param('id') id: string, @Param('slipId') slipId: string, @Query('save') save: string, @Res() res: Response) {
+  async payslip(@Param('id') id: string, @Param('slipId') slipId: string, @Query('save') save: string, @Query('inline') inline: string, @Res() res: Response) {
     const { doc, name } = await this.hris.payslipDoc(id, slipId);
-    await this.output.sendPdf(res, doc, name, { save: save === '1', entity: { type: 'PAYSLIP', id: slipId } });
+    await this.output.sendPdf(res, doc, name, { save: save === '1', inline: inline === '1', entity: { type: 'PAYSLIP', id: slipId } });
   }
 }

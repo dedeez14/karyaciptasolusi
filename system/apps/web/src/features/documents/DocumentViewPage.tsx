@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { download, openInNewTab } from '@/lib/download';
+import { download } from '@/lib/download';
+import { previewFile } from '@/components/ui/preview';
 import { fmtDate, fmtDateTime, fmtMoney, fmtNumber } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, Dropdown, EmptyState, Field, Input, Modal, PageHeader, Spinner, StatusBadge, Textarea, toast } from '@/components/ui';
@@ -83,7 +84,7 @@ export default function DocumentViewPage() {
     setBusy(name);
     try {
       await fn();
-      toast.success(success);
+      if (success) toast.success(success);
       qc.invalidateQueries({ queryKey: ['documents'] });
     } catch (e) {
       toast.error(e);
@@ -130,8 +131,8 @@ export default function DocumentViewPage() {
   const pdf = (mode: 'preview' | 'download' | 'save') =>
     act(
       `pdf-${mode}`,
-      () => (mode === 'preview' ? openInNewTab(`/documents/${def.code}/${d.id}/pdf`) : download(`/documents/${def.code}/${d.id}/pdf`, mode === 'save' ? { save: 1 } : undefined)),
-      mode === 'save' ? 'PDF saved to File Manager' : mode === 'download' ? 'PDF downloaded' : 'PDF opened',
+      () => (mode === 'preview' ? previewFile({ path: `/documents/${def.code}/${d.id}/pdf`, title: `${def.label} ${d.number}` }) : download(`/documents/${def.code}/${d.id}/pdf`, mode === 'save' ? { save: 1 } : undefined)),
+      mode === 'save' ? 'PDF saved to File Manager' : mode === 'download' ? 'PDF downloaded' : '',
     );
 
   const isDraft = d.status === 'DRAFT';

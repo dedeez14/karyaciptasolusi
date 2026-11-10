@@ -10,6 +10,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { MenuService } from '../system/menu.service';
 import { SettingsService } from '../../common/settings/settings.service';
+import { TicketService } from '../../common/access/ticket.service';
 
 const COOKIE = 'kcs_rt';
 const loginSchema = z.object({ username: z.string().trim().min(1).max(150), password: z.string().min(1).max(200) });
@@ -23,6 +24,7 @@ export class AuthController {
     private readonly menus: MenuService,
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly tickets: TicketService,
   ) {}
 
   private setCookie(req: Request, res: Response, token: string, expires: Date) {
@@ -104,6 +106,13 @@ export class AuthController {
         appName: await this.settings.str('general.appName', u.companyId, 'KCS ERP'),
       },
     };
+  }
+
+  /** Single-use 60s ticket to open a file natively (PDF preview, image) without exposing the access token */
+  @Post('ticket')
+  @HttpCode(200)
+  ticket(@Body(new ZodPipe(z.object({ path: z.string().max(200) }))) body: { path: string }) {
+    return { ticket: this.tickets.issue(RequestCtx.user(), body.path) };
   }
 
   @Post('change-password')

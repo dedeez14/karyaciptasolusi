@@ -4,3 +4,4 @@ export * from './toast';
 export * from './DataTable';
 export * from './AsyncSelect';
 export * from './Icon';
+export * from './preview';

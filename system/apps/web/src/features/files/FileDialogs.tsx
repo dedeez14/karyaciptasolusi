@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { fmtBytes, fmtDateTime } from '@/lib/format';
-import { download } from '@/lib/download';
+import { download, fileUrl } from '@/lib/download';
 import { Badge, Button, Field, Icon, Input, Modal, Select, Spinner, Textarea, toast } from '@/components/ui';
 import { folderOptions, SOURCE_LABEL, type FileRow, type Folder } from './fileTypes';
 
@@ -153,13 +153,11 @@ export function PreviewDialog({ file, onClose }: { file: FileRow | null; onClose
     let objectUrl: string | null = null;
     setUrl(null);
     setError('');
-    api
-      .blob(`/files/${file.id}/download`, { inline: 1 })
-      .then(({ blob }) => {
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-      })
-      .catch((e) => setError(e.message));
+    const load =
+      file.fileType === 'image'
+        ? api.blob(`/files/${file.id}/download`, { inline: 1 }).then(({ blob }) => (objectUrl = URL.createObjectURL(blob)))
+        : fileUrl(`/files/${file.id}/download`);
+    load.then(setUrl).catch((e) => setError(e.message));
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
@@ -196,7 +194,7 @@ export function PreviewDialog({ file, onClose }: { file: FileRow | null; onClose
           ) : file.fileType === 'image' ? (
             <img src={url} alt={file.name} className="max-h-[70vh] max-w-full rounded object-contain" />
           ) : (
-            <iframe src={url} title={file.name} className="h-[70vh] w-full rounded border border-slate-200 bg-white dark:border-slate-700" sandbox="allow-same-origin" />
+            <iframe key={url} src={url} title={file.name} className="h-[70vh] w-full rounded border border-slate-200 bg-white" />
           )}
         </div>
       )}

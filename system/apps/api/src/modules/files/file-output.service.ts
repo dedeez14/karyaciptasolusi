@@ -26,6 +26,12 @@ export class FileOutputService {
     res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${this.safeName(filename)}"`);
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (inline) {
+      // passive content only (PDF / images): let the browser's own viewer render it and allow our in-app preview frame
+      res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+      res.removeHeader('Cross-Origin-Resource-Policy');
+    }
     res.end(data);
   }
 

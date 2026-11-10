@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { useSession } from '@/stores/session';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { ConfirmHost, Spinner, ToastHost } from '@/components/ui';
+import { ConfirmHost, PreviewHost, Spinner, ToastHost } from '@/components/ui';
 
 // Route level code splitting: each page is loaded on demand (fast first paint)
 const LoginPage = lazy(() => import('@/features/auth/LoginPage'));
@@ -94,6 +94,7 @@ export default function App() {
       </Suspense>
       <ToastHost />
       <ConfirmHost />
+      <PreviewHost />
     </BrowserRouter>
   );
 }

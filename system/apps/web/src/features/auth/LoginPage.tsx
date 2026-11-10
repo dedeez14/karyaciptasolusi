@@ -38,10 +38,10 @@ export default function LoginPage() {
       <div className="relative hidden overflow-hidden bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-3">
           <img src="/favicon.svg" alt="" className="h-10 w-10" />
-          <span className="text-lg font-semibold">{brand.data?.appName ?? 'KCS ERP'}</span>
+          <span className="text-lg font-semibold text-white">{brand.data?.appName ?? 'KCS ERP'}</span>
         </div>
         <div>
-          <h1 className="text-4xl leading-tight font-bold">From marketing to reporting, in one place.</h1>
+          <h1 className="text-4xl leading-tight font-bold text-white">From marketing to reporting, in one place.</h1>
           <p className="mt-4 max-w-md text-brand-100">{brand.data?.tagline}</p>
           <ul className="mt-8 grid max-w-md grid-cols-2 gap-3 text-sm text-brand-100">
             {['CRM & Marketing', 'Sales & Invoicing', 'Purchasing', 'Inventory', 'Accounting', 'HRIS & Payroll', 'File Manager', 'Reports'].map((f) => (

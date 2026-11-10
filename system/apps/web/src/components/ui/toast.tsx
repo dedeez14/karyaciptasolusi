@@ -31,10 +31,10 @@ export function ToastHost() {
         <div
           key={t.id}
           className={cn(
-            'pointer-events-auto flex max-w-md items-start gap-2 rounded-lg px-4 py-3 text-sm text-white shadow-lg',
+            'pointer-events-auto flex max-w-md items-start gap-2.5 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-pop',
             t.kind === 'success' && 'bg-emerald-600',
             t.kind === 'error' && 'bg-red-600',
-            t.kind === 'info' && 'bg-slate-800',
+            t.kind === 'info' && 'bg-slate-900',
           )}
         >
           <Icon name={t.kind === 'success' ? 'check-circle-2' : t.kind === 'error' ? 'alert-circle' : 'info'} className="mt-0.5 h-4 w-4 shrink-0" />

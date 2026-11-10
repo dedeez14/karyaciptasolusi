@@ -45,33 +45,33 @@ export default function DashboardPage() {
   const quick = QUICK.filter((a) => can(a.perm));
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">
-            {greet}, {me?.user.fullName.split(' ')[0]}
-          </h1>
-          <p className="text-sm text-slate-500">
-            {me?.company.name} · {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-600 to-violet-600 p-6 text-white shadow-pop sm:p-8">
+        <div className="pointer-events-none absolute -top-16 -right-10 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-violet-300/20 blur-2xl" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm text-brand-100">{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
+              {greet}, {me?.user.fullName.split(' ')[0]} 👋
+            </h1>
+            <p className="mt-1 text-sm text-brand-100">Here is what is happening at {me?.company.name} today.</p>
+          </div>
+          <Button variant="outline" size="sm" icon="refresh-cw" onClick={() => q.refetch()} loading={q.isFetching} className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+            Refresh
+          </Button>
         </div>
-        <Button variant="ghost" size="sm" icon="refresh-cw" onClick={() => q.refetch()} loading={q.isFetching}>
-          Refresh
-        </Button>
-      </div>
-
-      {quick.length > 0 && (
-        <div className="scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-          {quick.map((a) => (
-            <Link key={a.to + a.label} to={a.to} className="card flex shrink-0 items-center gap-2 px-3 py-2 text-sm font-medium hover:border-brand-300 hover:text-brand-700">
-              <span className="rounded-md bg-brand-50 p-1.5 text-brand-700 dark:bg-slate-800">
+        {quick.length > 0 && (
+          <div className="relative mt-6 flex flex-wrap gap-2">
+            {quick.map((a) => (
+              <Link key={a.to + a.label} to={a.to} className="flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-[13px] font-medium text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white hover:text-brand-700">
                 <Icon name={a.icon} />
-              </span>
-              {a.label}
-            </Link>
-          ))}
-        </div>
-      )}
+                {a.label}
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
       {q.isLoading ? (
         <div className="flex justify-center py-16">

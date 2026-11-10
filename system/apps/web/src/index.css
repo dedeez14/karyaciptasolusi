@@ -1,56 +1,49 @@
+@import '@fontsource-variable/inter';
 @import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ============================================================================
+   KCS design tokens (light theme only)
+   ========================================================================== */
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dbe6fe;
+  --color-brand-200: #bfd3fe;
+  --color-brand-300: #93b4fd;
+  --color-brand-400: #608cfa;
+  --color-brand-500: #3b6af6;
+  --color-brand-600: #2550eb;
+  --color-brand-700: #1d3fd8;
+  --color-brand-800: #1e36af;
+  --color-brand-900: #1e338a;
+
+  --color-canvas: #f5f7fb;
+  --color-line: #e6eaf2;
+
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-pop: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.08);
 }
 
 @layer base {
   html {
-    -webkit-tap-highlight-color: transparent;
-  }
-  html {
     color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+    font-feature-settings: 'cv11', 'ss01';
   }
   body {
-    @apply bg-slate-50 text-slate-800 antialiased;
+    @apply bg-canvas text-[14px] leading-relaxed text-slate-700 antialiased;
   }
-
-  /* ---------- Custom scrollbar (all scrollable areas) ---------- */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: #bfdbfe transparent;
+  h1,
+  h2,
+  h3 {
+    @apply text-slate-900;
+    letter-spacing: -0.01em;
   }
-  *:hover {
-    scrollbar-color: #93c5fd transparent;
-  }
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background-color: #bfdbfe;
-    border-radius: 9999px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: #60a5fa;
-  }
-  ::-webkit-scrollbar-corner {
-    background: transparent;
+  ::selection {
+    @apply bg-brand-100 text-brand-900;
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-brand-500;
@@ -58,20 +51,51 @@
   input[type='number']::-webkit-inner-spin-button {
     -webkit-appearance: none;
   }
+
+  /* ---------- Custom scrollbar ---------- */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #c7d4ee transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #c7d4ee;
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #8fa9de;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 @layer components {
   .input {
-    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800;
+    @apply block h-10 w-full rounded-lg border border-line bg-white px-3 text-sm text-slate-900 shadow-[0_1px_2px_rgb(16_24_40/0.04)] transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/12 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500;
+  }
+  textarea.input {
+    @apply h-auto py-2;
   }
   .input-error {
-    @apply border-red-400 focus:border-red-500 focus:ring-red-500/20;
+    @apply border-red-400 hover:border-red-400 focus:border-red-500 focus:ring-red-500/12;
   }
   .card {
-    @apply rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900;
+    @apply rounded-2xl border border-line bg-white shadow-card;
   }
   .label {
-    @apply mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400;
+    @apply mb-1.5 block text-[13px] font-medium text-slate-700;
+  }
+  .link {
+    @apply font-medium text-brand-700 hover:text-brand-800 hover:underline;
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;

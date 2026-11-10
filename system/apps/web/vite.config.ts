@@ -6,6 +6,9 @@ import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  // Tailwind v4 runs as a Vite plugin; an inline (empty) PostCSS config stops Vite from picking up
+  // the company website's postcss.config.js in the repository root.
+  css: { postcss: {} },
   plugins: [
     react(),
     tailwindcss(),

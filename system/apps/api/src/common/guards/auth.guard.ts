@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { IS_PUBLIC, PERMISSION } from '../decorators';
 import { AccessService } from '../access/access.service';
+import { TicketService } from '../access/ticket.service';
 import { RequestCtx } from '../context/request-context';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -13,7 +14,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector, private readonly jwt: JwtService, private readonly access: AccessService) {}
+  constructor(private readonly reflector: Reflector, private readonly jwt: JwtService, private readonly access: AccessService, private readonly tickets: TicketService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const targets = [context.getHandler(), context.getClass()];
@@ -22,6 +23,19 @@ export class AuthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<Request>();
     const header = req.headers.authorization ?? '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+
+    // One-time download ticket (opening PDFs / images natively in a tab or iframe)
+    if (!token && req.method === 'GET' && typeof req.query.ticket === 'string') {
+      const path = req.path.replace(/^\/api\/v1/, '');
+      const t = this.tickets.consume(req.query.ticket, path);
+      if (!t) throw new UnauthorizedException('Link expired. Please open the file again.');
+      const user = await this.access.profile(t.userId, t.companyId, t.branchId);
+      const ctx = RequestCtx.get();
+      if (ctx) ctx.user = user;
+      const required = this.reflector.getAllAndOverride<string[]>(PERMISSION, targets);
+      if (required?.length && !user.isSuperAdmin && !required.some((c) => user.permissions.has(c))) throw new ForbiddenException('You do not have permission for this action');
+      return true;
+    }
     if (!token) throw new UnauthorizedException('Authentication required');
 
     let payload: { sub: string; cid?: string; typ?: string };

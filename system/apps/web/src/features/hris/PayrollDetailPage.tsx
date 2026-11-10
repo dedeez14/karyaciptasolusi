@@ -2,7 +2,8 @@ import { Fragment, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { download, openInNewTab } from '@/lib/download';
+import { download } from '@/lib/download';
+import { previewFile } from '@/components/ui/preview';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, EmptyState, Icon, PageHeader, Spinner, StatCard, StatusBadge, toast } from '@/components/ui';
@@ -154,7 +155,7 @@ export default function PayrollDetailPage() {
                       <td className="hidden px-3 py-2 text-right tabular-nums md:table-cell">{fmtMoney(s.totalDeduction)}</td>
                       <td className="px-3 py-2 text-right font-semibold tabular-nums">{fmtMoney(s.netPay)}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <Button size="sm" variant="ghost" icon="eye" loading={busy === `v-${s.id}`} onClick={() => run_(`v-${s.id}`, () => openInNewTab(pdfPath(s.id)))} aria-label="Preview payslip" />
+                        <Button size="sm" variant="ghost" icon="eye" loading={busy === `v-${s.id}`} onClick={() => run_(`v-${s.id}`, () => previewFile({ path: pdfPath(s.id), title: `Payslip ${s.employee?.fullName ?? ''}` }))} aria-label="Preview payslip" />
                         <Button size="sm" variant="ghost" icon="download" loading={busy === `d-${s.id}`} onClick={() => run_(`d-${s.id}`, () => download(pdfPath(s.id)))} aria-label="Download payslip" />
                         <Button size="sm" variant="ghost" icon="folder-input" loading={busy === `s-${s.id}`} onClick={() => run_(`s-${s.id}`, () => download(pdfPath(s.id), { save: 1 }), 'Payslip saved to File Manager')} aria-label="Save payslip to File Manager" />
                       </td>

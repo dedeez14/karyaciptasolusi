@@ -127,7 +127,7 @@ export class FilesController {
     const { file, data } = await this.files.content(id);
     // only safe passive types may be shown inline (never HTML/SVG)
     const canInline = inline === '1' && (file.mimeType.startsWith('image/') || file.mimeType === 'application/pdf' || file.mimeType === 'text/plain');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
+    if (!canInline) res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
     this.output.send(res, data, file.name, file.mimeType, canInline);
   }
 

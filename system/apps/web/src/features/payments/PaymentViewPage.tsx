@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { download, openInNewTab } from '@/lib/download';
+import { download } from '@/lib/download';
+import { previewFile } from '@/components/ui/preview';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Button, Card, confirm, DataTable, EmptyState, PageHeader, Spinner, StatusBadge, toast } from '@/components/ui';
@@ -63,7 +64,7 @@ export default function PaymentViewPage() {
         back={() => navigate(`/payments/${m.dir}`)}
         actions={
           <>
-            <Button variant="outline" icon="eye" loading={busy === 'preview'} onClick={() => run('preview', () => openInNewTab(`/payments/${m.dir}/${p.id}/pdf`))}>
+            <Button variant="outline" icon="eye" loading={busy === 'preview'} onClick={() => run('preview', () => previewFile({ path: `/payments/${m.dir}/${p.id}/pdf`, title: p.number }))}>
               Preview
             </Button>
             <Button variant="outline" icon="download" loading={busy === 'pdf'} onClick={() => run('pdf', () => download(`/payments/${m.dir}/${p.id}/pdf`))}>
