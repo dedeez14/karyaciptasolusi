@@ -57,6 +57,7 @@ function Protected() {
   if (status === 'loading') return <FullScreenSpinner />;
   if (status === 'anonymous') return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   if (me?.user.mustChangePassword && location.pathname !== '/profile') return <Navigate to="/profile?force=1" replace />;
+  if (me?.user.mfaSetupRequired && location.pathname !== '/profile') return <Navigate to="/profile?mfa=setup" replace />;
   return <AppLayout />;
 }
 

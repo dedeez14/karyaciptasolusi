@@ -144,6 +144,13 @@ model User {
   lastLoginAt        DateTime?
   lastLoginIp        String?   @db.VarChar(64)
   passwordChangedAt  DateTime?
+  /// two-factor sign-in (TOTP): secret encrypted at rest, recovery codes stored as SHA-256 hashes
+  mfaSecret          String?   @db.VarChar(255)
+  mfaPendingSecret   String?   @db.VarChar(255)
+  mfaEnabledAt       DateTime?
+  /// last accepted 30 s time step (a code can only be used once)
+  mfaLastStep        Int?
+  mfaRecoveryCodes   String?
   defaultCompanyId   String?   @db.Uuid
   defaultBranchId    String?   @db.Uuid
   createdAt          DateTime  @default(now())

@@ -6,7 +6,7 @@ import { useSession } from '@/stores/session';
 import { Button, Field, Icon, Input } from '@/components/ui';
 
 export default function LoginPage() {
-  const { status, login } = useSession();
+  const { status, login, verifyMfa } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
   const [username, setUsername] = useState('');
@@ -14,6 +14,10 @@ export default function LoginPage() {
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  /** second step: password accepted, code from the authenticator app (or a recovery code) */
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [recovery, setRecovery] = useState(false);
   const brand = useQuery({ queryKey: ['branding'], queryFn: () => api.get<{ appName: string; tagline: string }>('/public/branding'), staleTime: Infinity });
 
   if (status === 'authenticated') return <Navigate to="/" replace />;
@@ -23,14 +27,34 @@ export default function LoginPage() {
     setError('');
     setBusy(true);
     try {
-      await login(username.trim(), password);
-      setPassword('');
+      if (mfaToken) await verifyMfa(mfaToken, code.trim());
+      else {
+        const r = await login(username.trim(), password);
+        setPassword('');
+        if (r.mfaToken) {
+          setMfaToken(r.mfaToken);
+          setCode('');
+          return;
+        }
+      }
       navigate((location.state as { from?: string })?.from ?? '/', { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Unable to sign in. Please try again.');
+      const msg = err instanceof ApiError ? err.message : 'Unable to sign in. Please try again.';
+      // the 5 minute challenge expired or was used: back to the password
+      if (mfaToken && /took too long/i.test(msg)) {
+        setMfaToken(null);
+        setCode('');
+      }
+      setError(msg);
     } finally {
       setBusy(false);
     }
+  };
+  const backToPassword = () => {
+    setMfaToken(null);
+    setCode('');
+    setRecovery(false);
+    setError('');
   };
 
   return (
@@ -60,8 +84,8 @@ export default function LoginPage() {
             <img src="/favicon.svg" alt="" className="mb-3 h-12 w-12" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold">Sign in</h2>
-            <p className="mt-1 text-sm text-slate-500">Use your company account to continue.</p>
+            <h2 className="text-2xl font-semibold">{mfaToken ? 'Two-factor sign-in' : 'Sign in'}</h2>
+            <p className="mt-1 text-sm text-slate-500">{mfaToken ? (recovery ? 'Enter one of your recovery codes.' : 'Enter the 6-digit code from your authenticator app.') : 'Use your company account to continue.'}</p>
           </div>
           {error && (
             <div className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
@@ -69,6 +93,34 @@ export default function LoginPage() {
               {error}
             </div>
           )}
+          {mfaToken ? (
+            <>
+              <Field label={recovery ? 'Recovery code' : 'Authentication code'} required>
+                <Input
+                  value={code}
+                  onChange={(e) => setCode(recovery ? e.target.value.slice(0, 20) : e.target.value.replace(/[^\d]/g, '').slice(0, 6))}
+                  inputMode={recovery ? 'text' : 'numeric'}
+                  autoComplete="one-time-code"
+                  placeholder={recovery ? 'xxxx-xxxx' : '123456'}
+                  className="text-center font-mono text-lg tracking-[0.3em]"
+                  autoFocus
+                  required
+                />
+              </Field>
+              <Button type="submit" className="w-full" loading={busy} disabled={recovery ? code.trim().length < 8 : code.length !== 6}>
+                Verify
+              </Button>
+              <div className="flex items-center justify-between text-sm">
+                <button type="button" className="text-brand-700 hover:underline" onClick={() => { setRecovery((r) => !r); setCode(''); setError(''); }}>
+                  {recovery ? 'Use the app code' : 'Lost your phone? Use a recovery code'}
+                </button>
+                <button type="button" className="text-slate-500 hover:underline" onClick={backToPassword}>
+                  Back
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
           <Field label="Username or email" required>
             <Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus required maxLength={150} />
           </Field>
@@ -83,6 +135,8 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" loading={busy} disabled={!username || !password}>
             Sign in
           </Button>
+            </>
+          )}
           <p className="flex items-center justify-center gap-1 text-xs text-slate-400">
             <Icon name="shield-check" className="h-3.5 w-3.5" /> Secured session · auto sign-out when idle
           </p>

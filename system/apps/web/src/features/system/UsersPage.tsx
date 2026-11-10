@@ -25,6 +25,7 @@ interface UserRow {
   isActive: boolean;
   isSuperAdmin: boolean;
   mustChangePassword: boolean;
+  mfaEnabled: boolean;
   lastLoginAt: string | null;
   lastLoginIp: string | null;
   lockedUntil: string | null;
@@ -94,7 +95,16 @@ export default function UsersPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (u) => (isLocked(u) ? <Badge tone="red">Locked</Badge> : u.isActive ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>),
+      render: (u) => (
+        <span className="flex flex-wrap items-center gap-1">
+          {isLocked(u) ? <Badge tone="red">Locked</Badge> : u.isActive ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
+          {u.mfaEnabled && (
+            <Badge tone="blue">
+              <Icon name="shield-check" className="h-3 w-3" /> 2FA
+            </Badge>
+          )}
+        </span>
+      ),
     },
     { key: 'lastLoginAt', header: 'Last sign in', render: (u) => (u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : <span className="text-slate-300">Never</span>) },
   ];
@@ -138,6 +148,15 @@ export default function UsersPage() {
               items={[
                 { label: 'Edit', icon: 'pencil', onClick: () => setEditing(u), hidden: !can('system.user.update') },
                 { label: 'Reset password', icon: 'key-round', onClick: () => setResetFor(u), hidden: !can('system.user.reset-password') },
+                {
+                  label: 'Reset two-factor sign-in',
+                  icon: 'shield-off',
+                  hidden: !u.mfaEnabled || !can('system.user.update') || u.id === me?.user.id,
+                  onClick: async () => {
+                    if (!(await confirm({ title: 'Reset two-factor sign-in?', message: `${u.fullName} is signed out and sets up an authenticator app again at the next sign-in. Use this when the phone was lost.`, confirmText: 'Reset', danger: true }))) return;
+                    act(() => api.post(`/system/users/${u.id}/reset-mfa`), 'Two-factor sign-in reset');
+                  },
+                },
                 { label: 'Unlock account', icon: 'lock-open', onClick: () => act(() => api.post(`/system/users/${u.id}/unlock`), 'Account unlocked'), hidden: !isLocked(u) || !can('system.user.update') },
                 'divider',
                 {

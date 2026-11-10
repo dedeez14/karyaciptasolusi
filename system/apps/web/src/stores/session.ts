@@ -12,7 +12,7 @@ export interface MenuNode {
 }
 
 export interface Me {
-  user: { id: string; username: string; email: string; fullName: string; mustChangePassword: boolean; isSuperAdmin: boolean; lastLoginAt: string | null };
+  user: { id: string; username: string; email: string; fullName: string; mustChangePassword: boolean; isSuperAdmin: boolean; lastLoginAt: string | null; mfaEnabled: boolean; mfaSetupRequired: boolean };
   company: { id: string; code: string; name: string; currencyCode: string; logoFileId: string | null };
   branchId: string | null;
   dataScope: string;
@@ -31,8 +31,11 @@ interface SessionState {
   me: Me | null;
   perms: Set<string>;
   bootstrap: () => Promise<void>;
-  login: (username: string, password: string) => Promise<void>;
+  /** returns a challenge when the account uses two-factor sign-in */
+  login: (username: string, password: string) => Promise<{ mfaToken?: string }>;
+  verifyMfa: (mfaToken: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
+  verifiedLogin: (accessToken: string) => Promise<void>;
   reload: () => Promise<void>;
   switchCompany: (companyId: string) => Promise<void>;
   switchBranch: (branchId: string | null) => Promise<void>;
@@ -85,8 +88,19 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   async login(username, password) {
-    const r = await api.post<{ accessToken: string }>('/auth/login', { username, password });
-    session.setToken(r.accessToken);
+    const r = await api.post<{ accessToken?: string; mfaRequired?: boolean; mfaToken?: string }>('/auth/login', { username, password });
+    if (r.mfaRequired && r.mfaToken) return { mfaToken: r.mfaToken };
+    await get().verifiedLogin(r.accessToken!);
+    return {};
+  },
+
+  async verifyMfa(mfaToken, code) {
+    const r = await api.post<{ accessToken: string }>('/auth/mfa/verify', { mfaToken, code });
+    await get().verifiedLogin(r.accessToken);
+  },
+
+  async verifiedLogin(accessToken: string) {
+    session.setToken(accessToken);
     const ctx = loadCtx();
     session.setContext(ctx.c, ctx.b);
     try {

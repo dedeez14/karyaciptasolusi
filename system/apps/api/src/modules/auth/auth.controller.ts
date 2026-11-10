@@ -11,9 +11,13 @@ import { AuthService } from './auth.service';
 import { MenuService } from '../system/menu.service';
 import { SettingsService } from '../../common/settings/settings.service';
 import { TicketService } from '../../common/access/ticket.service';
+import { mfaRequiredFor } from '../../common/access/mfa-policy';
 
 const COOKIE = 'kcs_rt';
 const loginSchema = z.object({ username: z.string().trim().min(1).max(150), password: z.string().min(1).max(200) });
+const mfaVerifySchema = z.object({ mfaToken: z.string().min(10).max(2000), code: z.string().trim().min(6).max(20) });
+const mfaCodeSchema = z.object({ code: z.string().trim().min(6).max(20) });
+const mfaDisableSchema = z.object({ password: z.string().min(1).max(200), code: z.string().trim().min(6).max(20) });
 const changePasswordSchema = z.object({ currentPassword: z.string().min(1).max(200), newPassword: z.string().min(1).max(200) });
 
 @Controller('auth')
@@ -49,8 +53,54 @@ export class AuthController {
   async login(@Req() req: Request, @Res({ passthrough: true }) res: Response, @Body(new ZodPipe(loginSchema)) body: z.infer<typeof loginSchema>) {
     this.assertCsrf(req);
     const t = await this.auth.login(body.username, body.password);
+    // second factor needed: no session yet, only a 5 minute challenge for POST /auth/mfa/verify
+    if ('mfaRequired' in t) return { mfaRequired: true, mfaToken: t.mfaToken };
     this.setCookie(req, res, t.refreshToken, t.refreshExpires);
     return { accessToken: t.accessToken };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/verify')
+  @HttpCode(200)
+  async verifyMfa(@Req() req: Request, @Res({ passthrough: true }) res: Response, @Body(new ZodPipe(mfaVerifySchema)) body: z.infer<typeof mfaVerifySchema>) {
+    this.assertCsrf(req);
+    const t = await this.auth.verifyMfa(body.mfaToken, body.code);
+    this.setCookie(req, res, t.refreshToken, t.refreshExpires);
+    return { accessToken: t.accessToken };
+  }
+
+  @Get('mfa')
+  mfaStatus() {
+    return this.auth.mfaStatus(RequestCtx.user().id);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/setup')
+  @HttpCode(200)
+  mfaSetup() {
+    return this.auth.mfaSetup(RequestCtx.user().id);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/enable')
+  @HttpCode(200)
+  mfaEnable(@Body(new ZodPipe(mfaCodeSchema)) body: z.infer<typeof mfaCodeSchema>) {
+    return this.auth.mfaEnable(RequestCtx.user().id, body.code);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/disable')
+  @HttpCode(200)
+  mfaDisable(@Body(new ZodPipe(mfaDisableSchema)) body: z.infer<typeof mfaDisableSchema>) {
+    return this.auth.mfaDisable(RequestCtx.user().id, body.password, body.code);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/recovery-codes')
+  @HttpCode(200)
+  mfaRecoveryCodes(@Body(new ZodPipe(mfaCodeSchema)) body: z.infer<typeof mfaCodeSchema>) {
+    return this.auth.mfaNewRecoveryCodes(RequestCtx.user().id, body.code);
   }
 
   @Public()
@@ -85,14 +135,15 @@ export class AuthController {
   async me() {
     const u = RequestCtx.user();
     const [user, companies, branches, menus, company] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: u.id }, select: { id: true, username: true, email: true, fullName: true, mustChangePassword: true, isSuperAdmin: true, lastLoginAt: true } }),
+      this.prisma.user.findUnique({ where: { id: u.id }, select: { id: true, username: true, email: true, fullName: true, mustChangePassword: true, isSuperAdmin: true, lastLoginAt: true, mfaEnabledAt: true } }),
       this.access.companiesFor(u.id),
       this.access.branchesFor(u),
       this.menus.treeFor(u),
       this.prisma.company.findUnique({ where: { id: u.companyId }, select: { id: true, code: true, name: true, currencyCode: true, logoFileId: true } }),
     ]);
+    const mfaRequired = await mfaRequiredFor(u, this.settings);
     return {
-      user,
+      user: user ? { ...user, mfaEnabledAt: undefined, mfaEnabled: !!user.mfaEnabledAt, mfaSetupRequired: mfaRequired && !user.mfaEnabledAt } : user,
       company,
       branchId: u.branchId,
       dataScope: u.dataScope,
