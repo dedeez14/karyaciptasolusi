@@ -535,7 +535,7 @@ export const RESOURCES: ResourceDef[] = [
   },
 
   // ----- HRIS -------------------------------------------------------------------------
-  simple('departments', 'department', 'hris', 'Departments', 'Department', 'hris.department', [rel('parentId', 'Parent Department', 'departments', { list: true })]),
+  simple('departments', 'department', 'hris', 'Departments', 'Department', 'hris.department', [rel('parentId', 'Parent Department', 'departments', { list: true }), rel('managerId', 'Head of Department', 'employees', { list: true })]),
   simple('positions', 'position', 'hris', 'Positions', 'Position', 'hris.position', [lookup('levelCode', 'Job Level', 'JOB_LEVEL', { list: true, filter: true })]),
   {
     key: 'holidays',

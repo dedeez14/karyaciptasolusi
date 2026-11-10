@@ -15,9 +15,17 @@ import { NotificationBell } from './NotificationBell';
 
 const COLLAPSE_KEY = 'kcs.sidebar.collapsed';
 
-function findActive(nodes: MenuNode[], path: string) {
+function findActive(nodes: MenuNode[], path: string): ReturnType<typeof flattenMenus>[number] | undefined {
   const leaves = flattenMenus(nodes).filter(({ node }) => node.path && (node.path === '/' ? path === '/' : path === node.path || path.startsWith(node.path + '/') || path.startsWith(node.path + '?')));
-  return leaves.sort((a, b) => (b.node.path?.length ?? 0) - (a.node.path?.length ?? 0))[0];
+  const hit = leaves.sort((a, b) => (b.node.path?.length ?? 0) - (a.node.path?.length ?? 0))[0];
+  if (hit && hit.node.path !== '/') return hit;
+  // detail pages of master data (/customers/:id, /employees/:id, ...) belong to their list menu (/r/customers, ...)
+  const seg = /^\/([a-z-]+)\/[^/]+/.exec(path)?.[1];
+  if (seg && seg !== 'r') {
+    const alias = findActive(nodes, `/r/${seg}`);
+    if (alias) return alias;
+  }
+  return hit;
 }
 
 function initials(name: string) {

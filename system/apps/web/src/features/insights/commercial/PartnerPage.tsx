@@ -72,7 +72,7 @@ export default function PartnerPage({ kind }: { kind: Kind }) {
               </Link>
             )}
             {can('sales.quotation.create') && (
-              <Link to="/documents/SQ/new">
+              <Link to={`/documents/SQ/new?customerId=${id}`}>
                 <Button icon="plus">New quotation</Button>
               </Link>
             )}
@@ -87,7 +87,7 @@ export default function PartnerPage({ kind }: { kind: Kind }) {
               </Link>
             )}
             {can('purchase.order.create') && (
-              <Link to="/documents/PO/new">
+              <Link to={`/documents/PO/new?supplierId=${id}`}>
                 <Button icon="plus">New purchase order</Button>
               </Link>
             )}

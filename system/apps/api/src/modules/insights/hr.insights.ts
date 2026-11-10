@@ -95,7 +95,7 @@ export class HrInsightsService {
   async departments() {
     const companyId = RequestCtx.companyId();
     const [deps, counts, members] = await Promise.all([
-      this.prisma.department.findMany({ where: { companyId, deletedAt: null }, orderBy: { name: 'asc' }, select: { id: true, code: true, name: true, parentId: true, isActive: true } }),
+      this.prisma.department.findMany({ where: { companyId, deletedAt: null }, orderBy: { name: 'asc' }, select: { id: true, code: true, name: true, parentId: true, managerId: true, isActive: true } }),
       RequestCtx.can('hris.employee.read') ? this.prisma.employee.groupBy({ by: ['departmentId'], where: { ...this.empScope(), deletedAt: null, isActive: true }, _count: { _all: true } }) : null,
       RequestCtx.can('hris.employee.read')
         ? this.prisma.employee.findMany({ where: { ...this.empScope(), deletedAt: null, isActive: true, departmentId: { not: null } }, orderBy: { fullName: 'asc' }, select: { id: true, fullName: true, departmentId: true, positionId: true } })
@@ -103,13 +103,20 @@ export class HrInsightsService {
     ]);
     const c = new Map((counts ?? []).map((x) => [x.departmentId, x._count._all]));
     const posIds = [...new Set((members ?? []).map((m) => m.positionId).filter((x): x is string => !!x))];
-    const pos = new Map((await this.prisma.position.findMany({ where: { companyId, id: { in: posIds } }, select: { id: true, name: true } })).map((p) => [p.id, p.name]));
+    const managerIds = [...new Set(deps.map((d) => d.managerId).filter((x): x is string => !!x))];
+    const [positions, managers] = await Promise.all([
+      this.prisma.position.findMany({ where: { companyId, id: { in: posIds } }, select: { id: true, name: true } }),
+      RequestCtx.can('hris.employee.read') && managerIds.length ? this.prisma.employee.findMany({ where: { companyId, id: { in: managerIds }, deletedAt: null }, select: { id: true, fullName: true } }) : [],
+    ]);
+    const pos = new Map(positions.map((p) => [p.id, p.name]));
+    const head = new Map(managers.map((m) => [m.id, m]));
     return {
       headcount: counts !== null,
       unassigned: c.get(null) ?? 0,
       departments: deps.map((d) => ({
         ...d,
         headcount: counts ? c.get(d.id) ?? 0 : null,
+        manager: d.managerId ? (head.get(d.managerId) ?? null) : null,
         members: (members ?? []).filter((m) => m.departmentId === d.id).slice(0, 8).map((m) => ({ id: m.id, fullName: m.fullName, position: m.positionId ? pos.get(m.positionId) ?? null : null })),
       })),
     };

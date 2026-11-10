@@ -13,6 +13,7 @@ interface Dep {
   parentId: string | null;
   isActive: boolean;
   headcount: number | null;
+  manager: { id: string; fullName: string } | null;
   members: { id: string; fullName: string; position: string | null }[];
 }
 interface Node extends Dep {
@@ -57,6 +58,15 @@ export function DepartmentTreeView({ edit, meta, params }: ResourceViewProps) {
           </span>
           {!n.isActive && <Badge>Inactive</Badge>}
         </button>
+        {n.manager && (
+          <Link to={`/employees/${n.manager.id}`} className="flex items-center gap-2 rounded-xl px-2 py-1 text-xs hover:bg-slate-50" title="Head of department">
+            <Avatar name={n.manager.fullName} size="sm" />
+            <span className="min-w-0">
+              <span className="block text-[10px] tracking-wide text-slate-400 uppercase">Head</span>
+              <span className="block max-w-40 truncate font-medium text-slate-800">{n.manager.fullName}</span>
+            </span>
+          </Link>
+        )}
         {q.data?.headcount && (
           <div className="flex items-center gap-3">
             <div className="flex -space-x-2">

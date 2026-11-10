@@ -107,7 +107,12 @@ export default function DocumentListPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (r) => <StatusBadge status={r.status} label={statusLabel(def, r.status)} />,
+      render: (r) => (
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={r.status} label={statusLabel(def, r.status)} />
+          <ApprovalBadge approval={r.approval} />
+        </span>
+      ),
     },
   ];
 
@@ -205,5 +210,24 @@ export default function DocumentListPage() {
         {list.data && <Pagination page={ls.page} totalPages={list.data.meta.totalPages} total={list.data.meta.total} pageSize={ls.pageSize} onPage={ls.setPage} onPageSize={ls.setPageSize} />}
       </Card>
     </div>
+  );
+}
+
+/** Where a document stands in the approval workflow (only shown when an approval rule applies) */
+function ApprovalBadge({ approval }: { approval: TradeDoc['approval'] }) {
+  if (!approval) return null;
+  const map = {
+    NOT_REQUESTED: { tone: 'amber' as const, label: 'Needs approval', title: 'An approval rule applies. Use "Request approval" on the document.' },
+    PENDING: { tone: 'blue' as const, label: `Awaiting approval${approval.level ? ` (L${approval.level})` : ''}`, title: 'Waiting for an approver' },
+    APPROVED: { tone: 'green' as const, label: 'Approved', title: 'All approval levels are approved' },
+    REJECTED: { tone: 'red' as const, label: 'Rejected', title: 'The approver rejected this document' },
+  };
+  const m = map[approval.status];
+  return (
+    <span title={m.title}>
+      <Badge tone={m.tone} dot>
+        {m.label}
+      </Badge>
+    </span>
   );
 }

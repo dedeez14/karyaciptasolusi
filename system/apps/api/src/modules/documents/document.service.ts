@@ -102,7 +102,16 @@ export class DocumentService {
       this.prisma.tradeDocument.count({ where }),
     ]);
     const names = await this.partyNames(rows);
-    return paged(rows.map((r) => ({ ...r, partnerName: names.get(r.customerId ?? r.supplierId ?? '') ?? null, balance: D(r.grandTotal).minus(D(r.paidAmount)) })), total, q);
+    // approval badge: drafts show where they are in the workflow, posted documents only that they were approved
+    const approvals = APPROVAL_DOC_TYPES.has(def.code)
+      ? await this.approvals.statusMap(RequestCtx.companyId(), def.code, rows.map((r) => ({ id: r.id, amount: this.approvalSubject(def, r).amount })))
+      : new Map<string, { status: string; level: number | null }>();
+    const approvalOf = (r: { id: string; status: string }) => {
+      const a = approvals.get(r.id);
+      if (!a) return null;
+      return r.status === 'DRAFT' || a.status === 'APPROVED' ? a : null;
+    };
+    return paged(rows.map((r) => ({ ...r, partnerName: names.get(r.customerId ?? r.supplierId ?? '') ?? null, balance: D(r.grandTotal).minus(D(r.paidAmount)), approval: approvalOf(r) })), total, q);
   }
 
   private async partyNames(rows: { customerId: string | null; supplierId: string | null }[]) {

@@ -35,6 +35,7 @@ interface ReminderRun {
   sent: number;
   skipped: number;
   failed: number;
+  message?: string;
 }
 
 export default function SubscriptionListPage() {
@@ -81,6 +82,7 @@ export default function SubscriptionListPage() {
     try {
       const r = await api.post<ReminderRun>('/billing/reminders/run');
       if (!r.mailConfigured) toast.error('E-mail is not configured. Set the SMTP settings in System > Settings first.');
+      else if (r.message) toast.info(r.message);
       else if (!r.sent && !r.failed) toast.info(`No reminder is due (${r.checked} overdue invoice(s) checked)`);
       else toast.success(`${r.sent} reminder(s) sent${r.failed ? `, ${r.failed} failed` : ''}${r.skipped ? `, ${r.skipped} skipped (no e-mail address)` : ''}`);
       qc.invalidateQueries({ queryKey: ['billing', 'reminders'] });

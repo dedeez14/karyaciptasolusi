@@ -316,14 +316,17 @@ export class SubscriptionService {
     };
   }
 
-  /** Invoices generated from a subscription (linked by reference = subscription code) */
+  /**
+   * Invoices generated from a subscription: linked by trade_documents.subscriptionId.
+   * Invoices created before that column existed are still matched by reference = subscription code.
+   */
   private invoices(s: Sub) {
     return this.prisma.tradeDocument.findMany({
       where: {
         companyId: s.companyId,
         docType: 'SI',
         deletedAt: null,
-        OR: [{ reference: s.code }, ...(s.lastInvoiceId ? [{ id: s.lastInvoiceId }] : [])],
+        OR: [{ subscriptionId: s.id }, { subscriptionId: null, reference: s.code }, ...(s.lastInvoiceId ? [{ id: s.lastInvoiceId }] : [])],
       },
       select: {
         id: true,
@@ -597,6 +600,11 @@ export class SubscriptionService {
         error: `Invoice could not be created: ${(e as Error).message}`,
       };
     }
+    // link the invoice to its subscription (history no longer depends on the editable reference)
+    await this.prisma.tradeDocument.update({
+      where: { id: invoice.id },
+      data: { subscriptionId: s.id },
+    });
     const after = await this.prisma.subscription.update({
       where: { id: s.id },
       data: { lastRunAt: new Date(), lastInvoiceId: invoice.id },

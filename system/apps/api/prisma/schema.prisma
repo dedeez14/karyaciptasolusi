@@ -296,8 +296,22 @@ model NumberSequence {
   lastPeriod  String?  @db.VarChar(10)
   updatedAt   DateTime @updatedAt
 
+  periods NumberSequencePeriod[]
+
   @@unique([companyId, code])
   @@map("number_sequences")
+}
+
+/// Counter per reset period (month / year), so back- or forward-dated documents never reuse a number
+model NumberSequencePeriod {
+  sequenceId String @db.Uuid
+  period     String @db.VarChar(10)
+  nextNumber Int    @default(1)
+
+  sequence NumberSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@id([sequenceId, period])
+  @@map("number_sequence_periods")
 }
 
 /// Generic lookup lists (gender, religion, lead status, channels, ...) - no hardcode
@@ -976,6 +990,8 @@ model Department {
   id          String    @id @default(uuid()) @db.Uuid
   companyId   String    @db.Uuid
   parentId    String?   @db.Uuid
+  /// head of the department (employee)
+  managerId   String?   @db.Uuid
   code        String    @db.VarChar(20)
   name        String    @db.VarChar(100)
   isActive    Boolean   @default(true)
@@ -1194,41 +1210,43 @@ model Payslip {
 // ----------------------------------------------------------------------------
 
 model TradeDocument {
-  id            String    @id @default(uuid()) @db.Uuid
-  companyId     String    @db.Uuid
-  branchId      String?   @db.Uuid
-  docType       String    @db.VarChar(10)
-  number        String    @db.VarChar(40)
-  date          DateTime  @db.Date
-  dueDate       DateTime? @db.Date
-  status        DocStatus @default(DRAFT)
-  customerId    String?   @db.Uuid
-  supplierId    String?   @db.Uuid
-  warehouseId   String?   @db.Uuid
-  toWarehouseId String?   @db.Uuid
-  paymentTermId String?   @db.Uuid
-  projectId     String?   @db.Uuid
-  opportunityId String?   @db.Uuid
-  sourceId      String?   @db.Uuid
-  currencyCode  String    @default("IDR") @db.VarChar(3)
-  exchangeRate  Decimal   @default(1) @db.Decimal(18, 6)
-  reference     String?   @db.VarChar(100)
-  notes         String?
-  terms         String?
-  subtotal      Decimal   @default(0) @db.Decimal(18, 2)
-  discountTotal Decimal   @default(0) @db.Decimal(18, 2)
-  taxTotal      Decimal   @default(0) @db.Decimal(18, 2)
-  grandTotal    Decimal   @default(0) @db.Decimal(18, 2)
-  paidAmount    Decimal   @default(0) @db.Decimal(18, 2)
-  ownerId       String?   @db.Uuid
-  confirmedById String?   @db.Uuid
-  confirmedAt   DateTime?
-  cancelledAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  createdById   String?   @db.Uuid
-  updatedById   String?   @db.Uuid
-  deletedAt     DateTime?
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  branchId       String?   @db.Uuid
+  docType        String    @db.VarChar(10)
+  number         String    @db.VarChar(40)
+  date           DateTime  @db.Date
+  dueDate        DateTime? @db.Date
+  status         DocStatus @default(DRAFT)
+  customerId     String?   @db.Uuid
+  supplierId     String?   @db.Uuid
+  warehouseId    String?   @db.Uuid
+  toWarehouseId  String?   @db.Uuid
+  /// recurring billing subscription that generated this invoice
+  subscriptionId String?   @db.Uuid
+  paymentTermId  String?   @db.Uuid
+  projectId      String?   @db.Uuid
+  opportunityId  String?   @db.Uuid
+  sourceId       String?   @db.Uuid
+  currencyCode   String    @default("IDR") @db.VarChar(3)
+  exchangeRate   Decimal   @default(1) @db.Decimal(18, 6)
+  reference      String?   @db.VarChar(100)
+  notes          String?
+  terms          String?
+  subtotal       Decimal   @default(0) @db.Decimal(18, 2)
+  discountTotal  Decimal   @default(0) @db.Decimal(18, 2)
+  taxTotal       Decimal   @default(0) @db.Decimal(18, 2)
+  grandTotal     Decimal   @default(0) @db.Decimal(18, 2)
+  paidAmount     Decimal   @default(0) @db.Decimal(18, 2)
+  ownerId        String?   @db.Uuid
+  confirmedById  String?   @db.Uuid
+  confirmedAt    DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  deletedAt      DateTime?
 
   lines       TradeDocumentLine[]
   source      TradeDocument?      @relation("DocSource", fields: [sourceId], references: [id])
@@ -1239,6 +1257,7 @@ model TradeDocument {
   @@index([companyId, docType, date])
   @@index([customerId])
   @@index([supplierId])
+  @@index([subscriptionId])
   @@map("trade_documents")
 }
 

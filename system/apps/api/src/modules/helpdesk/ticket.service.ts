@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, Ticket } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -7,6 +7,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { SettingsService } from '../../common/settings/settings.service';
 import { RequestCtx } from '../../common/context/request-context';
 import { paged } from '../../common/utils/query';
+import { MailService } from '../integrations/mail.service';
 
 const optUuid = z.preprocess((v) => (v === '' ? null : v), z.uuid().nullable().optional());
 const optText = (max: number) => z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(max).nullable().optional());
@@ -70,7 +71,15 @@ export function slaState(t: Pick<Ticket, 'dueAt' | 'createdAt' | 'resolvedAt'>, 
  */
 @Injectable()
 export class TicketService {
-  constructor(private readonly prisma: PrismaService, private readonly sequence: SequenceService, private readonly audit: AuditService, private readonly settings: SettingsService) {}
+  private readonly log = new Logger('Helpdesk');
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sequence: SequenceService,
+    private readonly audit: AuditService,
+    private readonly settings: SettingsService,
+    private readonly mail: MailService,
+  ) {}
 
   private seesAll() {
     const u = RequestCtx.user();
@@ -309,7 +318,7 @@ export class TicketService {
     const staff = this.canEdit(t);
     if ((input.isInternal || input.fromCustomer) && !staff) throw new ForbiddenException('Only support staff can add internal notes or log customer messages');
     const fromCustomer = input.fromCustomer && !input.isInternal;
-    return this.prisma.$transaction(async (tx) => {
+    const m = await this.prisma.$transaction(async (tx) => {
       const m = await tx.ticketMessage.create({
         data: { ticketId: id, userId: fromCustomer ? null : u.id, authorName: fromCustomer ? t.contactName ?? 'Customer' : u.fullName, body: input.body, isInternal: input.isInternal },
       });
@@ -323,6 +332,20 @@ export class TicketService {
       await tx.ticket.update({ where: { id }, data });
       return m;
     });
+    // public staff replies are e-mailed to the ticket contact (never internal notes or logged customer messages)
+    const emailedTo = !fromCustomer && !input.isInternal && staff ? await this.emailReply(t, input.body, u.fullName) : null;
+    return { ...m, emailedTo };
+  }
+
+  /** Sends a reply to the contact in the background; returns the address when it was queued, null when skipped */
+  private async emailReply(t: Ticket, body: string, author: string) {
+    if (!t.contactEmail || !(await this.settings.bool('helpdesk.emailCustomer', t.companyId, true))) return null;
+    const [host, user, pass] = await Promise.all(['mail.host', 'mail.username', 'mail.password'].map((k) => this.settings.str(k, t.companyId)));
+    if (!host || !user || !pass) return null; // SMTP not configured: skip silently
+    const company = await this.prisma.company.findUnique({ where: { id: t.companyId }, select: { name: true } });
+    const text = [`Hello${t.contactName ? ' ' + t.contactName : ''},`, '', body, '', `-- ${author}`, `${company?.name ?? ''} Support · Ticket ${t.code}`].join('\n');
+    this.mail.send({ to: t.contactEmail, subject: `[${t.code}] ${t.subject}`, text }).catch((e) => this.log.warn(`Reply e-mail for ${t.code} failed: ${e?.message ?? e}`));
+    return t.contactEmail;
   }
 
   async removeMessage(id: string, messageId: string) {

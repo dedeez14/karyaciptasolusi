@@ -428,20 +428,37 @@ export class BudgetService {
 
   /**
    * Budget vs Actual per budget row and month. A row with a cost center / project only counts
-   * postings tagged with it; a row without one counts every posting of the account.
+   * postings tagged with it; a row without one counts the account's remaining postings.
    */
   async vsActual(id: string, throughMonth?: number) {
     RequestCtx.assert('accounting.budget.read');
     const b = await this.get(id);
     const through = Math.min(12, Math.max(1, throughMonth ?? 12));
     const data = await this.actuals(b.year);
-    const rows = b.rows.map((r) => {
+    // every posting counts for exactly one row: the most specific matching row of its account
+    // (cost center + project > cost center > project > account only), so a general row and a
+    // cost-center row of the same account never count the same spending twice
+    const owner = new Map<(typeof data)[number], number>();
+    for (const d of data) {
+      let best = -1;
+      let bestScore = -1;
+      b.rows.forEach((r, i) => {
+        if (r.accountId !== d.accountId) return;
+        if (r.costCenterId && r.costCenterId !== d.costCenterId) return;
+        if (r.projectId && r.projectId !== d.projectId) return;
+        const score = (r.costCenterId ? 2 : 0) + (r.projectId ? 1 : 0);
+        if (score > bestScore) {
+          best = i;
+          bestScore = score;
+        }
+      });
+      if (best >= 0) owner.set(d, best);
+    }
+    const rows = b.rows.map((r, ri) => {
       const credit = creditNatured(r.accountType ?? '');
       const actual = Array(12).fill(0) as number[];
       for (const d of data) {
-        if (d.accountId !== r.accountId) continue;
-        if (r.costCenterId && d.costCenterId !== r.costCenterId) continue;
-        if (r.projectId && d.projectId !== r.projectId) continue;
+        if (owner.get(d) !== ri) continue;
         const v = Number(d.debit) - Number(d.credit);
         actual[d.month - 1] += credit ? -v : v;
       }

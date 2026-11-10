@@ -81,6 +81,8 @@ export interface TradeDoc {
   balance: string;
   partnerName: string | null;
   partnerEmail?: string | null;
+  /** approval workflow state (lists only; absent when the document needs no approval) */
+  approval?: { status: 'NOT_REQUESTED' | 'PENDING' | 'APPROVED' | 'REJECTED'; level: number | null } | null;
   warehouseName?: string | null;
   toWarehouseName?: string | null;
   confirmedAt?: string | null;

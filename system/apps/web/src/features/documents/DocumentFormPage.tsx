@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney, isoDate } from '@/lib/format';
@@ -53,6 +53,23 @@ export default function DocumentFormPage() {
   const [dirty, setDirty] = useState(false);
   const confirmAfterSave = useRef(false);
   const rates = useTaxRates();
+  const [sp] = useSearchParams();
+
+  // shortcuts from other pages (customer / supplier 360, project) pre-fill the new document:
+  // ?customerId= / ?supplierId= / ?partnerId= (either side) and ?projectId=
+  useEffect(() => {
+    if (isEdit || !def) return;
+    const uuid = (v: string | null) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null);
+    const partner = def.partner === 'customer' ? uuid(sp.get('customerId')) ?? uuid(sp.get('partnerId')) : def.partner === 'supplier' ? uuid(sp.get('supplierId')) ?? uuid(sp.get('partnerId')) : null;
+    const projectId = uuid(sp.get('projectId'));
+    if (!partner && !projectId) return;
+    setH((x) => ({
+      ...x,
+      ...(partner ? (def.partner === 'customer' ? { customerId: partner } : { supplierId: partner }) : {}),
+      ...(projectId ? { projectId } : {}),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, def?.code]);
 
   // warn before closing / reloading the tab with unsaved changes
   useEffect(() => {

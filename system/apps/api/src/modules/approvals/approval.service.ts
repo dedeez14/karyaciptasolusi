@@ -217,6 +217,37 @@ export class ApprovalService {
     return r;
   }
 
+  /**
+   * Approval status of many documents of one type at once (list pages): two queries for the whole page.
+   * Documents that need no approval are left out of the map.
+   */
+  async statusMap(companyId: string, docType: string, docs: { id: string; amount: Prisma.Decimal.Value }[]): Promise<Map<string, { status: Exclude<ApprovalStatus, 'NOT_REQUIRED'>; level: number | null }>> {
+    const out = new Map<string, { status: Exclude<ApprovalStatus, 'NOT_REQUIRED'>; level: number | null }>();
+    if (!docs.length || !(await this.enabled(companyId))) return out;
+    const rules = await this.prisma.approvalRule.findMany({ where: { companyId, docType, isActive: true, deletedAt: null }, orderBy: [{ level: 'asc' }, { minAmount: 'desc' }, { createdAt: 'asc' }] });
+    if (!rules.length) return out;
+    const requests = await this.prisma.approvalRequest.findMany({
+      where: { companyId, docType, documentId: { in: docs.map((d) => d.id) } },
+      select: { documentId: true, level: true, statusCode: true, amount: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    for (const d of docs) {
+      const amount = D(d.amount);
+      // same selection as requiredFor(): per level the highest threshold that the amount reaches
+      const levels = new Map<number, ApprovalRule>();
+      for (const r of rules) if (D(r.minAmount).lte(amount) && !levels.has(r.level)) levels.set(r.level, r);
+      if (!levels.size) continue;
+      const mine = requests.filter((r) => r.documentId === d.id);
+      const approved = new Set(mine.filter((r) => r.statusCode === 'APPROVED' && D(r.amount).equals(amount)).map((r) => r.level));
+      const pending = mine.find((r) => r.statusCode === 'PENDING');
+      if ([...levels.keys()].every((l) => approved.has(l))) out.set(d.id, { status: 'APPROVED', level: null });
+      else if (pending) out.set(d.id, { status: 'PENDING', level: pending.level });
+      else if (mine[0]?.statusCode === 'REJECTED') out.set(d.id, { status: 'REJECTED', level: mine[0].level });
+      else out.set(d.id, { status: 'NOT_REQUESTED', level: null });
+    }
+    return out;
+  }
+
   // ------------------------------------------------------------------ read models
   private async names(rows: { approverRoleId: string | null; approverUserId: string | null; requestedById?: string | null; decidedById?: string | null }[]) {
     const roleIds = [...new Set(rows.map((r) => r.approverRoleId).filter(Boolean) as string[])];

@@ -16,6 +16,8 @@ export interface ReminderRunResult {
   sent: number;
   skipped: number;
   failed: number;
+  /** why nothing was sent (disabled, no SMTP, no schedule) */
+  message?: string;
   details: {
     invoice: string;
     level?: number;
@@ -66,10 +68,11 @@ export class ReminderService {
       failed: 0,
       details: [],
     };
-    if ((!enabled && !force) || !mailConfigured) return out;
+    if (!enabled && !force) return { ...out, message: 'Automatic reminders are turned off (Settings > Sales).' };
+    if (!mailConfigured) return { ...out, message: 'E-mail (SMTP) is not configured in Settings > Mail, so no reminders were sent.' };
 
     const steps = await this.schedule(companyId);
-    if (!steps.length) return out;
+    if (!steps.length) return { ...out, message: 'No reminder days are configured (Settings > Sales).' };
     const message = await this.settings.str('sales.reminderMessage', companyId, 'This is a friendly reminder that the attached invoice is past its due date.');
     const company = await this.prisma.company.findUniqueOrThrow({
       where: { id: companyId },

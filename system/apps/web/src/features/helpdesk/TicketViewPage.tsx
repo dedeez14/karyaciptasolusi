@@ -52,7 +52,8 @@ export default function TicketViewPage() {
     if (!body.trim()) return;
     setBusy('send');
     try {
-      await api.post(`/helpdesk/tickets/${t.id}/messages`, { body: body.trim(), isInternal: mode === 'note', fromCustomer: mode === 'customer' });
+      const m = await api.post<{ emailedTo?: string | null }>(`/helpdesk/tickets/${t.id}/messages`, { body: body.trim(), isInternal: mode === 'note', fromCustomer: mode === 'customer' });
+      if (m.emailedTo) toast.success(`Reply sent and e-mailed to ${m.emailedTo}`);
       setBody('');
       refresh();
     } catch (e) {
