@@ -2,17 +2,40 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { Button, Drawer, Field, Input, LookupSelect, NumberInput, Switch, Textarea, toast } from '@/components/ui';
+import { Button, Drawer, Field, Icon, Input, LookupSelect, NumberInput, Switch, Textarea, toast } from '@/components/ui';
 import type { LeadFinderStatus, ScrapeJob } from './common';
+import { MapPicker, zoomForRadius, type Centre } from './MapPicker';
+
+const AREA_KEY = 'kcs.leadfinder.area';
+const DEFAULT_AREA = { lat: -6.2088, lng: 106.8456, radiusKm: 10 }; // Jakarta
+
+/** last map area used on this device (a convenience only) */
+function lastArea(): { lat: number; lng: number; radiusKm: number } {
+  try {
+    const a = JSON.parse(localStorage.getItem(AREA_KEY) ?? 'null');
+    if (a && Number.isFinite(a.lat) && Number.isFinite(a.lng) && Number.isFinite(a.radiusKm)) return a;
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_AREA;
+}
+function rememberArea(a: { lat: number; lng: number; radiusKm: number }) {
+  try {
+    localStorage.setItem(AREA_KEY, JSON.stringify(a));
+  } catch {
+    /* ignore */
+  }
+}
 
 interface Form {
   name: string;
   keywords: string;
   location: string;
-  latitude: string;
-  longitude: string;
-  radiusKm: string;
-  zoom: string;
+  /** the "Where" text the map filled in (so moving the pin can update it) */
+  autoLocation: string;
+  useArea: boolean;
+  centre: Centre;
+  radiusKm: number;
   depth: string;
   languageCode: string;
   extractEmails: boolean;
@@ -37,15 +60,16 @@ export function NewSearchDrawer({ open, onClose, status }: { open: boolean; onCl
     name: '',
     keywords: '',
     location: '',
-    latitude: '',
-    longitude: '',
-    radiusKm: '10',
-    zoom: '15',
+    autoLocation: '',
+    useArea: true,
+    centre: { lat: lastArea().lat, lng: lastArea().lng },
+    radiusKm: lastArea().radiusKm,
     depth: String(status?.defaults.depth ?? 3),
     languageCode: status?.defaults.languageCode ?? 'id',
     extractEmails: true,
-    fastMode: false,
+    fastMode: true,
   });
+  const [advanced, setAdvanced] = useState(false);
   const [f, setF] = useState<Form>(blank);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -58,7 +82,7 @@ export function NewSearchDrawer({ open, onClose, status }: { open: boolean; onCl
   }, [open]);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((s) => ({ ...s, [k]: v }));
   const queries = useMemo(() => combine(f.keywords, f.location, f.languageCode), [f.keywords, f.location, f.languageCode]);
-  const hasCentre = f.latitude.trim() !== '' || f.longitude.trim() !== '';
+  const hasCentre = f.useArea;
 
   const submit = async () => {
     setBusy(true);
@@ -67,15 +91,16 @@ export function NewSearchDrawer({ open, onClose, status }: { open: boolean; onCl
       const job = await api.post<ScrapeJob>('/leadfinder/jobs', {
         name: f.name || queries[0] || '',
         queries: queries.join('\n'),
-        latitude: f.latitude,
-        longitude: f.longitude,
-        radiusKm: hasCentre ? f.radiusKm : '',
-        zoom: hasCentre ? f.zoom : '',
+        latitude: hasCentre ? f.centre.lat.toFixed(7) : '',
+        longitude: hasCentre ? f.centre.lng.toFixed(7) : '',
+        radiusKm: hasCentre ? String(f.radiusKm) : '',
+        zoom: hasCentre ? String(zoomForRadius(f.radiusKm)) : '',
         depth: f.depth,
         languageCode: f.languageCode,
         extractEmails: f.extractEmails,
-        fastMode: f.fastMode,
+        fastMode: hasCentre && f.fastMode,
       });
+      if (hasCentre) rememberArea({ ...f.centre, radiusKm: f.radiusKm });
       toast.success(`Search ${job.code} started`);
       qc.invalidateQueries({ queryKey: ['leadfinder'] });
       onClose();
@@ -131,37 +156,59 @@ export function NewSearchDrawer({ open, onClose, status }: { open: boolean; onCl
           </div>
         )}
 
-        <div>
-          <p className="mb-2 text-sm font-semibold text-slate-800">Map area (optional)</p>
-          <p className="mb-3 text-xs text-slate-500">Centre the search on a point, e.g. from Google Maps: right-click a place and copy its coordinates. Without it, Google decides the area from the search text.</p>
-          <div className="grid gap-4 sm:grid-cols-4">
-            <Field label="Latitude" error={errors.latitude}>
-              <Input value={f.latitude} onChange={(e) => set('latitude', e.target.value)} placeholder="-6.9175" inputMode="decimal" />
-            </Field>
-            <Field label="Longitude" error={errors.longitude}>
-              <Input value={f.longitude} onChange={(e) => set('longitude', e.target.value)} placeholder="107.6191" inputMode="decimal" />
-            </Field>
-            <Field label="Radius (km)" error={errors.radiusKm}>
-              <NumberInput value={f.radiusKm} onChange={(v) => set('radiusKm', v)} decimals={2} disabled={!hasCentre} />
-            </Field>
-            <Field label="Zoom" help="15 = city district" error={errors.zoom}>
-              <NumberInput value={f.zoom} onChange={(v) => set('zoom', v)} decimals={0} disabled={!hasCentre} />
-            </Field>
-          </div>
+        <div className="space-y-3 rounded-xl border border-line p-3">
+          <Switch
+            checked={f.useArea}
+            onChange={(v) => setF((s) => ({ ...s, useArea: v, fastMode: v ? s.fastMode : false }))}
+            label="Search around a point on the map (recommended)"
+          />
+          {f.useArea ? (
+            <MapPicker
+              centre={f.centre}
+              radiusKm={f.radiusKm}
+              onCentre={(c, placeName) =>
+                setF((s) => {
+                  // "Where" follows the map while it is empty or was filled from the map; typed text is kept
+                  const follows = !s.location.trim() || s.location === s.autoLocation;
+                  const next = placeName ?? '';
+                  return follows ? { ...s, centre: c, location: next, autoLocation: next } : { ...s, centre: c };
+                })
+              }
+              onRadius={(km) => set('radiusKm', km)}
+            />
+          ) : (
+            <p className="text-xs text-slate-500">Google decides the area from the search text (for example "konveksi di Bandung"). Turn the map on to search a precise area.</p>
+          )}
+          {errors.latitude || errors.longitude || errors.radiusKm ? <p className="text-xs text-red-600">{errors.latitude || errors.longitude || errors.radiusKm}</p> : null}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Depth" help="How far the result list is scrolled: 1 = first results only (fast), 10 = as many as Google shows (slow)" error={errors.depth}>
-            <NumberInput value={f.depth} onChange={(v) => set('depth', v)} decimals={0} />
-          </Field>
-          <Field label="Results language" error={errors.languageCode}>
-            <LookupSelect category="LANGUAGE" value={f.languageCode} onChange={(v) => set('languageCode', v)} clearable={false} />
-          </Field>
-        </div>
         <div className="space-y-3 rounded-xl border border-line p-3">
-          <Switch checked={f.extractEmails} onChange={(v) => set('extractEmails', v)} label="Look for e-mail addresses on the business websites (slower, finds e-mails for marketing)" />
-          <Switch checked={f.fastMode} onChange={(v) => set('fastMode', v)} label="Fast mode: up to 21 places per search, nearest first, fewer details (needs a map centre)" />
+          <Switch checked={f.extractEmails} onChange={(v) => set('extractEmails', v)} label="Look for e-mail addresses on the business websites (slower, needed for e-mail campaigns)" />
+          <Switch
+            checked={f.fastMode}
+            disabled={!f.useArea}
+            onChange={(v) => set('fastMode', v)}
+            label={f.useArea ? 'Fast mode: quicker and blocked less often, up to 21 places per keyword, nearest first' : 'Fast mode needs a point on the map'}
+          />
           {errors.fastMode && <p className="text-xs text-red-600">{errors.fastMode}</p>}
+        </div>
+
+        <div>
+          <button type="button" onClick={() => setAdvanced((a) => !a)} className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-brand-700" aria-expanded={advanced}>
+            <Icon name={advanced ? 'chevron-down' : 'chevron-right'} className="h-4 w-4" />
+            Advanced settings
+          </button>
+          {advanced && (
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <Field label="Depth" help="How far the result list is scrolled: 1 = first results only (fast), 10 = as many as Google shows (slow)" error={errors.depth}>
+                <NumberInput value={f.depth} onChange={(v) => set('depth', v)} decimals={0} />
+              </Field>
+              <Field label="Results language" error={errors.languageCode}>
+                <LookupSelect category="LANGUAGE" value={f.languageCode} onChange={(v) => set('languageCode', v)} clearable={false} />
+              </Field>
+              {f.useArea && <p className="text-xs text-slate-500 sm:col-span-2">Map zoom is set automatically from the radius (now {zoomForRadius(f.radiusKm)}).</p>}
+            </div>
+          )}
         </div>
         <p className="text-xs text-slate-500">
           Searches run one after another on the server (time limit {status?.defaults.timeoutMinutes ?? 30} minutes each). Collect only business contact details and use them in line with Google's terms and the personal data protection law (UU PDP).

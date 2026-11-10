@@ -33,9 +33,11 @@ async function bootstrap() {
           'default-src': ["'self'"],
           'script-src': ["'self'"],
           'style-src': ["'self'", "'unsafe-inline'"],
-          'img-src': ["'self'", 'data:', 'blob:'],
+          // map tiles of the lead finder map (OpenStreetMap)
+          'img-src': ["'self'", 'data:', 'blob:', 'https://tile.openstreetmap.org'],
           'font-src': ["'self'", 'data:'],
-          'connect-src': ["'self'"],
+          // place search on the lead finder map (OpenStreetMap Nominatim)
+          'connect-src': ["'self'", 'https://nominatim.openstreetmap.org'],
           'frame-src': ["'self'", 'blob:'],
           'object-src': ["'none'"],
           'base-uri': ["'self'"],
@@ -50,7 +52,7 @@ async function bootstrap() {
     }),
   );
   app.use((_req: any, res: any, next: () => void) => {
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=()');
     next();
   });
   app.use(compression({ filter: (req: any, res: any) => !String(req.headers.accept ?? '').includes('text/event-stream') && compression.filter(req, res) }));
