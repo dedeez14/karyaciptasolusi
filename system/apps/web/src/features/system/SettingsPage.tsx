@@ -95,6 +95,11 @@ export default function SettingsPage() {
         })),
       });
       toast.success(`${changed.length} setting${changed.length > 1 ? 's' : ''} saved`);
+      // clear what was saved right away: a secret is never sent back, so the reloaded list can be identical
+      // to the previous one and would not reset the form on its own
+      const savedKeys = new Set(changed.map((s) => s.key));
+      setDirty((d) => new Set([...d].filter((k) => !savedKeys.has(k))));
+      setValues((v) => ({ ...v, ...Object.fromEntries(changed.filter((s) => s.isSecret).map((s) => [s.key, ''])) }));
       await qc.invalidateQueries({ queryKey: ['system', 'settings'] });
       await reload();
     } catch (e) {
@@ -245,6 +250,7 @@ export default function SettingsPage() {
                 ))}
               </div>
             </Card>
+            {tab === 'mail' && !term && editable && <TestMail disabled={dirty.size > 0} />}
             {dirty.size > 0 && editable && (
               <div className="sticky bottom-0 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-3 text-sm shadow-pop backdrop-blur">
                 <Icon name="circle-alert" className="h-4 w-4 text-amber-600" />
@@ -263,5 +269,38 @@ export default function SettingsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Sends a test message with the saved SMTP settings */
+function TestMail({ disabled }: { disabled: boolean }) {
+  const [to, setTo] = useState('');
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    setBusy(true);
+    try {
+      await api.post('/system/settings/test-mail', { to: to.trim() });
+      toast.success(`Test e-mail sent to ${to.trim()}`);
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card title="Send a test e-mail" subtitle={disabled ? 'Save your changes first - the test uses the saved settings' : 'Checks the saved SMTP settings by sending a short message'}>
+      <form
+        className="flex flex-col gap-2 sm:flex-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (to.trim()) send();
+        }}
+      >
+        <Input type="email" placeholder="name@example.com" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Send the test e-mail to" className="sm:max-w-sm" />
+        <Button type="submit" icon="send" loading={busy} disabled={disabled || !to.trim()}>
+          Send test e-mail
+        </Button>
+      </form>
+    </Card>
   );
 }

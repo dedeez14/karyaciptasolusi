@@ -447,6 +447,9 @@ export const RESOURCES: ResourceDef[] = [
       text('companyName', 'Company', { list: true }),
       email({ list: true }),
       phone({ list: true }),
+      { name: 'website', label: 'Website', type: 'url', max: 300 },
+      area('address', 'Address'),
+      { name: 'mapsUrl', label: 'Google Maps link', type: 'url', max: 500, help: 'Filled in when the lead comes from the Google Maps lead finder' },
       lookup('sourceCode', 'Source', 'LEAD_SOURCE', { list: true, filter: true }),
       lookup('statusCode', 'Status', 'LEAD_STATUS', { list: true, filter: true }),
       lookup('industryCode', 'Industry', 'INDUSTRY', { filter: true }),
@@ -667,6 +670,6 @@ export const RESOURCES: ResourceDef[] = [
 ];
 
 /** Lists whose codes drive application logic: values can be renamed, recoloured and re-ordered, not added or deleted */
-export const SYSTEM_LOOKUPS = new Set(['PRODUCT_TYPE', 'ACCOUNT_TYPE', 'SALARY_KIND', 'SALARY_CALC', 'SEQUENCE_RESET', 'REQUEST_STATUS', 'DOC_STATUS', 'JOURNAL_STATUS', 'DATA_SCOPE', 'CASH_TYPE', 'FILE_SOURCE', 'FILE_TYPE', 'PAPER_SIZE', 'LANGUAGE', 'JOURNAL_SOURCE', 'DUE_FILTER', 'TASK_STATE', 'YES_NO', 'RECORD_STATUS', 'FILE_GROUP_BY', 'BILLING_INTERVAL', 'DEPRECIATION_METHOD', 'ASSET_STATUS', 'BUDGET_STATUS', 'APPROVAL_DOC_TYPE', 'APPROVAL_STATUS', 'EXPENSE_STATUS', 'TICKET_STATUS', 'TICKET_PRIORITY', 'BANK_STATEMENT_STATUS']);
+export const SYSTEM_LOOKUPS = new Set(['PRODUCT_TYPE', 'ACCOUNT_TYPE', 'SALARY_KIND', 'SALARY_CALC', 'SEQUENCE_RESET', 'REQUEST_STATUS', 'DOC_STATUS', 'JOURNAL_STATUS', 'DATA_SCOPE', 'CASH_TYPE', 'FILE_SOURCE', 'FILE_TYPE', 'PAPER_SIZE', 'LANGUAGE', 'JOURNAL_SOURCE', 'DUE_FILTER', 'TASK_STATE', 'YES_NO', 'RECORD_STATUS', 'FILE_GROUP_BY', 'BILLING_INTERVAL', 'DEPRECIATION_METHOD', 'ASSET_STATUS', 'BUDGET_STATUS', 'APPROVAL_DOC_TYPE', 'APPROVAL_STATUS', 'EXPENSE_STATUS', 'TICKET_STATUS', 'TICKET_PRIORITY', 'BANK_STATEMENT_STATUS', 'SCRAPE_STATUS', 'MAP_PLACE_STATUS', 'EMAIL_CAMPAIGN_STATUS', 'EMAIL_RECIPIENT_STATUS', 'EMAIL_AUDIENCE', 'EMAIL_SUPPRESSION_REASON']);
 
 export const RESOURCE_MAP = new Map(RESOURCES.map((r) => [r.key, r]));

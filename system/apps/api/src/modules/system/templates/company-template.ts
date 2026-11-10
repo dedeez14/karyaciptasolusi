@@ -121,6 +121,8 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['EXPENSE', 'Expense Claim', 'EXP/{YYYY}/{MM}/', 'MONTHLY'],
   ['TICKET', 'Support Ticket', 'TCK-', 'NEVER'],
   ['BANK_STATEMENT', 'Bank Statement', 'BST/{YYYY}/', 'YEARLY'],
+  ['SCRAPE_JOB', 'Lead Finder Search', 'MAPS-', 'NEVER'],
+  ['EMAIL_CAMPAIGN', 'E-mail Campaign', 'EML-', 'NEVER'],
 ];
 
 export const SIMPLE_TEMPLATE = {

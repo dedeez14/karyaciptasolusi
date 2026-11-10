@@ -10,6 +10,7 @@ const LoginPage = lazy(() => import('@/features/auth/LoginPage'));
 const ProfilePage = lazy(() => import('@/features/auth/ProfilePage'));
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'));
 const ResourcePage = lazy(() => import('@/features/resources/ResourcePage'));
+const UnsubscribePage = lazy(() => import('@/features/emailcampaign/UnsubscribePage'));
 const DocumentListPage = lazy(() => import('@/features/documents/DocumentListPage'));
 const DocumentFormPage = lazy(() => import('@/features/documents/DocumentFormPage'));
 const DocumentViewPage = lazy(() => import('@/features/documents/DocumentViewPage'));
@@ -71,6 +72,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/unsubscribe" element={<UnsubscribePage />} />
           <Route element={<Protected />}>
             <Route index element={<DashboardPage />} />
             <Route path="profile" element={<ProfilePage />} />

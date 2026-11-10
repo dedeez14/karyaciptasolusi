@@ -10,6 +10,7 @@ import { SettingsService } from '../../common/settings/settings.service';
 import { RequestCtx } from '../../common/context/request-context';
 import { paged } from '../../common/utils/query';
 import { MenuService } from './menu.service';
+import { MailService } from '../integrations/mail.service';
 
 // ============================================================================ Roles & permissions
 const roleSchema = z.object({
@@ -170,7 +171,38 @@ export class MenusController {
 // ============================================================================ Settings
 @Controller('system/settings')
 export class SettingsController {
-  constructor(private readonly settings: SettingsService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly settings: SettingsService,
+    private readonly audit: AuditService,
+    private readonly mail: MailService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  /** Sends a short test message with the saved SMTP settings, so an administrator can check them */
+  @Post('test-mail')
+  @Permission('system.setting.update')
+  async testMail(@Body(new ZodPipe(z.object({ to: z.email().max(150) }))) body: { to: string }) {
+    const u = RequestCtx.user();
+    const company = await this.prisma.company.findUnique({ where: { id: u.companyId }, select: { name: true, legalName: true } });
+    const name = company?.legalName || company?.name || 'KCS ERP';
+    const host = await this.settings.str('mail.host', u.companyId);
+    const at = new Date().toLocaleString('en-GB', { timeZone: await this.settings.str('general.timezone', u.companyId, 'Asia/Jakarta') });
+    try {
+      await this.mail.send({
+        to: body.to,
+        subject: `Test e-mail from ${name}`,
+        text: `This is a test e-mail from KCS ERP (${name}).\n\nIf you can read this, the SMTP settings work.\nServer: ${host}\nSent: ${at}\nSent by: ${u.fullName}`,
+        html: `<p>This is a test e-mail from <b>KCS ERP</b> (${name.replace(/[<>&]/g, '')}).</p><p>If you can read this, the SMTP settings work.</p><p style="color:#64748b;font-size:12px">Server: ${host.replace(/[<>&]/g, '')} &middot; Sent: ${at} &middot; Sent by: ${u.fullName.replace(/[<>&]/g, '')}</p>`,
+      });
+    } catch (e: any) {
+      // SMTP errors carry useful hints (wrong password, blocked port, ...) - pass the server's message on, without secrets
+      const msg = String(e?.response || e?.message || e).replace(/\s+/g, ' ').slice(0, 300);
+      await this.audit.record('Setting', null, 'TEST_MAIL_FAILED', undefined, { to: body.to, error: msg });
+      throw new BadRequestException(`The test e-mail could not be sent: ${msg}`);
+    }
+    await this.audit.record('Setting', null, 'TEST_MAIL', undefined, { to: body.to });
+    return { sent: true, to: body.to };
+  }
 
   @Get()
   @Permission('system.setting.read')

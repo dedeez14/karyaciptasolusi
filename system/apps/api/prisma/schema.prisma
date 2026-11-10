@@ -933,6 +933,11 @@ model Lead {
   estimatedValue Decimal   @default(0) @db.Decimal(18, 2)
   customerId     String?   @db.Uuid // set on conversion
   notes          String?
+  website        String?   @db.VarChar(300)
+  address        String?
+  mapsUrl        String?   @db.VarChar(500)
+  /// place found by the Google Maps lead finder
+  mapPlaceId     String?   @db.Uuid
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   createdById    String?   @db.Uuid
@@ -2005,4 +2010,156 @@ model BankReconMatch {
   @@unique([journalLineId])
   @@index([lineId])
   @@map("bank_recon_matches")
+}
+
+// ----------------------------------------------------------------------------
+// Lead finder (Google Maps scraper)
+// ----------------------------------------------------------------------------
+
+model ScrapeJob {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  code          String    @db.VarChar(30)
+  name          String    @db.VarChar(200)
+  /// one search per line, e.g. "konveksi di Bandung"
+  queries       String
+  latitude      Decimal?  @db.Decimal(10, 7)
+  longitude     Decimal?  @db.Decimal(10, 7)
+  radiusKm      Decimal?  @db.Decimal(8, 2)
+  zoom          Int?
+  depth         Int       @default(3)
+  languageCode  String    @default("id") @db.VarChar(10)
+  extractEmails Boolean   @default(true)
+  fastMode      Boolean   @default(false)
+  statusCode    String    @default("QUEUED") @db.VarChar(20) // lookup SCRAPE_STATUS
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  resultCount   Int       @default(0)
+  newCount      Int       @default(0)
+  error         String?
+  logTail       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+  deletedAt     DateTime?
+
+  @@unique([companyId, code])
+  @@index([companyId, statusCode])
+  @@map("scrape_jobs")
+}
+
+/// One business found on Google Maps (deduplicated per company by place id / cid)
+model MapPlace {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid
+  jobId          String?  @db.Uuid
+  /// Google place id or cid - dedupe key
+  placeKey       String   @db.VarChar(120)
+  query          String?  @db.VarChar(300)
+  title          String   @db.VarChar(300)
+  category       String?  @db.VarChar(200)
+  address        String?
+  phone          String?  @db.VarChar(80)
+  website        String?  @db.VarChar(500)
+  emails         String?  @db.VarChar(1000)
+  rating         Decimal? @db.Decimal(3, 2)
+  reviewCount    Int?
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  mapsUrl        String?  @db.VarChar(1000)
+  businessStatus String?  @db.VarChar(50)
+  statusCode     String   @default("NEW") @db.VarChar(20) // lookup MAP_PLACE_STATUS
+  leadId         String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([companyId, placeKey])
+  @@index([companyId, statusCode])
+  @@index([jobId])
+  @@map("map_places")
+}
+
+// ----------------------------------------------------------------------------
+// E-mail campaigns (marketing blasts)
+// ----------------------------------------------------------------------------
+
+model EmailCampaign {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  code             String    @db.VarChar(30)
+  name             String    @db.VarChar(200)
+  subject          String    @db.VarChar(300)
+  /// HTML body with merge tags ({{name}}, {{company}}, ...)
+  body             String
+  fromName         String?   @db.VarChar(150)
+  replyTo          String?   @db.VarChar(150)
+  campaignId       String?   @db.Uuid // marketing campaign it belongs to
+  /// audience definition: { source: LEADS|CUSTOMERS|MAP_PLACES|MANUAL, filters..., emails? }
+  audience         Json
+  /// AUTOMATIC: keeps adding new matching contacts and sends to them as they appear
+  automatic        Boolean   @default(false)
+  statusCode       String    @default("DRAFT") @db.VarChar(20) // lookup EMAIL_CAMPAIGN_STATUS
+  scheduledAt      DateTime?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  ratePerMinute    Int       @default(20)
+  trackOpens       Boolean   @default(false)
+  totalCount       Int       @default(0)
+  sentCount        Int       @default(0)
+  failedCount      Int       @default(0)
+  openCount        Int       @default(0)
+  unsubscribeCount Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+  deletedAt        DateTime?
+
+  recipients EmailRecipient[]
+
+  @@unique([companyId, code])
+  @@index([companyId, statusCode])
+  @@map("email_campaigns")
+}
+
+model EmailRecipient {
+  id         String    @id @default(uuid()) @db.Uuid
+  campaignId String    @db.Uuid
+  companyId  String    @db.Uuid
+  email      String    @db.VarChar(200)
+  name       String?   @db.VarChar(200)
+  /// where the contact came from: LEAD / CUSTOMER / MAP_PLACE / MANUAL
+  entityType String?   @db.VarChar(20)
+  entityId   String?   @db.Uuid
+  /// merge data snapshot ({ name, company, city, ... })
+  data       Json?
+  statusCode String    @default("QUEUED") @db.VarChar(20) // lookup EMAIL_RECIPIENT_STATUS
+  /// random token for unsubscribe / open links
+  token      String    @db.VarChar(64)
+  error      String?   @db.VarChar(500)
+  sentAt     DateTime?
+  openedAt   DateTime?
+  createdAt  DateTime  @default(now())
+
+  campaign EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, email])
+  @@unique([token])
+  @@index([campaignId, statusCode])
+  @@map("email_recipients")
+}
+
+/// Addresses that must never receive marketing e-mail (unsubscribed, bounced, added by hand)
+model EmailSuppression {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  email      String   @db.VarChar(200)
+  reasonCode String   @db.VarChar(20) // lookup EMAIL_SUPPRESSION_REASON
+  note       String?  @db.VarChar(300)
+  campaignId String?  @db.Uuid
+  createdAt  DateTime @default(now())
+
+  @@unique([companyId, email])
+  @@map("email_suppressions")
 }

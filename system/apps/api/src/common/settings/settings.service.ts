@@ -73,6 +73,8 @@ export class SettingsService {
   async set(key: string, value: string | null, companyId: string | null, userId?: string) {
     const template = await this.prisma.setting.findFirst({ where: { key, companyId: null } });
     if (!template) throw new Error(`Unknown setting ${key}`);
+    // secrets are usually pasted: a stray space or line break would make the password / token invalid
+    if (template.isSecret && value) value = value.trim();
     const stored = template.isSecret && value ? this.crypto.encrypt(value) : value;
     if (companyId) {
       await this.prisma.setting.upsert({

@@ -65,6 +65,8 @@ import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
 import { CLOSING_CONTROLLERS, CLOSING_PROVIDERS } from './modules/closing';
 import { TIMEBILLING_CONTROLLERS, TIMEBILLING_PROVIDERS } from './modules/timebilling';
+import { LEADFINDER_CONTROLLERS, LEADFINDER_PROVIDERS } from './modules/leadfinder';
+import { EMAILCAMPAIGN_CONTROLLERS, EMAILCAMPAIGN_PROVIDERS } from './modules/emailcampaign';
 import { AttendanceController } from './modules/hris/attendance.controller';
 import { AttendanceService } from './modules/hris/attendance.service';
 
@@ -130,6 +132,8 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...BANKREC_CONTROLLERS,
     ...CLOSING_CONTROLLERS,
     ...TIMEBILLING_CONTROLLERS,
+    ...LEADFINDER_CONTROLLERS,
+    ...EMAILCAMPAIGN_CONTROLLERS,
     AttendanceController,
   ],
   providers: [
@@ -173,6 +177,8 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...BANKREC_PROVIDERS,
     ...CLOSING_PROVIDERS,
     ...TIMEBILLING_PROVIDERS,
+    ...LEADFINDER_PROVIDERS,
+    ...EMAILCAMPAIGN_PROVIDERS,
     AttendanceService,
   ],
 })
