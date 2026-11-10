@@ -101,7 +101,7 @@ export const RESOURCES: ResourceDef[] = [
     scope: 'global',
     fields: [
       text('category', 'Category', { required: true, max: 50, list: true, filter: true, sortable: true, immutable: true, help: 'UPPER_SNAKE_CASE group, e.g. LEAD_SOURCE' }),
-      code({ max: 50 }),
+      code({ max: 50, immutable: true, help: 'Stored in records - cannot be changed later' }),
       name(),
       { name: 'color', label: 'Color', type: 'color', max: 20, list: true },
       int('sortOrder', 'Sort Order', { default: 0, list: true, sortable: true }),
@@ -126,7 +126,7 @@ export const RESOURCES: ResourceDef[] = [
       text('prefix', 'Prefix', { required: true, max: 30, list: true, help: 'Tokens: {YYYY} {YY} {MM} {BR}' }),
       int('padding', 'Digits', { min: 1, max: 10, default: 5, list: true }),
       int('nextNumber', 'Next Number', { min: 1, default: 1, list: true }),
-      select('resetPeriod', 'Reset', ['NEVER', 'YEARLY', 'MONTHLY'], { default: 'YEARLY', list: true }),
+      lookup('resetPeriod', 'Reset', 'SEQUENCE_RESET', { required: true, default: 'YEARLY', list: true }),
     ],
     searchFields: ['code', 'name'],
     labelFields: ['code', 'name'],
@@ -206,7 +206,7 @@ export const RESOURCES: ResourceDef[] = [
     fields: [
       code({ required: false, max: 40, placeholder: 'Auto' }),
       name({ max: 200 }),
-      select('type', 'Type', ['STOCK', 'SERVICE', 'CONSUMABLE'], { required: true, default: 'STOCK', list: true, filter: true }),
+      lookup('type', 'Type', 'PRODUCT_TYPE', { required: true, default: 'STOCK', list: true, filter: true }),
       rel('categoryId', 'Category', 'product-categories', { list: true, filter: true }),
       rel('brandId', 'Brand', 'brands', { filter: true }),
       rel('uomId', 'Unit', 'uoms', { list: true }),
@@ -354,7 +354,7 @@ export const RESOURCES: ResourceDef[] = [
     fields: [
       code({ max: 20 }),
       name(),
-      select('type', 'Type', ['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE'], { required: true, list: true, filter: true }),
+      lookup('type', 'Type', 'ACCOUNT_TYPE', { required: true, list: true, filter: true }),
       rel('parentId', 'Parent Account', 'accounts', { list: true }),
       bool('isGroup', 'Header (group) account', { list: true, filter: true }),
       area('description', 'Description'),
@@ -511,13 +511,36 @@ export const RESOURCES: ResourceDef[] = [
     defaultSort: { field: 'dueDate', order: 'asc' },
   },
 
+  // ----- Task management ---------------------------------------------------------------
+  {
+    key: 'task-stages',
+    model: 'taskStage',
+    module: 'task',
+    label: 'Task Stages',
+    singular: 'Task Stage',
+    permission: 'task.stage',
+    scope: 'company',
+    fields: [
+      code({ max: 30 }),
+      name(),
+      { name: 'color', label: 'Color', type: 'color', max: 20, list: true },
+      int('sortOrder', 'Board order', { default: 0, list: true, sortable: true }),
+      bool('isDone', 'Counts as done', { list: true, help: 'Tasks moved here are marked completed' }),
+      active(),
+    ],
+    searchFields: ['code', 'name'],
+    labelFields: ['name'],
+    defaultSort: { field: 'sortOrder', order: 'asc' },
+    optionsWhere: { isActive: true },
+  },
+
   // ----- HRIS -------------------------------------------------------------------------
   simple('departments', 'department', 'hris', 'Departments', 'Department', 'hris.department', [rel('parentId', 'Parent Department', 'departments', { list: true })]),
   simple('positions', 'position', 'hris', 'Positions', 'Position', 'hris.position', [lookup('levelCode', 'Job Level', 'JOB_LEVEL', { list: true, filter: true })]),
   simple('leave-types', 'leaveType', 'hris', 'Leave Types', 'Leave Type', 'hris.leave-type', [int('daysPerYear', 'Days per Year', { min: 0, max: 365, list: true }), bool('isPaid', 'Paid Leave', { default: true, list: true })]),
   simple('salary-components', 'salaryComponent', 'hris', 'Salary Components', 'Salary Component', 'hris.salary-component', [
-    select('kind', 'Kind', ['EARNING', 'DEDUCTION'], { required: true, list: true, filter: true }),
-    select('calcType', 'Calculation', ['FIXED', 'PERCENT_BASE'], { required: true, default: 'FIXED', list: true }),
+    lookup('kind', 'Kind', 'SALARY_KIND', { required: true, list: true, filter: true }),
+    lookup('calcType', 'Calculation', 'SALARY_CALC', { required: true, default: 'FIXED', list: true }),
     num('amount', 'Default Amount / %', { min: 0, list: true }),
     rel('accountId', 'Ledger Account', 'accounts'),
   ]),
@@ -614,12 +637,15 @@ export const RESOURCES: ResourceDef[] = [
       date('endDate', 'End', { required: true, list: true }),
       num('days', 'Days', { required: true, min: 0.5, max: 365, list: true }),
       area('reason', 'Reason'),
-      select('status', 'Status', ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'], { readOnly: true, list: true, filter: true }),
+      lookup('status', 'Status', 'REQUEST_STATUS', { readOnly: true, list: true, filter: true }),
     ],
     searchFields: [],
     labelFields: ['startDate'],
     defaultSort: { field: 'startDate', order: 'desc' },
   },
 ];
+
+/** Lists whose codes drive application logic: values can be renamed, recoloured and re-ordered, not added or deleted */
+export const SYSTEM_LOOKUPS = new Set(['PRODUCT_TYPE', 'ACCOUNT_TYPE', 'SALARY_KIND', 'SALARY_CALC', 'SEQUENCE_RESET', 'REQUEST_STATUS', 'DOC_STATUS', 'JOURNAL_STATUS', 'DATA_SCOPE', 'CASH_TYPE', 'FILE_SOURCE', 'FILE_TYPE', 'PAPER_SIZE', 'LANGUAGE', 'JOURNAL_SOURCE', 'DUE_FILTER', 'TASK_STATE', 'YES_NO', 'RECORD_STATUS', 'FILE_GROUP_BY']);
 
 export const RESOURCE_MAP = new Map(RESOURCES.map((r) => [r.key, r]));

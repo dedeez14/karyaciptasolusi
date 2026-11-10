@@ -5,3 +5,7 @@ export * from './DataTable';
 export * from './AsyncSelect';
 export * from './Icon';
 export * from './preview';
+export * from './Steps';
+export * from './DatePicker';
+export * from './Tooltip';
+export * from './LookupSelect';

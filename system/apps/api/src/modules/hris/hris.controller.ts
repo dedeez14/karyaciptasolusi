@@ -31,6 +31,22 @@ export class HrisController {
     return this.hris.leaveBalance(employeeId, Number(year) || new Date().getFullYear());
   }
 
+  /** Self service: own attendance today (no extra permission - only the user's own linked employee) */
+  @Get('my-attendance')
+  myAttendance() {
+    return this.hris.myAttendance();
+  }
+
+  @Post('my-attendance/check-in')
+  checkIn() {
+    return this.hris.checkIn();
+  }
+
+  @Post('my-attendance/check-out')
+  checkOut() {
+    return this.hris.checkOut();
+  }
+
   @Get('payroll')
   runs(@Query('page') page = '1', @Query('pageSize') pageSize = '20') {
     return this.hris.listRuns({ page: Math.max(1, Number(page) || 1), pageSize: Math.min(100, Number(pageSize) || 20) });

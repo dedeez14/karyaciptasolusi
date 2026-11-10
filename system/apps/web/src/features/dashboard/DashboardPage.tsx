@@ -6,6 +6,8 @@ import { fmtCompact, fmtDate, fmtMoney, fmtNumber } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Button, Card, EmptyState, Icon, Spinner, StatCard, StatusBadge, type Tone } from '@/components/ui';
 
+import { PersonalWidgets } from './PersonalWidgets';
+
 const TrendChart = lazy(() => import('./TrendChart'));
 
 interface Overview {
@@ -73,6 +75,8 @@ export default function DashboardPage() {
         )}
       </section>
 
+      <PersonalWidgets />
+
       {q.isLoading ? (
         <div className="flex justify-center py-16">
           <Spinner className="h-6 w-6 text-brand-700" />
@@ -81,7 +85,7 @@ export default function DashboardPage() {
         <EmptyState icon="layout-dashboard" title="Welcome" description="Your dashboard widgets appear here based on your access rights." />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {q.data.kpi.map((k) => (
               <StatCard
                 key={k.key}
@@ -115,7 +119,7 @@ export default function DashboardPage() {
                             <span className="truncate pr-2">{c.name}</span>
                             <span className="font-medium tabular-nums">{fmtCompact(c.value)}</span>
                           </div>
-                          <div className="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
+                          <div className="mt-1 h-1.5 rounded-full bg-slate-100">
                             <div className="h-1.5 rounded-full bg-brand-600" style={{ width: `${(c.value / max) * 100}%` }} />
                           </div>
                         </li>
@@ -139,10 +143,10 @@ export default function DashboardPage() {
               {q.data.recentInvoices.length === 0 ? (
                 <p className="py-8 text-center text-sm text-slate-400">No invoices yet</p>
               ) : (
-                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                <ul className="divide-y divide-slate-100">
                   {q.data.recentInvoices.map((inv) => (
                     <li key={inv.id}>
-                      <Link to={`/documents/SI/${inv.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <Link to={`/documents/SI/${inv.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{inv.number}</p>
                           <p className="text-xs text-slate-400">{fmtDate(inv.date)}</p>

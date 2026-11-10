@@ -104,3 +104,85 @@ export interface Paged<T> {
   data: T[];
   meta: { page: number; pageSize: number; total: number; totalPages: number };
 }
+
+export interface StreamEvent<T = unknown> {
+  event: string;
+  data: T;
+}
+
+/**
+ * Subscribes to a Server-Sent Events endpoint using fetch (so the in-memory access token and
+ * company/branch headers are sent - EventSource cannot send headers).
+ * - refreshes the access token on 401
+ * - reconnects with exponential backoff when the stream ends or fails
+ * - calls onFallback after repeated failures so the caller can switch to polling
+ * Returns an unsubscribe function (abort).
+ */
+export function subscribe<T = unknown>(path: string, handlers: { onEvent: (e: StreamEvent<T>) => void; onOpen?: () => void; onFallback?: () => void }): () => void {
+  const controller = new AbortController();
+  let attempt = 0;
+  let failures = 0;
+  let stopped = false;
+
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  const connect = async (): Promise<void> => {
+    while (!stopped) {
+      try {
+        const h = headers(undefined, false);
+        h.set('Accept', 'text/event-stream');
+        const res = await fetch(BASE + path, { headers: h, credentials: 'same-origin', signal: controller.signal, cache: 'no-store' });
+        if (res.status === 401) {
+          if (!(await refreshToken())) {
+            onAuthLost?.();
+            return;
+          }
+          continue;
+        }
+        if (!res.ok || !res.body) throw new Error(`stream ${res.status}`);
+        attempt = 0;
+        failures = 0;
+        handlers.onOpen?.();
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let idx: number;
+          while ((idx = buffer.search(/\r?\n\r?\n/)) >= 0) {
+            const chunk = buffer.slice(0, idx);
+            buffer = buffer.slice(idx).replace(/^\r?\n\r?\n/, '');
+            let event = 'message';
+            const data: string[] = [];
+            for (const line of chunk.split(/\r?\n/)) {
+              if (line.startsWith('event:')) event = line.slice(6).trim();
+              else if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+            }
+            if (!data.length) continue;
+            try {
+              handlers.onEvent({ event, data: JSON.parse(data.join('\n')) as T });
+            } catch {
+              /* ignore malformed event */
+            }
+          }
+        }
+        // server closed the stream (normal every few minutes) -> reconnect quickly with a fresh token
+        await refreshToken();
+        await wait(500);
+      } catch (e) {
+        if (stopped || (e as Error).name === 'AbortError') return;
+        failures++;
+        if (failures === 3) handlers.onFallback?.();
+        attempt = Math.min(attempt + 1, 6);
+        await wait(Math.min(30_000, 1000 * 2 ** attempt));
+      }
+    }
+  };
+  void connect();
+  return () => {
+    stopped = true;
+    controller.abort();
+  };
+}

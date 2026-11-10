@@ -53,7 +53,7 @@ async function bootstrap() {
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
     next();
   });
-  app.use(compression());
+  app.use(compression({ filter: (req: any, res: any) => !String(req.headers.accept ?? '').includes('text/event-stream') && compression.filter(req, res) }));
   app.use(cookieParser());
   app.useBodyParser('json', { limit: '2mb' });
   app.useBodyParser('urlencoded', { limit: '1mb', extended: false });

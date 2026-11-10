@@ -115,7 +115,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, onRowClick, sort,
               {columns.slice(1).map((c) => (
                 <div key={c.key} className="flex justify-between gap-3 text-xs">
                   <span className="text-slate-500">{c.header}</span>
-                  <span className="truncate text-right text-slate-700 dark:text-slate-300">{cell(c, r)}</span>
+                  <span className="truncate text-right text-slate-700">{cell(c, r)}</span>
                 </div>
               ))}
             </div>

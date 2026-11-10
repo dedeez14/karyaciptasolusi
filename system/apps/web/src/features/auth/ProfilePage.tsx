@@ -35,7 +35,7 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-2xl">
       <PageHeader title="My Profile" subtitle={me?.user.email} />
       {forced && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <Icon name="key-round" className="mt-0.5 h-4 w-4" /> For your security, please set a new password before continuing.
         </div>
       )}

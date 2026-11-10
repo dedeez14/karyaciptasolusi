@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney, isoDate } from '@/lib/format';
-import { AsyncSelect, Button, Card, EmptyState, Field, Input, PageHeader, Spinner, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, Spinner, Textarea, toast } from '@/components/ui';
 import { useDocType, type TradeDoc } from './useDocTypes';
 import { computeTotals, fromDocLine, LineEditor, newLine, useTaxRates, type EditLine } from './LineEditor';
 
@@ -165,11 +165,11 @@ export default function DocumentFormPage() {
               </Field>
             )}
             <Field label="Date" required error={errors.date}>
-              <Input type="date" value={h.date} onChange={(e) => set('date', e.target.value)} required />
+              <DatePicker clearable={false} value={h.date} onChange={(v) => set('date', v)} />
             </Field>
             {def.dueDate && (
               <Field label={def.code === 'SQ' ? 'Valid until' : 'Due date'} help="Empty = from payment term">
-                <Input type="date" value={h.dueDate} onChange={(e) => set('dueDate', e.target.value)} />
+                <DatePicker value={h.dueDate} onChange={(v) => set('dueDate', v)} />
               </Field>
             )}
             {def.warehouse !== 'none' && (
@@ -248,7 +248,7 @@ export default function DocumentFormPage() {
                   <dt className="text-slate-500">Tax</dt>
                   <dd className="tabular-nums">{fmtMoney(totals.tax)}</dd>
                 </div>
-                <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold dark:border-slate-700">
+                <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
                   <dt>Total</dt>
                   <dd className="tabular-nums">
                     {h.currencyCode} {fmtMoney(totals.total)}

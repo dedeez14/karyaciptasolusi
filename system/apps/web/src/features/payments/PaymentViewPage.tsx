@@ -96,7 +96,7 @@ export default function PaymentViewPage() {
                 <dd className="font-medium whitespace-pre-line">{v || <span className="text-slate-300">—</span>}</dd>
               </div>
             ))}
-            <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
+            <div className="border-t border-line pt-3">
               <dt className="text-xs text-slate-500">Amount</dt>
               <dd className="text-xl font-semibold tabular-nums">{fmtMoney(p.amount)}</dd>
               {Number(p.amount) - allocated > 0.005 && <dd className="text-xs text-amber-700">Unapplied: {fmtMoney(Number(p.amount) - allocated)}</dd>}

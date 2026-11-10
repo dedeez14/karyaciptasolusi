@@ -25,7 +25,7 @@ function GenericTable({ rows, actions }: { rows: Json[]; actions?: (r: Json) => 
   return (
     <div className="scrollbar-thin overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase dark:bg-slate-800">
+        <thead className="border-b border-line bg-slate-50/80 text-left text-xs font-medium text-slate-500">
           <tr>
             {keys.map((k) => (
               <th key={k} className="px-3 py-2 whitespace-nowrap">
@@ -37,7 +37,7 @@ function GenericTable({ rows, actions }: { rows: Json[]; actions?: (r: Json) => 
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
+            <tr key={i} className="border-t border-line">
               {keys.map((k) => (
                 <td key={k} className="px-3 py-2 whitespace-nowrap">
                   {typeof r[k] === 'boolean' ? (r[k] ? 'Yes' : 'No') : String(r[k] ?? '')}
@@ -88,11 +88,11 @@ export default function HostingerPage() {
         <PageHeader title="Hostinger" subtitle="Manage your VPS, domains, websites and subscriptions" />
         <Card>
           <div className="flex flex-col items-center gap-3 py-6 text-center">
-            <div className="rounded-full bg-amber-50 p-3 text-amber-600 dark:bg-amber-950">
+            <div className="rounded-full bg-amber-50 p-3 text-amber-600">
               <Icon name="plug" className="h-6 w-6" />
             </div>
             <h2 className="font-semibold">Connect your Hostinger account</h2>
-            <ol className="max-w-md list-decimal space-y-1 text-left text-sm text-slate-600 dark:text-slate-300">
+            <ol className="max-w-md list-decimal space-y-1 text-left text-sm text-slate-600">
               <li>Open Hostinger hPanel → Account → API and create a new API token.</li>
               <li>
                 Go to <b>System → Settings → Integrations</b> and paste it into <i>Hostinger API token</i>.

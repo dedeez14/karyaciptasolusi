@@ -64,7 +64,7 @@ export default function LoginPage() {
             <p className="mt-1 text-sm text-slate-500">Use your company account to continue.</p>
           </div>
           {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300" role="alert">
+            <div className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
               <Icon name="alert-circle" className="mt-0.5 h-4 w-4 shrink-0" />
               {error}
             </div>

@@ -1400,3 +1400,139 @@ model StoredFile {
   @@index([entityType, entityId])
   @@map("stored_files")
 }
+
+// ----------------------------------------------------------------------------
+// Cash & bank transactions (expenses, other income, transfers between accounts)
+// ----------------------------------------------------------------------------
+
+model CashTransaction {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  branchId        String?   @db.Uuid
+  number          String    @db.VarChar(40)
+  date            DateTime  @db.Date
+  type            String    @db.VarChar(10) // RECEIPT | PAYMENT | TRANSFER
+  bankAccountId   String    @db.Uuid // money comes out of (PAYMENT, TRANSFER) or into (RECEIPT) this account
+  toBankAccountId String?   @db.Uuid // TRANSFER destination
+  accountId       String?   @db.Uuid // counter ledger account (expense / income) for RECEIPT & PAYMENT
+  amount          Decimal   @db.Decimal(18, 2)
+  partyName       String?   @db.VarChar(150)
+  costCenterId    String?   @db.Uuid
+  projectId       String?   @db.Uuid
+  reference       String?   @db.VarChar(100)
+  description     String
+  status          DocStatus @default(CONFIRMED)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   @db.Uuid
+  updatedById     String?   @db.Uuid
+  deletedAt       DateTime?
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@map("cash_transactions")
+}
+
+// ----------------------------------------------------------------------------
+// Task management
+// ----------------------------------------------------------------------------
+
+/// Board columns (master data): To do, In progress, Review, Done ...
+model TaskStage {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  code        String    @db.VarChar(30)
+  name        String    @db.VarChar(100)
+  color       String?   @db.VarChar(20)
+  sortOrder   Int       @default(0)
+  isDone      Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@unique([companyId, code])
+  @@map("task_stages")
+}
+
+model Task {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  branchId      String?   @db.Uuid
+  code          String    @db.VarChar(30)
+  title         String    @db.VarChar(250)
+  description   String?
+  projectId     String?   @db.Uuid
+  customerId    String?   @db.Uuid
+  stageId       String    @db.Uuid
+  priorityCode  String?   @db.VarChar(50)
+  assigneeId    String?   @db.Uuid
+  reporterId    String?   @db.Uuid
+  startDate     DateTime? @db.Date
+  dueDate       DateTime? @db.Date
+  completedAt   DateTime?
+  estimateHours Decimal   @default(0) @db.Decimal(8, 2)
+  spentHours    Decimal   @default(0) @db.Decimal(8, 2)
+  tags          String[]  @default([])
+  position      Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+  deletedAt     DateTime?
+
+  checklist TaskChecklistItem[]
+  comments  TaskComment[]
+  timeLogs  TaskTimeLog[]
+
+  @@unique([companyId, code])
+  @@index([companyId, stageId])
+  @@index([assigneeId])
+  @@index([projectId])
+  @@map("tasks")
+}
+
+model TaskChecklistItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  title     String   @db.VarChar(250)
+  isDone    Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_checklist_items")
+}
+
+model TaskComment {
+  id        String    @id @default(uuid()) @db.Uuid
+  taskId    String    @db.Uuid
+  userId    String    @db.Uuid
+  body      String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+model TaskTimeLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  userId    String   @db.Uuid
+  date      DateTime @db.Date
+  hours     Decimal  @db.Decimal(6, 2)
+  note      String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_time_logs")
+}

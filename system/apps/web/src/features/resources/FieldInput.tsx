@@ -1,25 +1,30 @@
+import { AsyncSelect, DatePicker, Input, LookupSelect, Select, Switch, Textarea } from '@/components/ui';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { AsyncSelect, Input, Select, Switch, Textarea } from '@/components/ui';
+import { useLookups, type LookupMap } from '@/hooks/useLookups';
 import type { FieldDef } from './types';
 
-type LookupMap = Record<string, { value: string; label: string; color: string | null }[]>;
-
-/** Loads lookup lists (cached) for the given categories */
-export function useLookups(categories: string[]) {
-  const key = [...new Set(categories)].sort().join(',');
-  return useQuery({ queryKey: ['lookups', key], queryFn: () => api.get<LookupMap>('/lookups', { categories: key }), enabled: !!key, staleTime: 5 * 60_000 }).data ?? {};
-}
+/** kept for existing imports: lookup lists (cached) for the given categories */
+export { useLookups };
 
 const toInputDate = (v: unknown) => (v ? String(v).slice(0, 10) : '');
-const toInputDateTime = (v: unknown) => {
-  if (!v) return '';
+const localParts = (v: unknown) => {
+  if (!v) return { date: '', time: '' };
   const d = new Date(String(v));
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  if (Number.isNaN(d.getTime())) return { date: '', time: '' };
+  const iso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString();
+  return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
 };
 
+/** master-data pages the current user may open (cached) -> "Manage list" links in relation dropdowns */
+function useReadableResources() {
+  return useQuery({ queryKey: ['meta', 'resources'], queryFn: () => api.get<{ key: string; label: string }[]>('/meta/resources'), staleTime: 10 * 60_000 }).data;
+}
+
 /** Renders the right input for a metadata field. One component for every form in the app. */
-export function FieldInput({ field, value, onChange, invalid, disabled, lookups, initialLabel }: { field: FieldDef; value: any; onChange: (v: any) => void; invalid?: boolean; disabled?: boolean; lookups: LookupMap; initialLabel?: string }) {
+export function FieldInput({ field, value, onChange, invalid, disabled, initialLabel }: { field: FieldDef; value: any; onChange: (v: any) => void; invalid?: boolean; disabled?: boolean; lookups?: LookupMap; initialLabel?: string }) {
+  const readable = useReadableResources();
+  const target = field.relation ? readable?.find((r) => r.key === field.relation!.resource) : undefined;
   const common = { invalid, disabled, id: `f-${field.name}` };
   switch (field.type) {
     case 'textarea':
@@ -42,17 +47,36 @@ export function FieldInput({ field, value, onChange, invalid, disabled, lookups,
         />
       );
     case 'date':
-      return <Input {...common} type="date" value={toInputDate(value)} onChange={(e) => onChange(e.target.value)} />;
-    case 'datetime':
-      return <Input {...common} type="datetime-local" value={toInputDateTime(value)} onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : '')} />;
+      return <DatePicker id={common.id} invalid={invalid} disabled={disabled} value={toInputDate(value)} onChange={onChange} />;
+    case 'datetime': {
+      const p = localParts(value);
+      const emit = (date: string, time: string) => onChange(date ? new Date(`${date}T${time || '00:00'}`).toISOString() : '');
+      return (
+        <div className="flex gap-2">
+          <DatePicker id={common.id} className="flex-1" invalid={invalid} disabled={disabled} value={p.date} onChange={(d) => emit(d, p.time)} />
+          <Input type="time" aria-label={`${field.label} time`} className="w-28" invalid={invalid} disabled={disabled || !p.date} value={p.time} onChange={(e) => emit(p.date, e.target.value)} />
+        </div>
+      );
+    }
     case 'boolean':
       return <Switch checked={!!value} onChange={onChange} disabled={disabled} />;
     case 'select':
       return <Select {...common} value={value ?? ''} onChange={(e) => onChange(e.target.value)} options={field.options ?? []} placeholder={field.required ? undefined : '—'} />;
     case 'lookup':
-      return <Select {...common} value={value ?? ''} onChange={(e) => onChange(e.target.value)} options={lookups[field.lookup!] ?? []} placeholder="—" />;
+      return <LookupSelect id={common.id} category={field.lookup!} value={value ?? ''} onChange={onChange} invalid={invalid} disabled={disabled} clearable={!field.required} />;
     case 'relation':
-      return <AsyncSelect resource={field.relation!.resource} value={value} onChange={(v) => onChange(v ?? '')} invalid={invalid} disabled={disabled} initialLabel={initialLabel} />;
+      return (
+        <AsyncSelect
+          resource={field.relation!.resource}
+          value={value}
+          onChange={(v) => onChange(v ?? '')}
+          invalid={invalid}
+          disabled={disabled}
+          initialLabel={initialLabel}
+          manageHref={target ? `/r/${target.key}` : undefined}
+          manageLabel={target ? `Manage ${target.label.toLowerCase()}` : undefined}
+        />
+      );
     case 'color':
       return (
         <div className="flex gap-2">

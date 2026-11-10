@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn, Spinner } from './primitives';
@@ -22,7 +23,12 @@ export function AsyncSelect({
   invalid,
   disabled,
   initialLabel,
+  manageHref,
+  manageLabel,
 }: {
+  /** optional link to the master data page of this list (shown in the dropdown footer) */
+  manageHref?: string;
+  manageLabel?: string;
   resource: string;
   value: string | null | undefined;
   onChange: (v: string | null, opt?: Option) => void;
@@ -132,6 +138,12 @@ export function AsyncSelect({
               </li>
             ))}
           </ul>
+          {manageHref && (
+            <Link to={manageHref} onClick={() => setOpen(false)} className="flex items-center gap-1.5 border-t border-line bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-600 hover:text-brand-700">
+              <Icon name="settings-2" className="h-3.5 w-3.5" />
+              {manageLabel ?? 'Manage list'}
+            </Link>
+          )}
         </div>
       )}
     </div>

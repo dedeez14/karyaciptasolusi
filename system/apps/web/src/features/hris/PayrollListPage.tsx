@@ -4,7 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, ApiError, type Paged } from '@/lib/api';
 import { fmtDate, fmtMoney, isoDate } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, DataTable, EmptyState, Field, Input, Modal, Pagination, PageHeader, StatusBadge, Textarea, toast, type Column } from '@/components/ui';
+import { AsyncSelect, Button, Card, type Column, DataTable, DatePicker, EmptyState, Field, Modal, PageHeader, Pagination, StatusBadge, Textarea, toast } from '@/components/ui';
 
 export interface PayrollRun {
   id: string;
@@ -64,13 +64,13 @@ function GenerateModal({ open, onClose }: { open: boolean; onClose: () => void }
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Period start" required error={errors.periodStart}>
-          <Input type="date" value={form.periodStart} onChange={(e) => setForm({ ...form, periodStart: e.target.value })} />
+          <DatePicker clearable={false} value={form.periodStart} onChange={(v) => setForm({ ...form, periodStart: v })} />
         </Field>
         <Field label="Period end" required error={errors.periodEnd}>
-          <Input type="date" value={form.periodEnd} onChange={(e) => setForm({ ...form, periodEnd: e.target.value })} />
+          <DatePicker clearable={false} value={form.periodEnd} onChange={(v) => setForm({ ...form, periodEnd: v })} />
         </Field>
         <Field label="Pay date" required error={errors.payDate}>
-          <Input type="date" value={form.payDate} onChange={(e) => setForm({ ...form, payDate: e.target.value })} />
+          <DatePicker clearable={false} value={form.payDate} onChange={(v) => setForm({ ...form, payDate: v })} />
         </Field>
         <Field label="Branch" help="Empty = all branches">
           <AsyncSelect resource="branches" value={form.branchId || null} onChange={(v) => setForm({ ...form, branchId: v ?? '' })} />
@@ -95,7 +95,7 @@ export default function PayrollListPage() {
   const list = useQuery({ queryKey: ['payroll', 'list', page], queryFn: () => api.get<Paged<PayrollRun>>('/hris/payroll', { page, pageSize: 20 }), placeholderData: keepPreviousData });
 
   const columns: Column<PayrollRun>[] = [
-    { key: 'number', header: 'Run', render: (r) => <span className="font-medium text-brand-700 dark:text-brand-500">{r.number}</span> },
+    { key: 'number', header: 'Run', render: (r) => <span className="font-medium text-brand-700">{r.number}</span> },
     { key: 'period', header: 'Period', render: (r) => `${fmtDate(r.periodStart)} – ${fmtDate(r.periodEnd)}` },
     { key: 'payDate', header: 'Pay date', render: (r) => fmtDate(r.payDate) },
     { key: 'employees', header: 'Employees', align: 'right', render: (r) => r._count?.payslips ?? 0 },

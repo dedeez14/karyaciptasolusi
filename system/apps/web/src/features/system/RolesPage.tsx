@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { useSession } from '@/stores/session';
-import { Badge, Button, Card, cn, confirm, EmptyState, Field, Icon, Input, PageHeader, Select, Spinner, Switch, Textarea, toast } from '@/components/ui';
+import { Badge, Button, Card, cn, confirm, EmptyState, Field, Icon, Input, LookupSelect, PageHeader, Spinner, Switch, Textarea, toast } from '@/components/ui';
 
 interface Role {
   id: string;
@@ -23,12 +23,6 @@ interface Permission {
   description: string | null;
 }
 
-const SCOPES = [
-  { value: 'ALL', label: 'All data' },
-  { value: 'COMPANY', label: 'Whole company' },
-  { value: 'BRANCH', label: 'Own branch(es)' },
-  { value: 'OWN', label: 'Own records only' },
-];
 
 export default function RolesPage() {
   const qc = useQueryClient();
@@ -75,7 +69,7 @@ export default function RolesPage() {
                       setSelected(r.id);
                       setShowList(false);
                     }}
-                    className={cn('flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left', selected === r.id ? 'bg-brand-50 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50')}
+                    className={cn('flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left', selected === r.id ? 'bg-brand-50' : 'hover:bg-slate-50')}
                   >
                     <Icon name={r.isSystem ? 'shield' : 'shield-check'} className="mt-0.5 h-4 w-4 text-brand-700" />
                     <span className="min-w-0 flex-1">
@@ -216,7 +210,7 @@ function RoleEditor({ roleId, permissions, onSaved, onDeleted }: { roleId: strin
             <Input value={form.name} disabled={readOnly} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
           <Field label="Data access scope" help="Which records users with this role can see">
-            <Select value={form.dataScope} disabled={readOnly} onChange={(e) => setForm({ ...form, dataScope: e.target.value })} options={SCOPES} />
+            <LookupSelect category="DATA_SCOPE" value={form.dataScope} disabled={readOnly} clearable={false} onChange={(v) => v && setForm({ ...form, dataScope: v })} aria-label="Data access scope" />
           </Field>
           <Field label="Status">
             <div className="pt-2">
@@ -249,20 +243,20 @@ function RoleEditor({ roleId, permissions, onSaved, onDeleted }: { roleId: strin
         }
         bodyClass="p-0"
       >
-        <div className="border-b border-slate-100 p-3 dark:border-slate-800">
+        <div className="border-b border-line p-3">
           <div className="relative">
             <Icon name="search" className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
             <Input className="pl-9" placeholder="Filter permissions..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
         </div>
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="divide-y divide-slate-100">
           {tree.map(({ module, resources }) => {
             const codes = resources.flatMap((r) => r.perms.map((p) => p.code));
             const count = codes.filter((c) => granted.has(c)).length;
             const isCollapsed = collapsed.has(module) && !search;
             return (
               <div key={module}>
-                <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 dark:bg-slate-800/50">
+                <div className="flex items-center gap-2 bg-slate-50 px-3 py-2">
                   <button type="button" onClick={() => setCollapsed((c) => (c.has(module) ? new Set([...c].filter((x) => x !== module)) : new Set([...c, module])))} className="flex flex-1 items-center gap-2 text-left">
                     <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} className="h-4 w-4 text-slate-400" />
                     <span className="text-sm font-semibold capitalize">{module}</span>
@@ -294,7 +288,7 @@ function RoleEditor({ roleId, permissions, onSaved, onDeleted }: { roleId: strin
                                 title={p.description ?? p.code}
                                 disabled={readOnly}
                                 onClick={() => toggleMany([p.code], !on)}
-                                className={cn('rounded-full border px-2.5 py-0.5 text-xs transition', on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 text-slate-500 hover:border-brand-300 dark:border-slate-700', readOnly && 'cursor-default')}
+                                className={cn('rounded-full border px-2.5 py-0.5 text-xs transition', on ? 'border-brand-600 bg-brand-600 text-white' : 'border-line text-slate-500 hover:border-brand-300', readOnly && 'cursor-default')}
                               >
                                 {p.action}
                               </button>

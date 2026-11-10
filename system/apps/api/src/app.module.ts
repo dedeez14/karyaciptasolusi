@@ -41,6 +41,13 @@ import { DocumentPrintService } from './modules/print/document-print.service';
 import { MailService } from './modules/integrations/mail.service';
 import { HostingerController } from './modules/integrations/hostinger.controller';
 import { HealthController } from './modules/system/health.controller';
+import { ResourceImportService } from './modules/resources/resource.import';
+import { CashController } from './modules/cash/cash.controller';
+import { CashService } from './modules/cash/cash.service';
+import { NotificationController } from './modules/notifications/notification.controller';
+import { NotificationService } from './modules/notifications/notification.service';
+import { TaskController } from './modules/tasks/task.controller';
+import { TaskService } from './modules/tasks/task.service';
 
 const webDist = join(__dirname, '..', '..', 'web', 'dist');
 
@@ -88,6 +95,9 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     DashboardController,
     FilesController,
     HostingerController,
+    CashController,
+    NotificationController,
+    TaskController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -111,6 +121,10 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     PdfService,
     DocumentPrintService,
     MailService,
+    ResourceImportService,
+    CashService,
+    NotificationService,
+    TaskService,
   ],
 })
 export class AppModule {}

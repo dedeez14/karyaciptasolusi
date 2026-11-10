@@ -8,6 +8,7 @@ import { DocumentService } from './document.service';
 import { DocumentPrintService } from '../print/document-print.service';
 import { FileOutputService } from '../files/file-output.service';
 import { MailService } from '../integrations/mail.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 const listSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -25,7 +26,7 @@ const emailSchema = z.object({ to: z.email(), cc: z.email().optional().or(z.lite
 
 @Controller('documents')
 export class DocumentController {
-  constructor(private readonly docs: DocumentService, private readonly printer: DocumentPrintService, private readonly output: FileOutputService, private readonly mail: MailService) {}
+  constructor(private readonly docs: DocumentService, private readonly printer: DocumentPrintService, private readonly output: FileOutputService, private readonly mail: MailService, private readonly prisma: PrismaService) {}
 
   @Get('types')
   types() {
@@ -40,6 +41,13 @@ export class DocumentController {
   @Get(':type/:id')
   get(@Param('type') type: string, @Param('id') id: string) {
     return this.docs.get(type, id);
+  }
+
+  /** Change history of a document (from the immutable audit trail) */
+  @Get(':type/:id/history')
+  async history(@Param('type') type: string, @Param('id') id: string) {
+    await this.docs.get(type, id); // permission + ownership check
+    return this.prisma.auditLog.findMany({ where: { entityId: id, companyId: RequestCtx.companyId() }, orderBy: { id: 'desc' }, take: 100, select: { id: true, action: true, username: true, createdAt: true, before: true, after: true } });
   }
 
   @Post(':type')

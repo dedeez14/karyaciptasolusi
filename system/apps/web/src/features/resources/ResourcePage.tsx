@@ -9,8 +9,10 @@ import { useSession } from '@/stores/session';
 import { AsyncSelect, Badge, Button, Card, confirm, DataTable, Dropdown, EmptyState, Icon, Input, Pagination, PageHeader, Select, Spinner, toast, type Column } from '@/components/ui';
 import { useLookups } from './FieldInput';
 import { ResourceForm } from './ResourceForm';
+import { ImportDialog } from './ImportDialog';
 import { LOCKED, RESOURCE_ACTIONS } from './resourceActions';
 import type { FieldDef, ResourceMeta, Row } from './types';
+import { useLookupOptions } from '@/hooks/useLookups';
 
 /** One generic page for every master-data style resource: list, search, filter, sort, export, create, edit, delete. */
 export default function ResourcePage() {
@@ -27,10 +29,12 @@ export default function ResourcePage() {
 }
 
 function ResourceList({ meta }: { meta: ResourceMeta }) {
+  const yesNo = useLookupOptions('YES_NO');
   const ls = useListState({ sort: meta.defaultSort?.field, order: meta.defaultSort?.order });
   const qc = useQueryClient();
   const can = useSession((s) => s.can);
   const [editing, setEditing] = useState<string | null | undefined>(undefined);
+  const [importing, setImporting] = useState(false);
   const [showFilters, setShowFilters] = useState(Object.keys(ls.filters).length > 0);
   const lookups = useLookups(meta.fields.filter((f) => f.type === 'lookup').map((f) => f.lookup!));
   const idField = meta.idField;
@@ -136,6 +140,11 @@ function ResourceList({ meta }: { meta: ResourceMeta }) {
               />
             )}
             {meta.can.create && (
+              <Button variant="outline" icon="file-up" onClick={() => setImporting(true)}>
+                Import
+              </Button>
+            )}
+            {meta.can.create && (
               <Button icon="plus" onClick={() => setEditing(null)}>
                 New {meta.singular}
               </Button>
@@ -144,7 +153,7 @@ function ResourceList({ meta }: { meta: ResourceMeta }) {
         }
       />
       <Card bodyClass="p-0">
-        <div className="flex flex-col gap-2 border-b border-slate-100 p-3 sm:flex-row sm:items-center dark:border-slate-800">
+        <div className="flex flex-col gap-2 border-b border-line p-3 sm:flex-row sm:items-center">
           <form
             className="relative flex-1"
             onSubmit={(e) => {
@@ -163,14 +172,14 @@ function ResourceList({ meta }: { meta: ResourceMeta }) {
           <Button variant="ghost" size="icon" icon="refresh-cw" onClick={() => list.refetch()} aria-label="Refresh" />
         </div>
         {showFilters && filterFields.length > 0 && (
-          <div className="grid grid-cols-1 gap-3 border-b border-slate-100 bg-slate-50/60 p-3 sm:grid-cols-2 lg:grid-cols-4 dark:border-slate-800 dark:bg-slate-900/40">
+          <div className="grid grid-cols-1 gap-3 border-b border-line bg-slate-50/60 p-3 sm:grid-cols-2 lg:grid-cols-4">
             {filterFields.map((f) => (
               <div key={f.name}>
                 <label className="label">{f.label}</label>
                 {f.type === 'relation' ? (
                   <AsyncSelect resource={f.relation!.resource} value={ls.filters[f.name]} onChange={(v) => ls.setFilter(f.name, v)} placeholder="All" />
                 ) : f.type === 'boolean' ? (
-                  <Select value={ls.filters[f.name] ?? ''} onChange={(e) => ls.setFilter(f.name, e.target.value)} placeholder="All" options={[{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }]} />
+                  <Select value={ls.filters[f.name] ?? ''} onChange={(e) => ls.setFilter(f.name, e.target.value)} placeholder="All" options={yesNo} />
                 ) : f.type === 'select' ? (
                   <Select value={ls.filters[f.name] ?? ''} onChange={(e) => ls.setFilter(f.name, e.target.value)} placeholder="All" options={f.options ?? []} />
                 ) : f.type === 'lookup' ? (
@@ -228,6 +237,7 @@ function ResourceList({ meta }: { meta: ResourceMeta }) {
         {list.data && <Pagination page={ls.page} totalPages={list.data.meta.totalPages} total={list.data.meta.total} pageSize={ls.pageSize} onPage={ls.setPage} onPageSize={ls.setPageSize} />}
       </Card>
       <ResourceForm meta={meta} id={editing ?? null} open={editing !== undefined} onClose={() => setEditing(undefined)} />
+      {meta.can.create && <ImportDialog meta={meta} open={importing} onClose={() => setImporting(false)} />}
     </div>
   );
 }

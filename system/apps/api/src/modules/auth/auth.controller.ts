@@ -104,7 +104,17 @@ export class AuthController {
         locale: await this.settings.str('general.locale', u.companyId, 'id-ID'),
         idleTimeoutMinutes: await this.settings.num('security.idleTimeoutMinutes', u.companyId, 30),
         appName: await this.settings.str('general.appName', u.companyId, 'KCS ERP'),
+        timezone: await this.settings.str('general.timezone', u.companyId, 'Asia/Jakarta'),
       },
+      clock: {
+        enabled: await this.settings.bool('clock.enabled', u.companyId, true),
+        timezone: await this.settings.str('clock.timezone', u.companyId, await this.settings.str('general.timezone', u.companyId, 'Asia/Jakarta')),
+        format24h: await this.settings.bool('clock.format24h', u.companyId, true),
+        showSeconds: await this.settings.bool('clock.showSeconds', u.companyId, true),
+        showDate: await this.settings.bool('clock.showDate', u.companyId, true),
+        label: await this.settings.str('clock.label', u.companyId, ''),
+      },
+      employeeId: (await this.prisma.employee.findFirst({ where: { userId: u.id, companyId: u.companyId, deletedAt: null }, select: { id: true } }))?.id ?? null,
     };
   }
 

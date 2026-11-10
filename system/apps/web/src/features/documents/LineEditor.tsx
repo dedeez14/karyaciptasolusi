@@ -113,7 +113,7 @@ export function LineEditor({ def, lines, onChange, errors }: { def: DocTypeDef; 
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[1000px] text-sm [&_th]:whitespace-nowrap">
           <thead>
-            <tr className="border-b border-slate-200 text-left text-xs font-semibold text-slate-500 uppercase dark:border-slate-800">
+            <tr className="border-b border-line bg-slate-50/80 text-left text-xs font-medium text-slate-500">
               <th className="w-8 px-2 py-2">#</th>
               <th className="min-w-72 px-2 py-2">Product / Description</th>
               <th className="w-24 min-w-24 px-2 py-2 text-right">Qty</th>
@@ -129,7 +129,7 @@ export function LineEditor({ def, lines, onChange, errors }: { def: DocTypeDef; 
             {lines.map((l, i) => {
               const c = computeLine(l, rates, priced);
               return (
-                <tr key={l.key} className="border-b border-slate-100 align-top dark:border-slate-800">
+                <tr key={l.key} className="border-b border-line align-top">
                   <td className="px-2 py-2 text-slate-400">{i + 1}</td>
                   <td className="space-y-1 px-2 py-2">
                     <AsyncSelect resource="products" value={l.productId} onChange={(v, o) => pickProduct(l.key, v, o?.label)} placeholder="Select product..." disabled={!!l.sourceLineId} />
@@ -172,7 +172,7 @@ export function LineEditor({ def, lines, onChange, errors }: { def: DocTypeDef; 
         {lines.map((l, i) => {
           const c = computeLine(l, rates, priced);
           return (
-            <div key={l.key} className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+            <div key={l.key} className="space-y-2 rounded-lg border border-line p-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-400">Line {i + 1}</span>
                 <Button variant="ghost" size="icon" icon="trash-2" className="text-red-500" onClick={() => remove(l.key)} disabled={lines.length <= 1} aria-label="Remove line" />

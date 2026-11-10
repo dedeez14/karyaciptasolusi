@@ -20,6 +20,12 @@ const JournalFormPage = lazy(() => import('@/features/accounting/JournalFormPage
 const JournalViewPage = lazy(() => import('@/features/accounting/JournalViewPage'));
 const PayrollListPage = lazy(() => import('@/features/hris/PayrollListPage'));
 const PayrollDetailPage = lazy(() => import('@/features/hris/PayrollDetailPage'));
+const TaskListPage = lazy(() => import('@/features/tasks/TaskListPage'));
+const MyTasksPage = lazy(() => import('@/features/tasks/MyTasksPage'));
+const TaskBoardPage = lazy(() => import('@/features/tasks/TaskBoardPage'));
+const PipelineBoardPage = lazy(() => import('@/features/crm/PipelineBoardPage'));
+const CashListPage = lazy(() => import('@/features/cash/CashListPage'));
+const CashViewPage = lazy(() => import('@/features/cash/CashViewPage'));
 const FileManagerPage = lazy(() => import('@/features/files/FileManagerPage'));
 const ReportCenterPage = lazy(() => import('@/features/reports/ReportCenterPage'));
 const ReportViewPage = lazy(() => import('@/features/reports/ReportViewPage'));
@@ -77,6 +83,12 @@ export default function App() {
             <Route path="accounting/journals/:id" element={<JournalViewPage />} />
             <Route path="hris/payroll" element={<PayrollListPage />} />
             <Route path="hris/payroll/:id" element={<PayrollDetailPage />} />
+            <Route path="tasks" element={<TaskListPage />} />
+            <Route path="tasks/my" element={<MyTasksPage />} />
+            <Route path="tasks/board" element={<TaskBoardPage />} />
+            <Route path="crm/pipeline" element={<PipelineBoardPage />} />
+            <Route path="accounting/cash" element={<CashListPage />} />
+            <Route path="accounting/cash/:id" element={<CashViewPage />} />
             <Route path="files" element={<FileManagerPage />} />
             <Route path="reports" element={<ReportCenterPage />} />
             <Route path="reports/:key" element={<ReportViewPage />} />

@@ -5,7 +5,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieCh
 import { api } from '@/lib/api';
 import { download } from '@/lib/download';
 import { fmtByType, fmtCompact } from '@/lib/format';
-import { AsyncSelect, Button, Card, cn, Dropdown, EmptyState, Field, Input, PageHeader, Select, Spinner, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, cn, DatePicker, Dropdown, EmptyState, Field, PageHeader, Select, Spinner, toast } from '@/components/ui';
 import { CHART_COLORS, defaultValue, type ReportMeta, type ReportResult } from './reportTypes';
 
 const NUMERIC = new Set(['money', 'number', 'qty', 'integer', 'percent']);
@@ -107,7 +107,7 @@ export default function ReportViewPage() {
             {def.params.map((p) => (
               <Field key={p.name} label={p.label} required={p.required}>
                 {p.type === 'date' ? (
-                  <Input type="date" value={draft[p.name] ?? ''} onChange={(e) => setDraft({ ...draft, [p.name]: e.target.value })} />
+                  <DatePicker value={draft[p.name] ?? ''} onChange={(v) => setDraft({ ...draft, [p.name]: v })} />
                 ) : p.type === 'select' ? (
                   <Select value={draft[p.name] ?? ''} onChange={(e) => setDraft({ ...draft, [p.name]: e.target.value })} options={p.options ?? []} placeholder={p.required ? undefined : 'All'} />
                 ) : (
@@ -142,7 +142,7 @@ export default function ReportViewPage() {
               <div className="scrollbar-thin max-h-[70vh] overflow-auto print:max-h-none print:overflow-visible">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10">
-                    <tr className="bg-slate-100 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase dark:bg-slate-800 dark:text-slate-300">
+                    <tr className="border-b border-line bg-slate-50/80 text-left text-xs font-medium text-slate-500">
                       {data.columns.map((c) => (
                         <th key={c.key} className={cn('px-3 py-2.5 whitespace-nowrap', NUMERIC.has(c.type ?? '') && 'text-right')}>
                           {c.label}
@@ -155,7 +155,7 @@ export default function ReportViewPage() {
                       const isSection = hasSection && !!r.section;
                       const isHeader = isSection && (r.amount === null || r.amount === undefined);
                       return (
-                        <tr key={i} className={cn('border-b border-slate-100 dark:border-slate-800', isSection && 'font-semibold', isHeader && 'bg-slate-50 dark:bg-slate-800/50', !isSection && 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30')}>
+                        <tr key={i} className={cn('border-b border-line', isSection && 'font-semibold', isHeader && 'bg-slate-50', !isSection && 'hover:bg-slate-50/60')}>
                           {data.columns.map((c) => (
                             <td key={c.key} className={cn('px-3 py-2 whitespace-nowrap', NUMERIC.has(c.type ?? '') && 'text-right tabular-nums', typeof r[c.key] === 'number' && (r[c.key] as number) < 0 && 'text-red-600')}>
                               {fmtByType(r[c.key], c.type)}
@@ -167,7 +167,7 @@ export default function ReportViewPage() {
                   </tbody>
                   {data.totals && (
                     <tfoot className="sticky bottom-0">
-                      <tr className="bg-slate-100 font-semibold dark:bg-slate-800">
+                      <tr className="bg-slate-100 font-semibold">
                         {data.columns.map((c, i) => (
                           <td key={c.key} className={cn('px-3 py-2.5 whitespace-nowrap', NUMERIC.has(c.type ?? '') && 'text-right tabular-nums')}>
                             {i === 0 ? 'Total' : data.totals![c.key] !== undefined ? fmtByType(data.totals![c.key], c.type) : ''}
@@ -179,7 +179,7 @@ export default function ReportViewPage() {
                 </table>
               </div>
             )}
-            <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400 dark:border-slate-800">{data.rows.length} rows</div>
+            <div className="border-t border-line px-4 py-2 text-xs text-slate-400">{data.rows.length} rows</div>
           </Card>
         </div>
       ) : null}

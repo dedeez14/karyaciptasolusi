@@ -51,7 +51,14 @@ function fieldSchema(f: FieldDef): ZodTypeAny {
     }
   }
   if (f.type === 'boolean') return s.optional();
-  if (f.required) return z.preprocess((v) => (v === '' || v === null ? undefined : v), s);
+  if (f.required)
+    return z.preprocess(
+      (v) => (v === '' || v === null ? undefined : v),
+      z
+        .unknown()
+        .refine((v) => v !== undefined, { message: `${f.label} is required` })
+        .pipe(s as z.ZodType<unknown, any>),
+    );
   // numeric columns are NOT NULL with DB defaults -> treat empty as "not provided"
   if (['number', 'money', 'percent', 'integer'].includes(f.type)) return z.preprocess((v) => (v === '' || v === null ? undefined : v), s.optional());
   return z.preprocess(emptyToNull, s.nullable().optional());

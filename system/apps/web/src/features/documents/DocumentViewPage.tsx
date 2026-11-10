@@ -6,7 +6,7 @@ import { download } from '@/lib/download';
 import { previewFile } from '@/components/ui/preview';
 import { fmtDate, fmtDateTime, fmtMoney, fmtNumber } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { Badge, Button, Card, confirm, Dropdown, EmptyState, Field, Input, Modal, PageHeader, Spinner, StatusBadge, Textarea, toast } from '@/components/ui';
+import { Badge, Button, Card, confirm, Dropdown, EmptyState, Field, Icon, Input, Modal, PageHeader, Spinner, StatusBadge, Textarea, toast, Steps } from '@/components/ui';
 import { docPath, statusLabel, useDocType, useDocTypes, type TradeDoc } from './useDocTypes';
 
 function EmailModal({ open, onClose, doc, title }: { open: boolean; onClose: () => void; doc: TradeDoc; title: string }) {
@@ -136,6 +136,18 @@ export default function DocumentViewPage() {
     );
 
   const isDraft = d.status === 'DRAFT';
+  const doneLabel = def.payable ? 'Paid' : def.convertTo.length ? 'Completed' : 'Done';
+  const midLabel = def.payable ? 'Partially paid' : 'In progress';
+  const flow = {
+    steps: [
+      { label: 'Draft', hint: fmtDate(d.createdAt) },
+      { label: def.payable ? 'Issued' : 'Confirmed', hint: d.confirmedAt ? fmtDate(d.confirmedAt) : undefined },
+      ...(def.convertTo.length || def.payable ? [{ label: midLabel }] : []),
+      ...(def.convertTo.length || def.payable ? [{ label: doneLabel }] : []),
+    ],
+    current: { DRAFT: 0, CONFIRMED: 1, PARTIAL: 2, COMPLETED: def.convertTo.length || def.payable ? 3 : 1, CANCELLED: 0 }[d.status] ?? 0,
+  };
+  if (!def.convertTo.length && !def.payable && d.status !== 'DRAFT') flow.current = flow.steps.length;
   const canConvert = ['CONFIRMED', 'PARTIAL', 'COMPLETED'].includes(d.status);
   const payPerm = def.code === 'SI' ? 'sales.payment.create' : 'purchase.payment.create';
   const canPay = def.payable && ['CONFIRMED', 'PARTIAL'].includes(d.status) && can(payPerm);
@@ -193,8 +205,12 @@ export default function DocumentViewPage() {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="mb-5">
+        <Steps steps={flow.steps} current={flow.current} cancelled={d.status === 'CANCELLED'} />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
           <Card title="Details">
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
               {def.partner && <Info label={def.partyLabel ?? 'Partner'} value={d.partnerName} />}
@@ -212,42 +228,42 @@ export default function DocumentViewPage() {
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase dark:border-slate-800 dark:bg-slate-900/60">
-                    <th className="px-3 py-2">#</th>
-                    <th className="px-3 py-2">Item</th>
-                    <th className="px-3 py-2 text-right">Qty</th>
-                    {def.convertTo.length > 0 && !isDraft && <th className="px-3 py-2 text-right">Processed</th>}
-                    {def.priced && <th className="px-3 py-2 text-right">Price</th>}
-                    {def.priced && <th className="px-3 py-2 text-right">Disc</th>}
-                    {def.priced && def.taxField && <th className="px-3 py-2">Tax</th>}
-                    {def.priced && <th className="px-3 py-2 text-right">Amount</th>}
+                  <tr className="border-b border-line bg-slate-50/80 text-left text-xs font-medium text-slate-500">
+                    <th className="px-4 py-3">#</th>
+                    <th className="px-4 py-3">Item</th>
+                    <th className="px-4 py-3 text-right">Qty</th>
+                    {def.convertTo.length > 0 && !isDraft && <th className="px-4 py-3 text-right">Processed</th>}
+                    {def.priced && <th className="px-4 py-3 text-right">Price</th>}
+                    {def.priced && <th className="px-4 py-3 text-right">Disc</th>}
+                    {def.priced && def.taxField && <th className="px-4 py-3">Tax</th>}
+                    {def.priced && <th className="px-4 py-3 text-right">Amount</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {d.lines.map((l, i) => (
-                    <tr key={l.id ?? i} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
-                      <td className="px-3 py-2 text-slate-400">{i + 1}</td>
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{l.product?.name ?? l.description}</div>
+                    <tr key={l.id ?? i} className="border-b border-line/70 last:border-0 hover:bg-slate-50/60">
+                      <td className="px-4 py-3 text-slate-400">{i + 1}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-slate-900">{l.product?.name ?? l.description}</div>
                         <div className="text-xs text-slate-500">
                           {l.product?.code}
                           {l.product && l.description && l.description !== l.product.name ? ` · ${l.description}` : ''}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
+                      <td className="px-4 py-3 text-right tabular-nums">
                         {fmtNumber(l.qty)} {l.uomCode}
                       </td>
-                      {def.convertTo.length > 0 && !isDraft && <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{fmtNumber(l.processedQty)}</td>}
-                      {def.priced && <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(l.unitPrice)}</td>}
-                      {def.priced && <td className="px-3 py-2 text-right tabular-nums">{Number(l.discountPct) ? `${fmtNumber(l.discountPct, 2)}%` : ''}</td>}
-                      {def.priced && def.taxField && <td className="px-3 py-2 text-xs">{l.taxName}</td>}
-                      {def.priced && <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtMoney(Number(l.lineSubtotal) - Number(l.lineDiscount))}</td>}
+                      {def.convertTo.length > 0 && !isDraft && <td className="px-4 py-3 text-right text-slate-500 tabular-nums">{fmtNumber(l.processedQty)}</td>}
+                      {def.priced && <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(l.unitPrice)}</td>}
+                      {def.priced && <td className="px-4 py-3 text-right tabular-nums">{Number(l.discountPct) ? `${fmtNumber(l.discountPct, 2)}%` : ''}</td>}
+                      {def.priced && def.taxField && <td className="px-4 py-3 text-xs">{l.taxName}</td>}
+                      {def.priced && <td className="px-4 py-3 text-right font-medium tabular-nums">{fmtMoney(Number(l.lineSubtotal) - Number(l.lineDiscount))}</td>}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="divide-y divide-slate-100 md:hidden dark:divide-slate-800">
+            <div className="divide-y divide-slate-100 md:hidden">
               {d.lines.map((l, i) => (
                 <div key={l.id ?? i} className="px-4 py-3 text-sm">
                   <div className="font-medium">{l.product?.name ?? l.description}</div>
@@ -257,7 +273,7 @@ export default function DocumentViewPage() {
                       {def.priced ? ` × ${fmtMoney(l.unitPrice)}` : ''}
                       {Number(l.discountPct) ? ` (-${fmtNumber(l.discountPct, 2)}%)` : ''}
                     </span>
-                    {def.priced && <span className="font-medium text-slate-700 dark:text-slate-200">{fmtMoney(Number(l.lineSubtotal) - Number(l.lineDiscount))}</span>}
+                    {def.priced && <span className="font-medium text-slate-700">{fmtMoney(Number(l.lineSubtotal) - Number(l.lineDiscount))}</span>}
                   </div>
                 </div>
               ))}
@@ -272,27 +288,30 @@ export default function DocumentViewPage() {
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {def.priced && (
             <Card title="Summary">
               <dl className="space-y-2 text-sm">
                 <Row label="Subtotal" value={fmtMoney(d.subtotal)} />
                 {Number(d.discountTotal) > 0 && <Row label="Discount" value={`-${fmtMoney(d.discountTotal)}`} />}
                 <Row label="Tax" value={fmtMoney(d.taxTotal)} />
-                <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold dark:border-slate-700">
-                  <dt>Total</dt>
-                  <dd className="tabular-nums">
+                <div className="!mt-4 rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 px-4 py-3 text-white">
+                  <dt className="text-xs text-brand-100">Total</dt>
+                  <dd className="mt-0.5 text-xl font-semibold tabular-nums">
                     {d.currencyCode} {fmtMoney(d.grandTotal)}
                   </dd>
                 </div>
                 {def.payable && (
-                  <>
+                  <div className="!mt-4 space-y-2">
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, (Number(d.paidAmount) / Math.max(1, Number(d.grandTotal))) * 100)}%` }} />
+                    </div>
                     <Row label="Paid" value={fmtMoney(d.paidAmount)} />
-                    <div className="flex justify-between font-semibold text-red-600">
+                    <div className={`flex justify-between font-semibold ${Number(d.balance) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                       <dt>Balance due</dt>
                       <dd className="tabular-nums">{fmtMoney(d.balance)}</dd>
                     </div>
-                  </>
+                  </div>
                 )}
               </dl>
             </Card>
@@ -341,10 +360,11 @@ export default function DocumentViewPage() {
             </Card>
           )}
           {d.status === 'CANCELLED' && (
-            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
               <Badge tone="red">Cancelled</Badge> Stock and journal effects of this document were reversed.
             </div>
           )}
+          <HistoryCard type={def.code} id={d.id} />
         </div>
       </div>
       {emailOpen && <EmailModal open={emailOpen} onClose={() => setEmailOpen(false)} doc={d} title={def.printTitle} />}
@@ -355,8 +375,8 @@ export default function DocumentViewPage() {
 function Info({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="font-medium">{value ? String(value) : <span className="text-slate-300">—</span>}</dd>
+      <dt className="text-xs font-medium text-slate-500">{label}</dt>
+      <dd className="mt-0.5 font-medium text-slate-900">{value ? String(value) : <span className="text-slate-300">—</span>}</dd>
     </div>
   );
 }
@@ -367,5 +387,57 @@ function Row({ label, value }: { label: string; value: string }) {
       <dt className="text-slate-500">{label}</dt>
       <dd className="tabular-nums">{value}</dd>
     </div>
+  );
+}
+
+interface HistoryEntry {
+  id: string;
+  action: string;
+  username: string | null;
+  createdAt: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+}
+
+const ACTION_STYLE: Record<string, { icon: string; color: string }> = {
+  CREATE: { icon: 'plus', color: 'bg-brand-600' },
+  UPDATE: { icon: 'pencil', color: 'bg-slate-500' },
+  CONFIRM: { icon: 'check', color: 'bg-emerald-600' },
+  CANCEL: { icon: 'ban', color: 'bg-red-600' },
+  DELETE: { icon: 'trash-2', color: 'bg-red-600' },
+};
+
+/** Who changed what and when, from the immutable audit trail */
+function HistoryCard({ type, id }: { type: string; id: string }) {
+  const q = useQuery({ queryKey: ['documents', type, id, 'history'], queryFn: () => api.get<HistoryEntry[]>(`/documents/${type}/${id}/history`) });
+  const humanize = (k: string) => k.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+  return (
+    <Card title="History">
+      {q.isLoading ? (
+        <Spinner className="h-4 w-4 text-slate-400" />
+      ) : !q.data?.length ? (
+        <p className="text-sm text-slate-400">No history yet.</p>
+      ) : (
+        <ol className="relative space-y-4 border-l border-line pl-5">
+          {q.data.map((h) => {
+            const st = ACTION_STYLE[h.action] ?? { icon: 'circle', color: 'bg-slate-400' };
+            const changed = h.action === 'UPDATE' ? Object.keys(h.after ?? {}).filter((k) => !['lines', 'subtotal', 'discountTotal', 'taxTotal'].includes(k)) : [];
+            return (
+              <li key={h.id} className="relative">
+                <span className={`absolute top-0.5 -left-[29px] flex h-4.5 w-4.5 items-center justify-center rounded-full p-0.5 text-white ring-4 ring-white ${st.color}`}>
+                  <Icon name={st.icon} className="h-3 w-3" />
+                </span>
+                <p className="text-sm font-medium text-slate-900">
+                  {h.action.charAt(0) + h.action.slice(1).toLowerCase().replace(/_/g, ' ')}
+                  <span className="font-normal text-slate-500"> by {h.username ?? 'system'}</span>
+                </p>
+                <p className="text-xs text-slate-500">{fmtDateTime(h.createdAt)}</p>
+                {changed.length > 0 && <p className="mt-0.5 text-xs text-slate-500">Changed: {changed.slice(0, 6).map(humanize).join(', ')}{changed.length > 6 ? '...' : ''}</p>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Card>
   );
 }

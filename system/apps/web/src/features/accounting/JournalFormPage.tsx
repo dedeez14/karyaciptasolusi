@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney, isoDate } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, EmptyState, Field, Input, PageHeader, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, toast } from '@/components/ui';
 
 interface JLine {
   key: number;
@@ -76,7 +76,7 @@ export default function JournalFormPage() {
         <Card title="Header">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <Field label="Date" required error={errors.date}>
-              <Input type="date" value={head.date} onChange={(e) => setHead({ ...head, date: e.target.value })} />
+              <DatePicker clearable={false} value={head.date} onChange={(v) => setHead({ ...head, date: v })} />
             </Field>
             <Field label="Description" required error={errors.description} className="sm:col-span-2">
               <Input value={head.description} maxLength={500} onChange={(e) => setHead({ ...head, description: e.target.value })} />
@@ -90,7 +90,7 @@ export default function JournalFormPage() {
           {errors.lines && <p className="mb-2 text-sm text-red-600">{errors.lines}</p>}
           <div className="space-y-3">
             {lines.map((l, i) => (
-              <div key={l.key} className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-12 md:border-0 md:p-0 dark:border-slate-700">
+              <div key={l.key} className="grid grid-cols-2 gap-2 rounded-lg border border-line p-3 md:grid-cols-12 md:border-0 md:p-0">
                 <div className="col-span-2 md:col-span-3">
                   {i === 0 && <label className="label hidden md:block">Account</label>}
                   <AsyncSelect resource="accounts" value={l.accountId} onChange={(v) => update(l.key, { accountId: v })} placeholder="Account..." />

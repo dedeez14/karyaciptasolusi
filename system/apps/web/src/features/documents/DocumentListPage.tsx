@@ -3,14 +3,16 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
-import { AsyncSelect, Button, Card, DataTable, EmptyState, Icon, Input, Pagination, PageHeader, Select, Spinner, StatusBadge, type Column } from '@/components/ui';
-import { DOC_STATUSES, statusLabel, useDocType, type TradeDoc } from './useDocTypes';
+import { AsyncSelect, Button, Card, type Column, DataTable, DatePicker, EmptyState, Icon, Input, PageHeader, Pagination, Select, Spinner, StatusBadge } from '@/components/ui';
+import { statusLabel, useDocType, type TradeDoc } from './useDocTypes';
+import { useLookupOptions } from '@/hooks/useLookups';
 
 export default function DocumentListPage() {
   const { type = '' } = useParams();
   const { def, isLoading } = useDocType(type);
   const navigate = useNavigate();
   const ls = useListState({ sort: 'date', order: 'desc' });
+  const docStatuses = useLookupOptions('DOC_STATUS');
   const f = ls.filters;
   const params = { page: ls.page, pageSize: ls.pageSize, search: ls.search, sort: ls.sort, order: ls.order, status: f.status, partnerId: f.partnerId, from: f.from, to: f.to, unpaid: f.unpaid };
   const list = useQuery({
@@ -29,7 +31,7 @@ export default function DocumentListPage() {
   if (!def) return <EmptyState icon="shield-alert" title="Not available" description="This document type does not exist or you have no access." />;
 
   const columns: Column<TradeDoc>[] = [
-    { key: 'number', header: 'Number', sortable: true, render: (r) => <span className="font-medium text-brand-700 dark:text-brand-500">{r.number}</span> },
+    { key: 'number', header: 'Number', sortable: true, render: (r) => <span className="font-medium text-brand-700">{r.number}</span> },
     { key: 'date', header: 'Date', sortable: true, render: (r) => fmtDate(r.date) },
     ...(def.partner ? [{ key: 'partnerName', header: def.partner === 'customer' ? 'Customer' : 'Supplier', render: (r: TradeDoc) => r.partnerName ?? <span className="text-slate-300">—</span> }] : []),
     ...(def.dueDate ? [{ key: 'dueDate', header: def.code === 'SQ' ? 'Valid until' : 'Due', sortable: true, render: (r: TradeDoc) => fmtDate(r.dueDate) }] : []),
@@ -55,7 +57,7 @@ export default function DocumentListPage() {
         }
       />
       <Card bodyClass="p-0">
-        <div className="grid grid-cols-1 gap-2 border-b border-slate-100 p-3 sm:grid-cols-2 lg:grid-cols-6 dark:border-slate-800">
+        <div className="grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-6">
           <form
             className="relative sm:col-span-2"
             onSubmit={(e) => {
@@ -66,14 +68,14 @@ export default function DocumentListPage() {
             <Icon name="search" className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
             <Input className="pl-9" placeholder="Search number, reference..." value={ls.searchInput} onChange={(e) => ls.setSearchInput(e.target.value)} onBlur={() => ls.setSearch(ls.searchInput)} />
           </form>
-          <Select value={f.status ?? ''} onChange={(e) => ls.setFilter('status', e.target.value)} placeholder="All statuses" options={DOC_STATUSES.map((s) => ({ value: s, label: statusLabel(def, s) ?? s.charAt(0) + s.slice(1).toLowerCase() }))} />
+          <Select value={f.status ?? ''} onChange={(e) => ls.setFilter('status', e.target.value)} placeholder="All statuses" options={docStatuses.map((o) => ({ value: o.value, label: statusLabel(def, o.value) ?? o.label }))} />
           {def.partner ? (
             <AsyncSelect resource={def.partner === 'customer' ? 'customers' : 'suppliers'} value={f.partnerId} onChange={(v) => ls.setFilter('partnerId', v)} placeholder={`All ${def.partner}s`} />
           ) : (
             <div className="hidden lg:block" />
           )}
-          <Input type="date" value={f.from ?? ''} onChange={(e) => ls.setFilter('from', e.target.value)} aria-label="From date" />
-          <Input type="date" value={f.to ?? ''} onChange={(e) => ls.setFilter('to', e.target.value)} aria-label="To date" />
+          <DatePicker value={f.from ?? ''} onChange={(v) => ls.setFilter('from', v)} placeholder="From date" aria-label="From date" />
+          <DatePicker value={f.to ?? ''} onChange={(v) => ls.setFilter('to', v)} placeholder="To date" aria-label="To date" />
           {(def.payable || hasFilters) && (
             <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-6">
               {def.payable && (

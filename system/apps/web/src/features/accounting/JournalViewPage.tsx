@@ -5,7 +5,8 @@ import { api } from '@/lib/api';
 import { fmtDate, fmtDateTime, fmtMoney } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, EmptyState, PageHeader, Spinner, StatusBadge, toast } from '@/components/ui';
-import { SOURCE_LABELS, type JournalRow } from './JournalListPage';
+import { type JournalRow } from './JournalListPage';
+import { useLookupLabel } from '@/hooks/useLookups';
 
 interface JournalDetail extends JournalRow {
   lines: { id: string; lineNo: number; description: string | null; debit: string; credit: string; account: { code: string; name: string } }[];
@@ -20,6 +21,7 @@ const sourceLink = (type: string | null, id: string | null) => {
 };
 
 export default function JournalViewPage() {
+  const sourceLabel = useLookupLabel('JOURNAL_SOURCE');
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -91,7 +93,7 @@ export default function JournalViewPage() {
             <div>
               <dt className="text-xs text-slate-500">Source</dt>
               <dd>
-                <Badge tone={j.sourceType === 'MANUAL' ? 'violet' : 'blue'}>{SOURCE_LABELS[j.sourceType ?? ''] ?? j.sourceType}</Badge>
+                <Badge tone={j.sourceType === 'MANUAL' ? 'violet' : 'blue'}>{sourceLabel(j.sourceType)}</Badge>
                 {link && (
                   <Link to={link} className="ml-2 text-brand-700 hover:underline">
                     Open source
@@ -113,7 +115,7 @@ export default function JournalViewPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase dark:border-slate-800 dark:bg-slate-900/60">
+                <tr className="border-b border-line bg-slate-50/80 text-left text-xs font-medium text-slate-500">
                   <th className="px-3 py-2">Account</th>
                   <th className="hidden px-3 py-2 sm:table-cell">Description</th>
                   <th className="px-3 py-2 text-right">Debit</th>
@@ -122,7 +124,7 @@ export default function JournalViewPage() {
               </thead>
               <tbody>
                 {j.lines.map((l) => (
-                  <tr key={l.id} className="border-b border-slate-100 dark:border-slate-800">
+                  <tr key={l.id} className="border-b border-line">
                     <td className="px-3 py-2">
                       <span className="font-mono text-xs text-slate-500">{l.account.code}</span> {l.account.name}
                       <div className="text-xs text-slate-400 sm:hidden">{l.description}</div>

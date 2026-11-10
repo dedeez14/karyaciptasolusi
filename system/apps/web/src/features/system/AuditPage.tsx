@@ -91,9 +91,9 @@ export default function AuditPage() {
               </div>
             </div>
             {fields.length ? (
-              <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="overflow-x-auto rounded-lg border border-line">
                 <table className="w-full text-xs">
-                  <thead className="bg-slate-50 text-left text-slate-500 dark:bg-slate-800">
+                  <thead className="bg-slate-50 text-left text-slate-500">
                     <tr>
                       <th className="px-3 py-2">Field</th>
                       <th className="px-3 py-2">Before</th>
@@ -102,10 +102,10 @@ export default function AuditPage() {
                   </thead>
                   <tbody>
                     {fields.map((f) => (
-                      <tr key={f} className="border-t border-slate-100 align-top dark:border-slate-800">
+                      <tr key={f} className="border-t border-line align-top">
                         <td className="px-3 py-2 font-medium">{f}</td>
-                        <td className="px-3 py-2 break-all text-red-600 dark:text-red-400">{show(detail.before?.[f])}</td>
-                        <td className="px-3 py-2 break-all text-emerald-700 dark:text-emerald-400">{show(detail.after?.[f])}</td>
+                        <td className="px-3 py-2 break-all text-red-600">{show(detail.before?.[f])}</td>
+                        <td className="px-3 py-2 break-all text-emerald-700">{show(detail.after?.[f])}</td>
                       </tr>
                     ))}
                   </tbody>

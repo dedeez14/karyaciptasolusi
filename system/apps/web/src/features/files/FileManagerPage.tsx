@@ -6,9 +6,10 @@ import { download } from '@/lib/download';
 import { fmtBytes, fmtDate, fmtDateTime } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { useLookups } from '@/features/resources/FieldInput';
-import { Badge, Button, Card, cn, confirm, DataTable, Dropdown, EmptyState, Icon, Input, Pagination, PageHeader, Select, Spinner, toast, type Column } from '@/components/ui';
+import { Badge, Button, Card, cn, type Column, confirm, DataTable, DatePicker, Dropdown, EmptyState, Icon, Input, LookupSelect, PageHeader, Pagination, Select, Spinner, toast } from '@/components/ui';
 import { BulkDialog, EditFileDialog, FolderDialog, PreviewDialog } from './FileDialogs';
-import { SOURCE_LABEL, TYPE_META, type FileRow, type Folder, type FolderResponse, type Group } from './fileTypes';
+import { TYPE_META, type FileRow, type Folder, type FolderResponse, type Group } from './fileTypes';
+import { useLookupOptions } from '@/hooks/useLookups';
 
 type UploadItem = { name: string; size: number; status: 'queued' | 'uploading' | 'done' | 'error'; error?: string };
 const SPECIAL: Record<string, { label: string; icon: string }> = {
@@ -19,6 +20,7 @@ const SPECIAL: Record<string, { label: string; icon: string }> = {
 };
 
 export default function FileManagerPage() {
+  const groupOptions = useLookupOptions('FILE_GROUP_BY');
   const qc = useQueryClient();
   const can = useSession((s) => s.can);
   const [sp, setSp] = useSearchParams();
@@ -50,7 +52,10 @@ export default function FileManagerPage() {
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const categories = useLookups(['FILE_CATEGORY']).FILE_CATEGORY ?? [];
+  const lists = useLookups(['FILE_CATEGORY', 'FILE_TYPE', 'FILE_SOURCE']);
+  const categories = lists.FILE_CATEGORY ?? [];
+  const typeLabel = (k: string) => lists.FILE_TYPE?.find((o) => o.value === k)?.label ?? TYPE_META[k]?.label ?? k;
+  const sourceLabel = (k: string) => lists.FILE_SOURCE?.find((o) => o.value === k)?.label ?? k;
   const catLabel = (c: string | null) => categories.find((x) => x.value === c)?.label ?? c ?? '';
   const folders = useQuery({ queryKey: ['files', 'folders'], queryFn: () => api.get<FolderResponse>('/files/folders') });
   const stats = useQuery({ queryKey: ['files', 'stats'], queryFn: () => api.get<{ files: number; size: number; byType: Group[] }>('/files/stats') });
@@ -190,7 +195,7 @@ export default function FileManagerPage() {
         </span>
       ),
     },
-    { key: 'source', header: 'Source', render: (f) => <Badge tone={f.source === 'UPLOAD' ? 'gray' : f.source === 'GENERATED' ? 'violet' : 'amber'}>{SOURCE_LABEL[f.source]}</Badge> },
+    { key: 'source', header: 'Source', render: (f) => <Badge tone={f.source === 'UPLOAD' ? 'gray' : f.source === 'GENERATED' ? 'violet' : 'amber'}>{sourceLabel(f.source)}</Badge> },
     { key: 'size', header: 'Size', sortable: true, align: 'right', render: (f) => fmtBytes(f.size) },
     { key: 'createdAt', header: 'Uploaded', sortable: true, render: (f) => <span title={f.uploadedBy ?? ''}>{fmtDateTime(f.createdAt)}</span> },
   ];
@@ -201,7 +206,7 @@ export default function FileManagerPage() {
         const meta = TYPE_META[f.fileType] ?? TYPE_META.other;
         const isSel = selected.has(f.id);
         return (
-          <div key={f.id} className={cn('group relative flex flex-col rounded-xl border p-3 transition hover:shadow-md', isSel ? 'border-brand-500 bg-brand-50/60 dark:bg-slate-800' : 'border-slate-200 dark:border-slate-800')}>
+          <div key={f.id} className={cn('group relative flex flex-col rounded-xl border p-3 transition hover:shadow-md', isSel ? 'border-brand-500 bg-brand-50/60' : 'border-line')}>
             <input
               type="checkbox"
               className="absolute top-2 left-2 accent-brand-700"
@@ -258,7 +263,7 @@ export default function FileManagerPage() {
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((f) => (
         <div key={f.id}>
-          <div className={cn('group flex items-center rounded-lg pr-1', location === f.id ? 'bg-brand-50 text-brand-800 dark:bg-slate-800 dark:text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+          <div className={cn('group flex items-center rounded-lg pr-1', location === f.id ? 'bg-brand-50 text-brand-800' : 'hover:bg-slate-100')}>
             <button type="button" onClick={() => (set({ loc: f.id }), setSidebarOpen(false))} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm" style={{ paddingLeft: 8 + depth * 14 }}>
               <Icon name={location === f.id ? 'folder-open' : 'folder'} className="h-4 w-4 shrink-0" />
               <span className="truncate" style={{ color: f.color ?? undefined }}>
@@ -289,7 +294,7 @@ export default function FileManagerPage() {
             key={k}
             type="button"
             onClick={() => (set({ loc: k === 'all' ? null : k }), setSidebarOpen(false))}
-            className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm', location === k ? 'bg-brand-50 font-medium text-brand-800 dark:bg-slate-800 dark:text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}
+            className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm', location === k ? 'bg-brand-50 font-medium text-brand-800' : 'hover:bg-slate-100')}
           >
             <Icon name={v.icon} className="h-4 w-4" />
             {v.label}
@@ -310,7 +315,7 @@ export default function FileManagerPage() {
           <p className="mb-1 px-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">Tags</p>
           <div className="flex flex-wrap gap-1 px-2">
             {tags.data.slice(0, 30).map((t) => (
-              <button key={t.tag} type="button" onClick={() => set({ tag: get('tag') === t.tag ? null : t.tag })} className={cn('rounded-full px-2 py-0.5 text-xs', get('tag') === t.tag ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300')}>
+              <button key={t.tag} type="button" onClick={() => set({ tag: get('tag') === t.tag ? null : t.tag })} className={cn('rounded-full px-2 py-0.5 text-xs', get('tag') === t.tag ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}>
                 #{t.tag} <span className="opacity-60">{t.count}</span>
               </button>
             ))}
@@ -318,19 +323,19 @@ export default function FileManagerPage() {
         </div>
       )}
       {stats.data && (
-        <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
+        <div className="rounded-lg bg-slate-50 p-3">
           <p className="text-xs text-slate-500">Storage used</p>
           <p className="font-semibold">{fmtBytes(stats.data.size)}</p>
-          <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+          <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-200">
             {stats.data.byType.map((g) => (
-              <div key={g.key} style={{ width: `${(g.size / Math.max(1, stats.data!.size)) * 100}%`, background: TYPE_META[g.key]?.color }} title={`${TYPE_META[g.key]?.label}: ${fmtBytes(g.size)}`} />
+              <div key={g.key} style={{ width: `${(g.size / Math.max(1, stats.data!.size)) * 100}%`, background: TYPE_META[g.key]?.color }} title={`${typeLabel(g.key)}: ${fmtBytes(g.size)}`} />
             ))}
           </div>
           <div className="mt-2 space-y-0.5">
             {stats.data.byType.map((g) => (
               <div key={g.key} className="flex items-center gap-2 text-xs">
                 <span className="h-2 w-2 rounded-full" style={{ background: TYPE_META[g.key]?.color }} />
-                <span className="flex-1">{TYPE_META[g.key]?.label ?? g.key}</span>
+                <span className="flex-1">{typeLabel(g.key)}</span>
                 <span className="text-slate-400">{g.files}</span>
               </div>
             ))}
@@ -380,7 +385,7 @@ export default function FileManagerPage() {
         {sidebarOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
-            <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] overflow-y-auto bg-white p-4 dark:bg-slate-900">{sidebar}</div>
+            <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] overflow-y-auto bg-white p-4">{sidebar}</div>
           </div>
         )}
         <div className="min-w-0 space-y-3">
@@ -401,7 +406,7 @@ export default function FileManagerPage() {
             </Card>
           )}
           <Card bodyClass="p-0">
-            <div className="flex flex-col gap-2 border-b border-slate-100 p-3 sm:flex-row sm:items-center dark:border-slate-800">
+            <div className="flex flex-col gap-2 border-b border-line p-3 sm:flex-row sm:items-center">
               <form
                 className="relative flex-1"
                 onSubmit={(e) => {
@@ -420,30 +425,25 @@ export default function FileManagerPage() {
                   className="w-auto"
                   value={groupBy}
                   onChange={(e) => set({ group: e.target.value || null })}
-                  options={[
-                    { value: 'type', label: 'Group: Type' },
-                    { value: 'month', label: 'Group: Month' },
-                    { value: 'category', label: 'Group: Category' },
-                    { value: 'source', label: 'Group: Source' },
-                  ]}
+                  options={groupOptions.map((o) => ({ value: o.value, label: `Group: ${o.label}` }))}
                   placeholder="No grouping"
                   aria-label="Group by"
                 />
-                <div className="flex rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="flex rounded-lg border border-line">
                   <Button variant={view === 'list' ? 'secondary' : 'ghost'} size="icon" icon="list" onClick={() => set({ view: null })} aria-label="List view" />
                   <Button variant={view === 'grid' ? 'secondary' : 'ghost'} size="icon" icon="layout-grid" onClick={() => set({ view: 'grid' })} aria-label="Grid view" />
                 </div>
               </div>
             </div>
             {showFilters && (
-              <div className="grid grid-cols-1 gap-3 border-b border-slate-100 bg-slate-50/60 p-3 sm:grid-cols-3 lg:grid-cols-6 dark:border-slate-800 dark:bg-slate-900/40">
+              <div className="grid grid-cols-1 gap-3 border-b border-line bg-slate-50/60 p-3 sm:grid-cols-3 lg:grid-cols-6">
                 <div>
                   <label className="label">Type</label>
-                  <Select value={get('type')} onChange={(e) => set({ type: e.target.value || null })} placeholder="All" options={Object.entries(TYPE_META).map(([value, m]) => ({ value, label: m.label }))} />
+                  <LookupSelect category="FILE_TYPE" value={get('type')} onChange={(v) => set({ type: v || null })} placeholder="All" />
                 </div>
                 <div>
                   <label className="label">Category</label>
-                  <Select value={get('category')} onChange={(e) => set({ category: e.target.value || null })} placeholder="All" options={categories} />
+                  <LookupSelect category="FILE_CATEGORY" value={get('category')} onChange={(v) => set({ category: v || null })} placeholder="All" />
                 </div>
                 <div>
                   <label className="label">Tag</label>
@@ -451,15 +451,15 @@ export default function FileManagerPage() {
                 </div>
                 <div>
                   <label className="label">Source</label>
-                  <Select value={get('source')} onChange={(e) => set({ source: e.target.value || null })} placeholder="All" options={Object.entries(SOURCE_LABEL).map(([value, label]) => ({ value, label }))} />
+                  <LookupSelect category="FILE_SOURCE" value={get('source')} onChange={(v) => set({ source: v || null })} placeholder="All" />
                 </div>
                 <div>
                   <label className="label">From</label>
-                  <Input type="date" value={get('from')} onChange={(e) => set({ from: e.target.value || null })} />
+                  <DatePicker value={get('from')} onChange={(v) => set({ from: v || null })} />
                 </div>
                 <div>
                   <label className="label">To</label>
-                  <Input type="date" value={get('to')} onChange={(e) => set({ to: e.target.value || null })} />
+                  <DatePicker value={get('to')} onChange={(v) => set({ to: v || null })} />
                 </div>
                 <div className="sm:col-span-3 lg:col-span-6">
                   <Button variant="ghost" icon="x" onClick={() => set({ type: null, category: null, tag: null, source: null, from: null, to: null })}>
@@ -469,7 +469,7 @@ export default function FileManagerPage() {
               </div>
             )}
             {selected.size > 0 && (
-              <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-brand-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-800">
+              <div className="flex flex-wrap items-center gap-2 border-b border-line bg-brand-50 px-3 py-2 text-sm">
                 <span className="font-medium">{selected.size} selected</span>
                 {can('files.file.update') && (
                   <>
@@ -497,9 +497,9 @@ export default function FileManagerPage() {
                   <Spinner />
                 </div>
               ) : groups.data?.length ? (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="divide-y divide-slate-100">
                   {groups.data.map((g) => (
-                    <GroupSection key={g.key} by={groupBy} group={g} filters={filters} label={groupLabel(groupBy, g.key, catLabel, folderList)} render={renderFiles} />
+                    <GroupSection key={g.key} by={groupBy} group={g} filters={filters} label={groupLabel(groupBy, g.key, catLabel, folderList, typeLabel, sourceLabel)} render={renderFiles} />
                   ))}
                 </div>
               ) : (
@@ -517,7 +517,7 @@ export default function FileManagerPage() {
 
       {dragging && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-brand-700/20 backdrop-blur-sm">
-          <div className="rounded-2xl border-2 border-dashed border-brand-600 bg-white px-10 py-8 text-center shadow-xl dark:bg-slate-900">
+          <div className="rounded-2xl border-2 border-dashed border-brand-600 bg-white px-10 py-8 text-center shadow-xl">
             <Icon name="upload-cloud" className="mx-auto h-10 w-10 text-brand-700" />
             <p className="mt-2 font-semibold">Drop files to upload</p>
             <p className="text-sm text-slate-500">into {title}</p>
@@ -533,10 +533,10 @@ export default function FileManagerPage() {
   );
 }
 
-function groupLabel(by: string, key: string, catLabel: (c: string) => string, folders: Folder[]) {
+function groupLabel(by: string, key: string, catLabel: (c: string) => string, folders: Folder[], typeLabel: (k: string) => string, sourceLabel: (k: string) => string) {
   if (key === 'none') return by === 'category' ? 'Uncategorised' : by === 'folder' ? 'Unfiled' : 'None';
-  if (by === 'type') return TYPE_META[key]?.label ?? key;
-  if (by === 'source') return SOURCE_LABEL[key] ?? key;
+  if (by === 'type') return typeLabel(key);
+  if (by === 'source') return sourceLabel(key);
   if (by === 'category') return catLabel(key);
   if (by === 'folder') return folders.find((f) => f.id === key)?.name ?? key;
   if (by === 'month') return new Date(`${key}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -559,7 +559,7 @@ function GroupSection({ by, group, filters, label, render }: { by: string; group
   const meta = by === 'type' ? TYPE_META[group.key] : undefined;
   return (
     <div>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50">
         <Icon name={open ? 'chevron-down' : 'chevron-right'} className="h-4 w-4 text-slate-400" />
         {meta ? (
           <span style={{ color: meta.color }}>
@@ -572,7 +572,7 @@ function GroupSection({ by, group, filters, label, render }: { by: string; group
         <Badge>{group.files} files</Badge>
         <span className="hidden w-20 text-right text-xs text-slate-400 sm:block">{fmtBytes(group.size)}</span>
       </button>
-      {open && <div className="border-t border-slate-100 dark:border-slate-800">{render(rows, q.isFetching)}</div>}
+      {open && <div className="border-t border-line">{render(rows, q.isFetching)}</div>}
     </div>
   );
 }

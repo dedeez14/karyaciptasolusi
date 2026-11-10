@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { fmtBytes, fmtDateTime } from '@/lib/format';
 import { download, fileUrl } from '@/lib/download';
-import { Badge, Button, Field, Icon, Input, Modal, Select, Spinner, Textarea, toast } from '@/components/ui';
-import { folderOptions, SOURCE_LABEL, type FileRow, type Folder } from './fileTypes';
+import { Badge, Button, Field, Icon, Input, LookupSelect, Modal, Select, Spinner, Textarea, toast } from '@/components/ui';
+import { folderOptions, type FileRow, type Folder } from './fileTypes';
+import { useLookupLabel } from '@/hooks/useLookups';
 
 type Opt = { value: string; label: string };
 
@@ -67,6 +68,8 @@ export function FolderDialog({ open, onClose, folder, folders, parentId, onSaved
 }
 
 export function EditFileDialog({ file, onClose, folders, categories, onSaved }: { file: FileRow | null; onClose: () => void; folders: Folder[]; categories: Opt[]; onSaved: () => void }) {
+  const sourceLabel = useLookupLabel('FILE_SOURCE');
+  void categories;
   const [form, setForm] = useState({ name: '', folderId: '', categoryCode: '', tags: '', description: '' });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -110,13 +113,13 @@ export function EditFileDialog({ file, onClose, folders, categories, onSaved }: 
     >
       {file && (
         <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/50">
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs">
             <span className="text-slate-500">Size</span>
             <span>{fmtBytes(file.size)}</span>
             <span className="text-slate-500">Type</span>
             <span>{file.mimeType}</span>
             <span className="text-slate-500">Source</span>
-            <span>{SOURCE_LABEL[file.source]}</span>
+            <span>{sourceLabel(file.source)}</span>
             <span className="text-slate-500">Uploaded</span>
             <span>
               {fmtDateTime(file.createdAt)} {file.uploadedBy && `by ${file.uploadedBy}`}
@@ -130,7 +133,7 @@ export function EditFileDialog({ file, onClose, folders, categories, onSaved }: 
               <Select value={form.folderId} onChange={(e) => setForm({ ...form, folderId: e.target.value })} options={folderOptions(folders)} placeholder="(Unfiled)" />
             </Field>
             <Field label="Category">
-              <Select value={form.categoryCode} onChange={(e) => setForm({ ...form, categoryCode: e.target.value })} options={categories} placeholder="—" />
+              <LookupSelect category="FILE_CATEGORY" value={form.categoryCode} onChange={(v) => setForm({ ...form, categoryCode: v })} placeholder="—" />
             </Field>
           </div>
           <Field label="Tags" help="Comma separated">
@@ -194,7 +197,7 @@ export function PreviewDialog({ file, onClose }: { file: FileRow | null; onClose
           ) : file.fileType === 'image' ? (
             <img src={url} alt={file.name} className="max-h-[70vh] max-w-full rounded object-contain" />
           ) : (
-            <iframe key={url} src={url} title={file.name} className="h-[70vh] w-full rounded border border-slate-200 bg-white" />
+            <iframe key={url} src={url} title={file.name} className="h-[70vh] w-full rounded border border-line bg-white" />
           )}
         </div>
       )}

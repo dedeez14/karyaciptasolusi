@@ -5,6 +5,7 @@ import { fmtDateTime } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useSession } from '@/stores/session';
 import { AsyncSelect, Badge, Button, Card, confirm, DataTable, Drawer, Dropdown, Field, Icon, Input, Modal, Pagination, PageHeader, Select, Switch, toast, type Column } from '@/components/ui';
+import { useLookupOptions } from '@/hooks/useLookups';
 
 interface Assignment {
   id?: string;
@@ -41,6 +42,7 @@ interface Role {
 const isLocked = (u: UserRow) => !!u.lockedUntil && new Date(u.lockedUntil) > new Date();
 
 export default function UsersPage() {
+  const recordStatus = useLookupOptions('RECORD_STATUS');
   const ls = useListState();
   const qc = useQueryClient();
   const { can, me } = useSession();
@@ -111,7 +113,7 @@ export default function UsersPage() {
         }
       />
       <Card bodyClass="p-0">
-        <div className="flex flex-col gap-2 border-b border-slate-100 p-3 sm:flex-row dark:border-slate-800">
+        <div className="flex flex-col gap-2 border-b border-line p-3 sm:flex-row">
           <form
             className="relative flex-1"
             onSubmit={(e) => {
@@ -122,7 +124,7 @@ export default function UsersPage() {
             <Icon name="search" className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
             <Input className="pl-9" placeholder="Search name, username, email..." value={ls.searchInput} onChange={(e) => ls.setSearchInput(e.target.value)} onBlur={() => ls.setSearch(ls.searchInput)} />
           </form>
-          <Select className="sm:w-44" value={ls.filters.isActive ?? ''} onChange={(e) => ls.setFilter('isActive', e.target.value)} placeholder="All statuses" options={[{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }]} />
+          <Select className="sm:w-44" value={ls.filters.isActive ?? ''} onChange={(e) => ls.setFilter('isActive', e.target.value)} placeholder="All statuses" options={recordStatus} />
         </div>
         <DataTable
           columns={columns}
@@ -259,7 +261,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null | undefined
           </div>
           <div className="space-y-2">
             {assignments.map((a, i) => (
-              <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 p-2 sm:grid-cols-[1fr_1fr_1fr_auto] dark:border-slate-700">
+              <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-line p-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
                 <AsyncSelect resource="companies" value={a.companyId} onChange={(v) => setAssignments((s) => s.map((x, j) => (j === i ? { ...x, companyId: v ?? '' } : x)))} placeholder="Company" />
                 <AsyncSelect resource="branches" value={a.branchId} onChange={(v) => setAssignments((s) => s.map((x, j) => (j === i ? { ...x, branchId: v } : x)))} placeholder="All branches" />
                 <Select value={a.roleId} onChange={(e) => setAssignments((s) => s.map((x, j) => (j === i ? { ...x, roleId: e.target.value } : x)))} options={(roles.data ?? []).map((r) => ({ value: r.id, label: r.name }))} placeholder="Select role" />
@@ -270,7 +272,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null | undefined
           </div>
         </div>
         {isEdit && user && (
-          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/50">
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs">
             <span className="text-slate-500">Created</span>
             <span>{fmtDateTime(user.createdAt)}</span>
             <span className="text-slate-500">Last sign in</span>

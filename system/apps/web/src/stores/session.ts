@@ -20,7 +20,10 @@ export interface Me {
   companies: { id: string; code: string; name: string }[];
   branches: { id: string; code: string; name: string }[];
   menus: MenuNode[];
-  prefs: { locale: string; idleTimeoutMinutes: number; appName: string };
+  prefs: { locale: string; idleTimeoutMinutes: number; appName: string; timezone: string };
+  clock: { enabled: boolean; timezone: string; format24h: boolean; showSeconds: boolean; showDate: boolean; label: string };
+  /** employee record linked to this user (self-service attendance) */
+  employeeId: string | null;
 }
 
 interface SessionState {

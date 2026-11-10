@@ -3,14 +3,15 @@ import { useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useSession } from '@/stores/session';
-import { Badge, Button, Card, Field, Icon, Input, PageHeader, Select, Spinner, Switch, Tabs, Textarea, toast } from '@/components/ui';
+import { Badge, Button, Card, cn, Field, Icon, Input, LookupSelect, PageHeader, Spinner, Switch, Tabs, Textarea, toast } from '@/components/ui';
 
 interface Setting {
   key: string;
   group: string;
   label: string | null;
   description: string | null;
-  valueType: 'string' | 'number' | 'boolean' | 'text' | 'secret' | 'json';
+  /** string | number | boolean | text | secret | json | lookup:<CATEGORY> */
+  valueType: string;
   isSecret: boolean;
   scope: 'company' | 'global';
   value: string | null;
@@ -19,6 +20,8 @@ interface Setting {
 
 const GROUPS: Record<string, { label: string; icon: string }> = {
   general: { label: 'General', icon: 'settings' },
+  clock: { label: 'Clock', icon: 'clock' },
+  notifications: { label: 'Notifications', icon: 'bell' },
   security: { label: 'Security', icon: 'shield' },
   document: { label: 'Documents', icon: 'file-text' },
   sales: { label: 'Sales', icon: 'shopping-cart' },
@@ -74,7 +77,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-5xl">
       <PageHeader title="Settings" subtitle="All business configuration lives here - nothing is hardcoded" />
       {settings.isLoading ? (
         <Spinner />
@@ -87,15 +90,20 @@ export default function SettingsPage() {
               editable && (
                 <>
                   {me?.user.isSuperAdmin && (
-                    <Select
-                      className="h-8 w-auto py-1 text-xs"
-                      value={scope}
-                      onChange={(e) => setScope(e.target.value as 'company' | 'global')}
-                      options={[
-                        { value: 'company', label: `Save for ${me.company.name}` },
-                        { value: 'global', label: 'Save as global default' },
-                      ]}
-                    />
+                    <div className="inline-flex rounded-lg border border-line bg-slate-50 p-0.5 text-xs" role="radiogroup" aria-label="Save scope">
+                      {(['company', 'global'] as const).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          role="radio"
+                          aria-checked={scope === v}
+                          onClick={() => setScope(v)}
+                          className={cn('rounded-md px-2.5 py-1 font-medium transition-colors', scope === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
+                        >
+                          {v === 'company' ? `This company` : 'Global default'}
+                        </button>
+                      ))}
+                    </div>
                   )}
                   <Button size="sm" icon="save" loading={busy} onClick={save} disabled={!items.some((s) => dirty.has(s.key))}>
                     Save
@@ -105,7 +113,7 @@ export default function SettingsPage() {
             }
             title={GROUPS[tab]?.label ?? tab}
           >
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="divide-y divide-line">
               {items.map((s) => (
                 <div key={s.key} className="grid gap-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[1fr_1.3fr] sm:gap-6">
                   <div>
@@ -118,7 +126,9 @@ export default function SettingsPage() {
                     <p className="mt-0.5 font-mono text-[11px] text-slate-400">{s.key}</p>
                   </div>
                   <div>
-                    {s.valueType === 'boolean' ? (
+                    {s.valueType.startsWith('lookup:') ? (
+                      <LookupSelect category={s.valueType.slice(7)} value={values[s.key] ?? ''} disabled={!editable} onChange={(v) => change(s.key, v)} aria-label={s.label ?? s.key} />
+                    ) : s.valueType === 'boolean' ? (
                       <Switch checked={values[s.key] === 'true'} disabled={!editable} onChange={(v) => change(s.key, String(v))} />
                     ) : s.valueType === 'text' || s.valueType === 'json' ? (
                       <Textarea rows={4} value={values[s.key] ?? ''} disabled={!editable} onChange={(e) => change(s.key, e.target.value)} className={s.valueType === 'json' ? 'font-mono text-xs' : undefined} />
@@ -131,11 +141,17 @@ export default function SettingsPage() {
                       </Field>
                     ) : s.key === 'document.primaryColor' ? (
                       <div className="flex gap-2">
-                        <input type="color" className="h-9 w-12 rounded border border-slate-300" value={/^#[0-9a-f]{6}$/i.test(values[s.key] ?? '') ? values[s.key] : '#1e40af'} disabled={!editable} onChange={(e) => change(s.key, e.target.value)} />
+                        <input type="color" className="h-10 w-12 cursor-pointer rounded-lg border border-line" value={/^#[0-9a-f]{6}$/i.test(values[s.key] ?? '') ? values[s.key] : '#1e40af'} disabled={!editable} onChange={(e) => change(s.key, e.target.value)} />
                         <Input value={values[s.key] ?? ''} disabled={!editable} onChange={(e) => change(s.key, e.target.value)} />
                       </div>
                     ) : (
-                      <Input type={s.valueType === 'number' ? 'number' : 'text'} value={values[s.key] ?? ''} disabled={!editable} onChange={(e) => change(s.key, e.target.value)} />
+                      <Input
+                        type={s.valueType === 'number' ? 'number' : /Time$/.test(s.key) ? 'time' : 'text'}
+                        className={s.valueType === 'number' ? 'max-w-40 text-right tabular-nums' : /Time$/.test(s.key) ? 'max-w-40' : undefined}
+                        value={values[s.key] ?? ''}
+                        disabled={!editable}
+                        onChange={(e) => change(s.key, e.target.value)}
+                      />
                     )}
                   </div>
                 </div>

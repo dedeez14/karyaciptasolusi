@@ -94,6 +94,9 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['PAY_IN', 'Customer Receipt', 'RCV/{YYYY}/{MM}/', 'MONTHLY'],
   ['PAY_OUT', 'Supplier Payment', 'PAY/{YYYY}/{MM}/', 'MONTHLY'],
   ['JE', 'Journal Entry', 'JV/{YYYY}/{MM}/', 'MONTHLY'],
+  ['CASH_IN', 'Cash / Bank Receipt', 'CR/{YYYY}/{MM}/', 'MONTHLY'],
+  ['CASH_OUT', 'Cash / Bank Payment', 'CV/{YYYY}/{MM}/', 'MONTHLY'],
+  ['BANK_TRANSFER', 'Bank Transfer', 'BT/{YYYY}/{MM}/', 'MONTHLY'],
   ['PAYROLL', 'Payroll Run', 'PYR/{YYYY}/', 'YEARLY'],
   ['PRODUCT', 'Product Code', 'PRD-', 'NEVER'],
   ['CUSTOMER', 'Customer Code', 'CUS-', 'NEVER'],
@@ -103,6 +106,7 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['OPPORTUNITY', 'Opportunity Code', 'OPP-', 'NEVER'],
   ['CAMPAIGN', 'Campaign Code', 'CMP-', 'NEVER'],
   ['PROJECT', 'Project Code', 'PRJ-', 'NEVER'],
+  ['TASK', 'Task Code', 'TASK-', 'NEVER'],
 ];
 
 export const SIMPLE_TEMPLATE = {
@@ -165,4 +169,13 @@ export const SALARY_COMPONENT_TEMPLATE: [string, string, 'EARNING' | 'DEDUCTION'
   ['BPJS_TK', 'BPJS Ketenagakerjaan (Employee)', 'DEDUCTION', 'PERCENT_BASE', 2],
   ['BPJS_KES', 'BPJS Kesehatan (Employee)', 'DEDUCTION', 'PERCENT_BASE', 1],
   ['PPH21', 'Income Tax (PPh 21)', 'DEDUCTION', 'FIXED', 0],
+];
+
+/** code, name, color, isDone */
+export const TASK_STAGE_TEMPLATE: [string, string, string, boolean][] = [
+  ['BACKLOG', 'Backlog', '#94a3b8', false],
+  ['TODO', 'To Do', '#3b82f6', false],
+  ['IN_PROGRESS', 'In Progress', '#f59e0b', false],
+  ['REVIEW', 'Review', '#8b5cf6', false],
+  ['DONE', 'Done', '#16a34a', true],
 ];

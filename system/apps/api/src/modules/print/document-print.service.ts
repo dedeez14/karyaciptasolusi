@@ -158,4 +158,41 @@ export class DocumentPrintService {
       signatures: isIn ? ['Received by'] : ['Prepared by', 'Approved by', 'Received by'],
     };
   }
+
+  /** Cash / bank voucher (money in, money out, transfer) - same layout as every other document */
+  async cash(t: any): Promise<PrintableDocument> {
+    const companyId = RequestCtx.companyId();
+    const locale = await this.settings.str('general.locale', companyId, 'en-US');
+    const m = (v: unknown) => this.pdf.money(v, locale);
+    const company = await this.prisma.company.findUniqueOrThrow({ where: { id: companyId }, select: { currencyCode: true } });
+    const title = t.type === 'RECEIPT' ? 'Cash Receipt Voucher' : t.type === 'PAYMENT' ? 'Cash Payment Voucher' : 'Bank Transfer Voucher';
+    const rows =
+      t.type === 'TRANSFER'
+        ? [
+            { no: '1', account: `To: ${t.toBankAccountName ?? ''}`, desc: t.description, amount: m(t.amount) },
+            { no: '2', account: `From: ${t.bankAccountName ?? ''}`, desc: t.description, amount: m(t.amount) },
+          ]
+        : [{ no: '1', account: t.accountName ?? '', desc: t.description, amount: m(t.amount) }];
+    return {
+      title,
+      number: t.number,
+      status: t.status === 'CANCELLED' ? 'Cancelled' : undefined,
+      parties: t.partyName ? [{ label: t.type === 'RECEIPT' ? 'Received From' : 'Paid To', name: t.partyName, lines: [] }] : [],
+      meta: [
+        { label: 'Date', value: fmtDate(t.date) },
+        { label: t.type === 'RECEIPT' ? 'Deposited To' : 'Paid From', value: t.type === 'RECEIPT' ? t.bankAccountName ?? '' : t.bankAccountName ?? '' },
+        { label: 'Reference', value: t.reference ?? '' },
+      ],
+      columns: [
+        { key: 'no', label: '#', width: 0.4, align: 'center' },
+        { key: 'account', label: 'Account', width: 2.4 },
+        { key: 'desc', label: 'Description', width: 3 },
+        { key: 'amount', label: 'Amount', width: 1.6, align: 'right' },
+      ],
+      rows,
+      totals: [{ label: `Total (${company.currencyCode})`, value: m(t.amount), bold: true }],
+      amount: { value: Number(t.amount), currency: company.currencyCode },
+      signatures: ['Prepared by', 'Approved by', t.type === 'RECEIPT' ? 'Paid by' : 'Received by'],
+    };
+  }
 }

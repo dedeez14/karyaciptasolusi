@@ -11,7 +11,7 @@ interface Ticket {
 }
 
 /** Only these read-only file endpoints may be opened with a ticket */
-const ALLOWED = [/^\/documents\/[A-Z]{2,3}\/[0-9a-f-]{36}\/pdf$/i, /^\/payments\/(in|out)\/[0-9a-f-]{36}\/pdf$/, /^\/hris\/payroll\/[0-9a-f-]{36}\/payslips\/[0-9a-f-]{36}\/pdf$/, /^\/files\/[0-9a-f-]{36}\/download$/];
+const ALLOWED = [/^\/documents\/[A-Z]{2,3}\/[0-9a-f-]{36}\/pdf$/i, /^\/payments\/(in|out)\/[0-9a-f-]{36}\/pdf$/, /^\/hris\/payroll\/[0-9a-f-]{36}\/payslips\/[0-9a-f-]{36}\/pdf$/, /^\/files\/[0-9a-f-]{36}\/download$/, /^\/cash\/[0-9a-f-]{36}\/pdf$/];
 
 /**
  * Short-lived, single-use, path-bound download tickets.

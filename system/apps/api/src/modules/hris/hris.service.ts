@@ -224,4 +224,60 @@ export class HrisService {
       },
     };
   }
+
+  // ------------------------------------------------------------------ self service attendance
+  private async myEmployee() {
+    const u = RequestCtx.user();
+    const emp = await this.prisma.employee.findFirst({ where: { userId: u.id, companyId: u.companyId, deletedAt: null, isActive: true } });
+    if (!emp) throw new BadRequestException('Your user account is not linked to an employee. Ask HR to set "User Account" on your employee record.');
+    return emp;
+  }
+
+  private async localNow(companyId: string) {
+    const tz = await this.settings.str('general.timezone', companyId, 'Asia/Jakarta');
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date()).map((p) => [p.type, p.value]));
+    return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+  }
+
+  async myAttendance() {
+    const u = RequestCtx.user();
+    const emp = await this.prisma.employee.findFirst({ where: { userId: u.id, companyId: u.companyId, deletedAt: null }, select: { id: true, code: true, fullName: true } });
+    if (!emp) return { employee: null, today: null, recent: [] };
+    const now = await this.localNow(u.companyId);
+    const [today, recent] = await Promise.all([
+      this.prisma.attendance.findFirst({ where: { employeeId: emp.id, date: new Date(now.date), deletedAt: null } }),
+      this.prisma.attendance.findMany({ where: { employeeId: emp.id, deletedAt: null }, orderBy: { date: 'desc' }, take: 7 }),
+    ]);
+    return { employee: emp, today, recent, workStartTime: await this.settings.str('hris.workStartTime', u.companyId, '09:00') };
+  }
+
+  async checkIn() {
+    const u = RequestCtx.user();
+    const emp = await this.myEmployee();
+    const now = await this.localNow(u.companyId);
+    const existing = await this.prisma.attendance.findFirst({ where: { employeeId: emp.id, date: new Date(now.date) } });
+    if (existing?.checkIn) throw new ConflictException('You have already checked in today');
+    const [h, m] = (await this.settings.str('hris.workStartTime', u.companyId, '09:00')).split(':').map(Number);
+    const grace = await this.settings.num('hris.lateGraceMinutes', u.companyId, 15);
+    const late = now.minutes > (h || 9) * 60 + (m || 0) + grace;
+    const status = (await this.prisma.lookupValue.findFirst({ where: { category: 'ATTENDANCE_STATUS', code: late ? 'LATE' : 'PRESENT' } }))?.code ?? null;
+    const data = { checkIn: new Date(), statusCode: status, updatedById: u.id };
+    const row = existing
+      ? await this.prisma.attendance.update({ where: { id: existing.id }, data })
+      : await this.prisma.attendance.create({ data: { ...data, companyId: u.companyId, branchId: emp.branchId ?? u.branchId, employeeId: emp.id, date: new Date(now.date), createdById: u.id } });
+    await this.audit.record('Attendance', row.id, 'CHECK_IN', undefined, row);
+    return row;
+  }
+
+  async checkOut() {
+    const u = RequestCtx.user();
+    const emp = await this.myEmployee();
+    const now = await this.localNow(u.companyId);
+    const existing = await this.prisma.attendance.findFirst({ where: { employeeId: emp.id, date: new Date(now.date), deletedAt: null } });
+    if (!existing?.checkIn) throw new ConflictException('Check in first');
+    if (existing.checkOut) throw new ConflictException('You have already checked out today');
+    const row = await this.prisma.attendance.update({ where: { id: existing.id }, data: { checkOut: new Date(), updatedById: u.id } });
+    await this.audit.record('Attendance', row.id, 'CHECK_OUT', existing, row);
+    return row;
+  }
 }

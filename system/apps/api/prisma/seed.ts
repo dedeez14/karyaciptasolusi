@@ -41,7 +41,7 @@ async function main() {
   for (const [code, parent, label, icon, path, permissionCode] of MENUS) {
     order += 10;
     const parentId = parent ? menuIds.get(parent) ?? null : null;
-    const m = await prisma.menu.upsert({ where: { code }, create: { code, parentId, label, icon, path, permissionCode, sortOrder: order }, update: { permissionCode } });
+    const m = await prisma.menu.upsert({ where: { code }, create: { code, parentId, label, icon, path, permissionCode, sortOrder: order }, update: { permissionCode } }); // never override menu order changed in Menu Management
     menuIds.set(code, m.id);
   }
 

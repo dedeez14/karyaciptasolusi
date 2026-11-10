@@ -94,7 +94,7 @@ export function ConfirmHost() {
         </>
       }
     >
-      <div className="text-sm text-slate-600 dark:text-slate-300">{opts?.message}</div>
+      <div className="text-sm text-slate-600">{opts?.message}</div>
     </Modal>
   );
 }

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtDate, fmtMoney, isoDate } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, EmptyState, Field, Input, PageHeader, Spinner, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, Spinner, Textarea, toast } from '@/components/ui';
 import { dirMeta, type PaymentRow } from './common';
 
 interface OpenInvoice {
@@ -117,7 +117,7 @@ export default function PaymentFormPage() {
               <AsyncSelect resource={m.partnerResource} value={form.partnerId || null} onChange={(v) => setForm({ ...form, partnerId: v ?? '' })} />
             </Field>
             <Field label="Date" required error={errors.date}>
-              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
+              <DatePicker clearable={false} value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
             </Field>
             <Field label={m.dir === 'in' ? 'Deposit to (cash / bank)' : 'Pay from (cash / bank)'} required error={errors.bankAccountId}>
               <AsyncSelect resource="bank-accounts" value={form.bankAccountId || null} onChange={(v) => setForm({ ...form, bankAccountId: v ?? '' })} />
@@ -170,7 +170,7 @@ export default function PaymentFormPage() {
           ) : !invoices.data?.length ? (
             <EmptyState icon="check-circle-2" title="No open invoices" description="The payment will be recorded as an advance (unapplied)." />
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="divide-y divide-slate-100">
               {invoices.data.map((inv) => {
                 const on = inv.id in alloc;
                 const overdue = inv.dueDate && new Date(inv.dueDate) < new Date();
@@ -205,7 +205,7 @@ export default function PaymentFormPage() {
                   </div>
                 );
               })}
-              <div className="flex justify-between bg-slate-50 px-4 py-3 text-sm font-semibold dark:bg-slate-900/60">
+              <div className="flex justify-between bg-slate-50 px-4 py-3 text-sm font-semibold">
                 <span>Allocated</span>
                 <span className="tabular-nums">{fmtMoney(allocTotal)}</span>
               </div>

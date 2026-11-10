@@ -129,7 +129,7 @@ export default function PayrollDetailPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase dark:border-slate-800 dark:bg-slate-900/60">
+                <tr className="border-b border-line bg-slate-50/80 text-left text-xs font-medium text-slate-500">
                   <th className="w-8 px-3 py-2" />
                   <th className="px-3 py-2">Employee</th>
                   <th className="hidden px-3 py-2 text-right md:table-cell">Base</th>
@@ -142,7 +142,7 @@ export default function PayrollDetailPage() {
               <tbody>
                 {run.payslips.map((s) => (
                   <Fragment key={s.id}>
-                    <tr className="cursor-pointer border-b border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40" onClick={() => toggle(s.id)}>
+                    <tr className="cursor-pointer border-b border-line hover:bg-slate-50" onClick={() => toggle(s.id)}>
                       <td className="px-3 py-2">
                         <Icon name={expanded.has(s.id) ? 'chevron-down' : 'chevron-right'} className="h-4 w-4 text-slate-400" />
                       </td>
@@ -161,7 +161,7 @@ export default function PayrollDetailPage() {
                       </td>
                     </tr>
                     {expanded.has(s.id) && (
-                      <tr className="border-b border-slate-100 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/40">
+                      <tr className="border-b border-line bg-slate-50/60">
                         <td />
                         <td colSpan={6} className="px-3 py-3">
                           <ul className="grid gap-1 text-xs sm:max-w-lg">
@@ -177,7 +177,7 @@ export default function PayrollDetailPage() {
                                 <span className="tabular-nums">{fmtMoney(l.amount)}</span>
                               </li>
                             ))}
-                            <li className="flex justify-between border-t border-slate-200 pt-1 font-semibold dark:border-slate-700">
+                            <li className="flex justify-between border-t border-line pt-1 font-semibold">
                               <span>Net pay</span>
                               <span className="tabular-nums">{fmtMoney(s.netPay)}</span>
                             </li>

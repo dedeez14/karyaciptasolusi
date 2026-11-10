@@ -4,11 +4,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSession, type MenuNode } from '@/stores/session';
 import { useIdleLogout } from '@/hooks/useIdleLogout';
 import '@/hooks/useTheme';
-import { Button, cn, Dropdown, Icon, Spinner, toast } from '@/components/ui';
+import { Button, cn, Dropdown, Icon, Spinner, toast, Tooltip } from '@/components/ui';
 import { PwaPrompt } from './PwaPrompt';
 import { ErrorBoundary } from './ErrorBoundary';
 import { CommandPalette } from './CommandPalette';
 import { flattenMenus } from './menu-utils';
+import { SidebarFlyout } from './SidebarFlyout';
+import { Clock } from './Clock';
+import { NotificationBell } from './NotificationBell';
 
 const COLLAPSE_KEY = 'kcs.sidebar.collapsed';
 
@@ -30,28 +33,43 @@ function NavItem({ node, depth, collapsed, open, toggle, onNavigate, activeCode 
   if (node.children.length) {
     const isOpen = open.has(node.code) && !collapsed;
     const containsActive = !!activeCode && flattenMenus(node.children).some((l) => l.node.code === activeCode);
+    const chip = (
+      <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', containsActive ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-brand-600')}>
+        <Icon name={node.icon} className="h-4 w-4" />
+      </span>
+    );
+    if (collapsed) {
+      // collapsed sidebar: group opens a flyout with its pages
+      return (
+        <li>
+          <SidebarFlyout node={node} activeCode={activeCode}>
+            {({ open: flyoutOpen, toggle: toggleFlyout }) => (
+              <button
+                type="button"
+                aria-label={node.label}
+                aria-haspopup="menu"
+                aria-expanded={flyoutOpen}
+                onClick={toggleFlyout}
+                className={cn('group flex w-full items-center justify-center rounded-lg px-2.5 py-2 transition-colors', flyoutOpen ? 'bg-slate-100' : 'hover:bg-slate-100')}
+              >
+                {chip}
+              </button>
+            )}
+          </SidebarFlyout>
+        </li>
+      );
+    }
     return (
       <li>
         <button
           type="button"
-          title={collapsed ? node.label : undefined}
           onClick={() => toggle(node.code)}
-          className={cn(
-            'group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors',
-            containsActive ? 'text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-            collapsed && 'justify-center',
-          )}
+          className={cn('group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors', containsActive ? 'text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')}
           aria-expanded={isOpen}
         >
-          <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', containsActive ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-brand-600')}>
-            <Icon name={node.icon} className="h-4 w-4" />
-          </span>
-          {!collapsed && (
-            <>
-              <span className="flex-1 truncate text-left">{node.label}</span>
-              <Icon name="chevron-right" className={cn('h-4 w-4 text-slate-400 transition-transform', isOpen && 'rotate-90')} />
-            </>
-          )}
+          {chip}
+          <span className="flex-1 truncate text-left">{node.label}</span>
+          <Icon name="chevron-right" className={cn('h-4 w-4 text-slate-400 transition-transform', isOpen && 'rotate-90')} />
         </button>
         {isOpen && (
           <ul className="relative mt-1 mb-2 ml-[22px] space-y-0.5 border-l border-line pl-3">
@@ -64,29 +82,28 @@ function NavItem({ node, depth, collapsed, open, toggle, onNavigate, activeCode 
     );
   }
   const active = node.code === activeCode;
-  return (
-    <li>
-      <NavLink
-        to={node.path ?? '/'}
-        title={collapsed ? node.label : undefined}
-        onClick={onNavigate}
-        className={cn(
-          'relative flex items-center gap-3 rounded-lg text-[13.5px] transition-colors',
-          depth === 0 ? 'px-2.5 py-2 font-medium' : 'px-2.5 py-1.5',
-          active ? 'bg-brand-50 font-semibold text-brand-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-          collapsed && 'justify-center',
-        )}
-      >
-        {depth > 0 && active && <span className="absolute top-1.5 bottom-1.5 -left-[13.5px] w-[3px] rounded-full bg-brand-600" />}
-        {depth === 0 && (
-          <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', active ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500')}>
-            <Icon name={node.icon} className="h-4 w-4" />
-          </span>
-        )}
-        {!collapsed && <span className="truncate">{node.label}</span>}
-      </NavLink>
-    </li>
+  const link = (
+    <NavLink
+      to={node.path ?? '/'}
+      aria-label={collapsed ? node.label : undefined}
+      onClick={onNavigate}
+      className={cn(
+        'relative flex items-center gap-3 rounded-lg text-[13.5px] transition-colors',
+        depth === 0 ? 'px-2.5 py-2 font-medium' : 'px-2.5 py-1.5',
+        active ? 'bg-brand-50 font-semibold text-brand-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+        collapsed && 'justify-center',
+      )}
+    >
+      {depth > 0 && active && <span className="absolute top-1.5 bottom-1.5 -left-[13.5px] w-[3px] rounded-full bg-brand-600" />}
+      {depth === 0 && (
+        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', active ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500')}>
+          <Icon name={node.icon} className="h-4 w-4" />
+        </span>
+      )}
+      {!collapsed && <span className="truncate">{node.label}</span>}
+    </NavLink>
   );
+  return <li>{collapsed ? <Tooltip content={node.label}>{link}</Tooltip> : link}</li>;
 }
 
 export function AppLayout() {
@@ -181,6 +198,15 @@ export function AppLayout() {
             </button>
           </div>
         )}
+        {c && (
+          <div className="px-2 pb-3">
+            <Tooltip content="Search menu (Ctrl K)">
+              <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search menu" className="flex h-9 w-full items-center justify-center rounded-lg border border-line bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-white hover:text-slate-800">
+                <Icon name="search" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          </div>
+        )}
         <nav className={cn('flex-1 overflow-y-auto pb-4', c ? 'px-2' : 'px-3')}>
           <ul className="space-y-0.5">
             {me.menus.map((m) => (
@@ -190,10 +216,12 @@ export function AppLayout() {
         </nav>
         <div className={cn('shrink-0 border-t border-line p-3', c && 'px-2')}>
           {!isMobile && (
-            <button type="button" onClick={() => setCollapsed((v) => !v)} className={cn('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-800', c && 'justify-center')}>
-              <Icon name={c ? 'panel-left-open' : 'panel-left-close'} className="h-4 w-4" />
-              {!c && 'Collapse sidebar'}
-            </button>
+            <Tooltip content="Expand sidebar" disabled={!c}>
+              <button type="button" onClick={() => setCollapsed((v) => !v)} aria-label={c ? 'Expand sidebar' : 'Collapse sidebar'} className={cn('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-800', c && 'justify-center')}>
+                <Icon name={c ? 'panel-left-open' : 'panel-left-close'} className="h-4 w-4" />
+                {!c && 'Collapse sidebar'}
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -253,6 +281,8 @@ export function AppLayout() {
               </div>
             )}
           </div>
+          <Clock />
+          <NotificationBell />
           <Dropdown
             trigger={
               <button type="button" className="flex items-center gap-2.5 rounded-xl py-1 pr-2 pl-1 hover:bg-slate-100">

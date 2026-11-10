@@ -4,7 +4,7 @@ import { api, type Paged } from '@/lib/api';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, DataTable, EmptyState, Icon, Input, Pagination, PageHeader, StatusBadge, type Column } from '@/components/ui';
+import { AsyncSelect, Button, Card, type Column, DataTable, DatePicker, EmptyState, Icon, Input, PageHeader, Pagination, StatusBadge } from '@/components/ui';
 import { dirMeta, type PaymentRow } from './common';
 
 export default function PaymentListPage() {
@@ -18,7 +18,7 @@ export default function PaymentListPage() {
   const list = useQuery({ queryKey: ['payments', m.dir, 'list', params], queryFn: () => api.get<Paged<PaymentRow>>(`/payments/${m.dir}`, params), placeholderData: keepPreviousData });
 
   const columns: Column<PaymentRow>[] = [
-    { key: 'number', header: 'Number', render: (r) => <span className="font-medium text-brand-700 dark:text-brand-500">{r.number}</span> },
+    { key: 'number', header: 'Number', render: (r) => <span className="font-medium text-brand-700">{r.number}</span> },
     { key: 'date', header: 'Date', render: (r) => fmtDate(r.date) },
     { key: 'partnerName', header: m.partner, render: (r) => r.partnerName ?? '' },
     { key: 'bankAccountName', header: m.dir === 'in' ? 'Deposited to' : 'Paid from', render: (r) => r.bankAccountName ?? '' },
@@ -41,7 +41,7 @@ export default function PaymentListPage() {
         }
       />
       <Card bodyClass="p-0">
-        <div className="grid grid-cols-1 gap-2 border-b border-slate-100 p-3 sm:grid-cols-2 lg:grid-cols-5 dark:border-slate-800">
+        <div className="grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-5">
           <form
             className="relative sm:col-span-2"
             onSubmit={(e) => {
@@ -53,8 +53,8 @@ export default function PaymentListPage() {
             <Input className="pl-9" placeholder="Search number or reference..." value={ls.searchInput} onChange={(e) => ls.setSearchInput(e.target.value)} onBlur={() => ls.setSearch(ls.searchInput)} />
           </form>
           <AsyncSelect resource={m.partnerResource} value={f.partnerId} onChange={(v) => ls.setFilter('partnerId', v)} placeholder={`All ${m.partner.toLowerCase()}s`} />
-          <Input type="date" value={f.from ?? ''} onChange={(e) => ls.setFilter('from', e.target.value)} aria-label="From date" />
-          <Input type="date" value={f.to ?? ''} onChange={(e) => ls.setFilter('to', e.target.value)} aria-label="To date" />
+          <DatePicker value={f.from ?? ''} onChange={(v) => ls.setFilter('from', v)} placeholder="From date" aria-label="From date" />
+          <DatePicker value={f.to ?? ''} onChange={(v) => ls.setFilter('to', v)} placeholder="To date" aria-label="To date" />
         </div>
         <DataTable
           columns={columns}

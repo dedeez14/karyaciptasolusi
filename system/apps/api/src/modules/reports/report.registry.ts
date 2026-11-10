@@ -204,11 +204,59 @@ async function balances(ctx: ReportCtx, start: Date, end: Date) {
     GROUP BY a.id ORDER BY a.code`;
 }
 
+async function statement(ctx: ReportCtx, kind: 'customer' | 'supplier'): Promise<ReportResult> {
+  const { prisma, companyId, p } = ctx;
+  const partnerId = kind === 'customer' ? p.customerId : p.supplierId;
+  if (!partnerId) return { columns: [], rows: [] };
+  const docType = kind === 'customer' ? 'SI' : 'PI';
+  const dir = kind === 'customer' ? 'IN' : 'OUT';
+  const field = kind === 'customer' ? 'customerId' : 'supplierId';
+  const docWhere = { companyId, docType, deletedAt: null, status: { notIn: ['DRAFT', 'CANCELLED'] as any }, [field]: partnerId };
+  const payWhere = { companyId, direction: dir as any, deletedAt: null, status: { not: 'CANCELLED' as any }, [field]: partnerId };
+  const [docsBefore, paysBefore, docs, pays] = await Promise.all([
+    prisma.tradeDocument.aggregate({ where: { ...docWhere, date: { lt: from(p) } }, _sum: { grandTotal: true } }),
+    prisma.payment.aggregate({ where: { ...payWhere, date: { lt: from(p) } }, _sum: { amount: true } }),
+    prisma.tradeDocument.findMany({ where: { ...docWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, dueDate: true, grandTotal: true } }),
+    prisma.payment.findMany({ where: { ...payWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, reference: true, amount: true } }),
+  ]);
+  let bal = n(docsBefore._sum.grandTotal) - n(paysBefore._sum.amount);
+  const entries = [
+    ...docs.map((d) => ({ date: d.date, doc: d.number, desc: `Invoice${d.dueDate ? ` (due ${d.dueDate.toISOString().slice(0, 10)})` : ''}`, charge: n(d.grandTotal), payment: 0 })),
+    ...pays.map((x) => ({ date: x.date, doc: x.number, desc: `Payment${x.reference ? ` - ${x.reference}` : ''}`, charge: 0, payment: n(x.amount) })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime() || a.doc.localeCompare(b.doc));
+  const rows: Record<string, unknown>[] = [{ date: p.from, doc: '', desc: 'Opening balance', charge: 0, payment: 0, balance: bal }];
+  for (const e of entries) {
+    bal += e.charge - e.payment;
+    rows.push({ ...e, balance: bal });
+  }
+  return {
+    subtitle: period(p),
+    columns: [
+      { key: 'date', label: 'Date', type: 'date' },
+      { key: 'doc', label: 'Document' },
+      { key: 'desc', label: 'Description' },
+      { key: 'charge', label: kind === 'customer' ? 'Invoiced' : 'Billed', type: 'money' },
+      { key: 'payment', label: kind === 'customer' ? 'Received' : 'Paid', type: 'money' },
+      { key: 'balance', label: 'Balance', type: 'money' },
+    ],
+    rows,
+    totals: totalsOf(rows.slice(1), ['charge', 'payment']),
+  };
+}
+
 export const REPORTS: ReportDef[] = [
   // ------------------------------------------------------------- Sales
   { key: 'sales-register', label: 'Sales Invoice Register', module: 'sales', description: 'All sales invoices with payment status', params: range, run: (c) => register(c, 'SI') },
   { key: 'sales-by-customer', label: 'Sales by Customer', module: 'sales', description: 'Invoiced revenue grouped per customer', params: range, run: (c) => byPartner(c, 'SI') },
   { key: 'sales-by-product', label: 'Sales by Product', module: 'sales', description: 'Quantity and revenue per product / service', params: range, run: (c) => byProduct(c, 'SI') },
+  {
+    key: 'customer-statement',
+    label: 'Customer Statement',
+    module: 'sales',
+    description: 'Invoices, payments and running balance of one customer',
+    params: [{ name: 'customerId', label: 'Customer', type: 'relation', relation: 'customers', required: true }, { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' }, { name: 'to', label: 'To', type: 'date', required: true, default: 'today' }],
+    run: (c) => statement(c, 'customer'),
+  },
   { key: 'ar-aging', label: 'Receivables Aging', module: 'sales', description: 'Outstanding customer invoices by age', params: asOfParam, run: (c) => aging(c, 'SI') },
   {
     key: 'quotation-pipeline',
@@ -226,6 +274,14 @@ export const REPORTS: ReportDef[] = [
   { key: 'purchase-register', label: 'Purchase Invoice Register', module: 'purchase', description: 'All supplier invoices with payment status', params: range, run: (c) => register(c, 'PI') },
   { key: 'purchase-by-supplier', label: 'Purchases by Supplier', module: 'purchase', description: 'Purchases grouped per supplier', params: range, run: (c) => byPartner(c, 'PI') },
   { key: 'purchase-by-product', label: 'Purchases by Product', module: 'purchase', description: 'Quantity and cost per purchased item', params: range, run: (c) => byProduct(c, 'PI') },
+  {
+    key: 'supplier-statement',
+    label: 'Supplier Statement',
+    module: 'purchase',
+    description: 'Bills, payments and running balance of one supplier',
+    params: [{ name: 'supplierId', label: 'Supplier', type: 'relation', relation: 'suppliers', required: true }, { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' }, { name: 'to', label: 'To', type: 'date', required: true, default: 'today' }],
+    run: (c) => statement(c, 'supplier'),
+  },
   { key: 'ap-aging', label: 'Payables Aging', module: 'purchase', description: 'Outstanding supplier invoices by age', params: asOfParam, run: (c) => aging(c, 'PI') },
   // ------------------------------------------------------------- Inventory
   {

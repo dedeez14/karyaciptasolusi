@@ -4,6 +4,7 @@ import { RequestCtx } from '../../common/context/request-context';
 import { AccessService } from '../../common/access/access.service';
 import { CompanyBootstrapService } from '../system/company-bootstrap.service';
 import { ResourceDef } from './resource.types';
+import { SYSTEM_LOOKUPS } from './resource.registry';
 
 type Row = Record<string, any>;
 
@@ -24,7 +25,8 @@ export class ResourceHooks {
         break;
       case 'lookups':
         data.category = String(data.category).toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-        data.code = String(data.code).toUpperCase().replace(/\s+/g, '_');
+        if (SYSTEM_LOOKUPS.has(data.category)) throw new BadRequestException('This is a system list: values can be renamed or re-ordered, but not added');
+        data.code = String(data.code).replace(/\s+/g, '_');
         break;
       case 'currencies':
       case 'countries':
@@ -49,5 +51,6 @@ export class ResourceHooks {
     if (def.key === 'leave-requests' && before.status !== 'PENDING') throw new ConflictException('Only pending leave requests can be deleted');
     if (def.key === 'branches' && before.isHeadOffice) throw new ConflictException('The head office branch cannot be deleted');
     if (def.key === 'companies' && before.id === RequestCtx.companyId()) throw new ConflictException('You cannot delete the company you are working in');
+    if (def.key === 'lookups' && SYSTEM_LOOKUPS.has(before.category)) throw new ConflictException('System list values cannot be deleted. Deactivate it instead.');
   }
 }
