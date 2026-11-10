@@ -6,7 +6,8 @@ import { CryptoService } from '../../common/crypto/crypto.service';
 import { StorageService } from '../files/storage.service';
 import { amountInWords } from './amount-in-words';
 import QRCode from 'qrcode';
-import { SignedFacts, SigningService } from '../security/signing.service';
+import { createHash } from 'node:crypto';
+import { SignedFacts, SigningService, tokenHash } from '../security/signing.service';
 
 export interface PrintColumn {
   key: string;
@@ -92,8 +93,11 @@ export class PdfService {
 
   async render(companyId: string, d: PrintableDocument): Promise<Buffer> {
     const b = await this.brand(companyId);
-    const token = d.verify ? await this.signing.sign(companyId, d.verify) : null;
-    const verifyUrl = token ? `${(await this.settings.str('general.publicUrl', companyId, 'http://localhost:3000')).replace(/\/$/, '')}/verify?t=${token}` : null;
+    const party = d.verify?.p ?? d.parties?.[0]?.name;
+    const token = d.verify ? await this.signing.sign(companyId, { ...d.verify, ...(party ? { p: party.slice(0, 150) } : {}) }) : null;
+    // the QR carries a short code only (small QR that phones scan easily); the server keeps the full signed token
+    const code = token ? tokenHash(token).slice(0, 20) : null;
+    const verifyUrl = code ? `${(await this.settings.str('general.publicUrl', companyId, 'http://localhost:3000')).replace(/\/$/, '')}/verify?c=${code}` : null;
     const doc = new PDFDocument({
       size: b.paper,
       layout: d.landscape ? 'landscape' : 'portrait',
@@ -190,7 +194,15 @@ export class PdfService {
       y = doc.y + 4;
     }
 
-    // ---------- Signatures
+    // ---------- Signatures + compact verification QR (left of the signature boxes when there is room)
+    const qr = verifyUrl ? await QRCode.toBuffer(verifyUrl, { margin: 0, width: 160, errorCorrectionLevel: 'M', color: { dark: '#111827', light: '#ffffff' } }) : null;
+    const QR = 42;
+    const drawQr = (x: number, top: number) => {
+      doc.image(qr!, x, top, { width: QR, height: QR });
+      doc.font('Helvetica-Bold').fontSize(7).fillColor('#374151').text('Digitally signed', x + QR + 6, top + 12, { width: 90, lineBreak: false });
+      doc.font('Helvetica').fontSize(6.5).fillColor(GREY).text('Scan to verify', x + QR + 6, top + 22, { width: 90, lineBreak: false });
+    };
+    let qrDone = false;
     if (b.showSignatures && d.signatures?.length) {
       y = this.ensure(doc, y + 20, 80);
       // fixed-width signature boxes, right aligned -> identical look for 1, 2 or 3 signatures
@@ -201,22 +213,16 @@ export class PdfService {
         doc.font('Helvetica').fontSize(8.5).fillColor(GREY).text(s, x, y, { width: sw - 20, align: 'center' });
         doc.moveTo(x + 15, y + 60).lineTo(x + sw - 35, y + 60).lineWidth(0.5).strokeColor('#9ca3af').stroke();
       });
-      y += 66; // keep following blocks (verification QR) below the signature lines
+      if (qr && startX - L >= QR + 110) {
+        drawQr(L, y + 18);
+        qrDone = true;
+      }
+      y += 66;
     }
-
-    // ---------- Digital signature: QR code to verify authenticity
-    if (verifyUrl) {
-      const qr = await QRCode.toBuffer(verifyUrl, { margin: 1, width: 220, errorCorrectionLevel: 'M', color: { dark: '#111827', light: '#ffffff' } });
-      const size = 68;
-      y = this.ensure(doc, y + 18, size + 10);
-      doc.roundedRect(L, y - 4, W, size + 8, 6).lineWidth(0.5).strokeColor(LINE).stroke();
-      doc.image(qr, L + 4, y, { width: size, height: size });
-      const tx = L + size + 16;
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#111827').text('Digitally signed document', tx, y + 6, { width: W - size - 24 });
-      doc.font('Helvetica').fontSize(7.5).fillColor(GREY).text('Scan the QR code to verify that this document was issued by us and has not been altered.', tx, doc.y + 2, { width: W - size - 24 });
-      const fp = (await this.signing.publicKey(companyId)).fingerprint;
-      doc.font('Courier').fontSize(6.5).fillColor(GREY).text(`Ed25519 key ${fp}`, tx, doc.y + 3, { width: W - size - 24 });
-      y += size + 10;
+    if (qr && !qrDone) {
+      y = this.ensure(doc, y + 12, QR + 6);
+      drawQr(L, y);
+      y += QR + 6;
     }
 
     // ---------- Footer on every page
@@ -230,7 +236,14 @@ export class PdfService {
       doc.text(`Page ${i - range.start + 1} of ${range.count}`, L + W * 0.7, fy, { width: W * 0.3, align: 'right', lineBreak: false, height: 10 });
     }
     doc.end();
-    return done;
+    const pdf = await done;
+    if (token && d.verify) {
+      // fingerprint of the exact bytes issued: the verify page uses it to detect edited copies
+      await this.prisma.signedFile.create({
+        data: { companyId, tokenHash: tokenHash(token), code, token, sha256: createHash('sha256').update(pdf).digest('hex'), size: pdf.length, docKind: d.verify.k, docNumber: d.verify.n?.slice(0, 60) ?? null },
+      });
+    }
+    return pdf;
   }
 
   private ensure(doc: PDFKit.PDFDocument, y: number, needed: number): number {

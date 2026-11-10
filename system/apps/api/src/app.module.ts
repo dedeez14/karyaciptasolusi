@@ -53,12 +53,23 @@ import { SigningService } from './modules/security/signing.service';
 import { TransportService } from './modules/security/transport.service';
 import { TransportInterceptor } from './modules/security/transport.interceptor';
 import { WatermarkService } from './modules/security/watermark.service';
+import { ScheduleModule } from '@nestjs/schedule';
+import { BILLING_CONTROLLERS, BILLING_PROVIDERS } from './modules/billing';
+import { ASSETS_CONTROLLERS, ASSETS_PROVIDERS } from './modules/assets';
+import { BUDGET_CONTROLLERS, BUDGET_PROVIDERS } from './modules/budget';
+import { APPROVALS_CONTROLLERS, APPROVALS_PROVIDERS } from './modules/approvals';
+import { EXPENSES_CONTROLLERS, EXPENSES_PROVIDERS } from './modules/expenses';
+import { HELPDESK_CONTROLLERS, HELPDESK_PROVIDERS } from './modules/helpdesk';
+import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
+import { AttendanceController } from './modules/hris/attendance.controller';
+import { AttendanceService } from './modules/hris/attendance.service';
 
 const webDist = join(__dirname, '..', '..', 'web', 'dist');
 
 @Module({
   imports: [
     CommonModule,
+    ScheduleModule.forRoot(),
     JwtModule.register({ global: true, secret: Buffer.from(env.JWT_ACCESS_SECRET, 'base64').toString('hex'), signOptions: { algorithm: 'HS256', issuer: 'kcs-erp' }, verifyOptions: { algorithms: ['HS256'], issuer: 'kcs-erp' } }),
     // Layer: rate limiting (per IP). Login has a stricter limit on its route.
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 600 }]),
@@ -104,6 +115,14 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     NotificationController,
     TaskController,
     SecurityController,
+    ...BILLING_CONTROLLERS,
+    ...ASSETS_CONTROLLERS,
+    ...BUDGET_CONTROLLERS,
+    ...APPROVALS_CONTROLLERS,
+    ...EXPENSES_CONTROLLERS,
+    ...HELPDESK_CONTROLLERS,
+    ...INSIGHTS_CONTROLLERS,
+    AttendanceController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -135,6 +154,14 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     SigningService,
     TransportService,
     WatermarkService,
+    ...BILLING_PROVIDERS,
+    ...ASSETS_PROVIDERS,
+    ...BUDGET_PROVIDERS,
+    ...APPROVALS_PROVIDERS,
+    ...EXPENSES_PROVIDERS,
+    ...HELPDESK_PROVIDERS,
+    ...INSIGHTS_PROVIDERS,
+    AttendanceService,
   ],
 })
 export class AppModule {}

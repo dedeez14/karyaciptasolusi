@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../common/prisma/prisma.service';
+import { budgetVsActual } from './budget-report';
 
 export interface ReportParam {
   name: string;
@@ -464,6 +465,14 @@ export const REPORTS: ReportDef[] = [
       rows.push({ section: 'NET PROFIT / (LOSS)', code: '', name: '', amount: income - expense });
       return { subtitle: period(c.p), columns: [{ key: 'section', label: 'Section' }, { key: 'code', label: 'Code' }, { key: 'name', label: 'Account' }, { key: 'amount', label: 'Amount', type: 'money' }], rows };
     },
+  },
+  {
+    key: 'budget-vs-actual',
+    label: 'Budget vs Actual',
+    module: 'accounting',
+    description: 'Approved budget compared with posted figures per account',
+    params: [...range, { name: 'costCenterId', label: 'Cost center', type: 'relation', relation: 'cost-centers' }, { name: 'projectId', label: 'Project', type: 'relation', relation: 'projects' }],
+    run: (c) => budgetVsActual(c),
   },
   {
     key: 'balance-sheet',

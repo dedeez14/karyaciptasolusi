@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { Permission, Public } from '../../common/decorators';
@@ -6,7 +6,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { RequestCtx } from '../../common/context/request-context';
 import { RESOURCES } from '../resources/resource.registry';
-import { SigningService } from './signing.service';
+import { SigningService, tokenHash } from './signing.service';
 import { TransportService } from './transport.service';
 import { WatermarkService } from './watermark.service';
 
@@ -51,7 +51,8 @@ export class SecurityController {
   @Public()
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Get('public/verify')
-  async verify(@Query('t') t = '') {
+  async verify(@Query('t') t = '', @Query('c') c = '') {
+    if (!t && /^[0-9a-f]{20}$/.test(String(c))) t = (await this.prisma.signedFile.findFirst({ where: { code: String(c) }, select: { token: true } }))?.token ?? '';
     const r = await this.signing.verifyToken(String(t).slice(0, 2500));
     if (!r.ok || !r.payload || !r.companyId) return { valid: false, message: 'This document could not be verified. The signature is missing or invalid - the document may have been altered.' };
     const p = r.payload;
@@ -78,12 +79,51 @@ export class SecurityController {
     }
     return {
       valid: true,
-      message: warnings.length ? 'The signature is genuine, but please note the warnings below.' : 'This document is genuine and has not been altered.',
+      message: warnings.length
+        ? 'The signature is genuine, but please note the warnings below.'
+        : `This QR code was issued by ${company?.legalName || company?.name || 'us'} for the document below. Make sure every detail on your copy matches exactly - if anything differs, the copy has been altered.`,
       warnings,
-      document: { type: DOC_TITLES[p.k] ?? p.k, number: p.n, date: p.d, amount: p.a, currency: p.cur, issuedAt: p.i, status: current?.status ?? null },
+      document: { type: DOC_TITLES[p.k] ?? p.k, number: p.n, date: p.d, amount: p.a, currency: p.cur, party: p.p ?? null, issuedAt: p.i, status: current?.status ?? null },
       issuer: company?.legalName || company?.name,
       fingerprint: (await this.signing.publicKey(r.companyId)).fingerprint,
+      token: String(t),
     };
+  }
+
+  /**
+   * Checks a PDF file against the fingerprints of the files we issued. The browser hashes the file
+   * locally (the document itself is never uploaded) and sends the SHA-256 plus the signature token
+   * found in the file's metadata or in the scanned QR code.
+   */
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('public/verify/file')
+  async verifyFile(@Body() body: { sha256?: string; token?: string }) {
+    const sha = String(body?.sha256 ?? '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(sha)) throw new BadRequestException('Invalid file fingerprint');
+    const token = String(body?.token ?? '').slice(0, 2500);
+    const exact = await this.prisma.signedFile.findFirst({ where: { sha256: sha }, orderBy: { createdAt: 'asc' } });
+    if (exact) {
+      const company = await this.prisma.company.findUnique({ where: { id: exact.companyId }, select: { name: true, legalName: true } });
+      return {
+        result: 'MATCH',
+        message: 'This file is exactly the document we issued. It has not been modified.',
+        document: { type: DOC_TITLES[exact.docKind] ?? exact.docKind, number: exact.docNumber, issuedAt: exact.createdAt },
+        issuer: company?.legalName || company?.name,
+      };
+    }
+    if (token) {
+      const r = await this.signing.verifyToken(token);
+      if (r.ok && r.payload) {
+        const issued = await this.prisma.signedFile.count({ where: { tokenHash: tokenHash(token) } });
+        const document = { type: DOC_TITLES[r.payload.k] ?? r.payload.k, number: r.payload.n, issuedAt: r.payload.i };
+        if (issued)
+          return { result: 'ALTERED', message: 'This file has been modified after it was issued. Its contents cannot be trusted - ask the issuer for the original.', document };
+        return { result: 'UNKNOWN', message: 'The signature is valid, but this document was issued before file fingerprints were recorded. Compare the details on the file with the verification result.', document };
+      }
+    }
+    return { result: 'NOT_FOUND', message: 'This file does not match any document we issued. It was modified or did not come from us.' };
   }
 
   @Get('security/overview')

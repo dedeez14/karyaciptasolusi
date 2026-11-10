@@ -70,6 +70,17 @@ export class DocumentController {
     return this.docs.confirm(type, id);
   }
 
+  /** Approval status, required levels and history of a document */
+  @Get(':type/:id/approval')
+  approval(@Param('type') type: string, @Param('id') id: string) {
+    return this.docs.approval(type, id);
+  }
+
+  @Post(':type/:id/request-approval')
+  requestApproval(@Param('type') type: string, @Param('id') id: string) {
+    return this.docs.requestApproval(type, id);
+  }
+
   @Post(':type/:id/cancel')
   cancel(@Param('type') type: string, @Param('id') id: string) {
     return this.docs.cancel(type, id);

@@ -9,3 +9,5 @@ export * from './Steps';
 export * from './DatePicker';
 export * from './Tooltip';
 export * from './LookupSelect';
+export * from './Floating';
+export * from './NumberInput';

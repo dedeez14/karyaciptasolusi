@@ -1,11 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney, isoDate } from '@/lib/format';
-import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, Spinner, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, confirm, DatePicker, EmptyState, Field, Icon, Input, NumberInput, PageHeader, Spinner, Textarea, toast } from '@/components/ui';
 import { useDocType, type TradeDoc } from './useDocTypes';
-import { computeTotals, fromDocLine, LineEditor, newLine, useTaxRates, type EditLine } from './LineEditor';
+import { computeTotals, fromDocLine, LineEditor, LineTotals, newLine, useTaxRates, type EditLine } from './LineEditor';
 
 interface Header {
   date: string;
@@ -50,9 +50,26 @@ export default function DocumentFormPage() {
   const [h, setH] = useState<Header>(emptyHeader);
   const [lines, setLines] = useState<EditLine[]>([newLine()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [dirty, setDirty] = useState(false);
+  const confirmAfterSave = useRef(false);
   const rates = useTaxRates();
 
-  const doc = useQuery({ queryKey: ['documents', type.toUpperCase(), 'one', id], queryFn: () => api.get<TradeDoc>(`/documents/${type}/${id}`), enabled: isEdit });
+  // warn before closing / reloading the tab with unsaved changes
+  useEffect(() => {
+    if (!dirty) return;
+    const h = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [dirty]);
+
+  const doc = useQuery({
+    queryKey: ['documents', type.toUpperCase(), 'one', id],
+    queryFn: () => api.get<TradeDoc>(`/documents/${type}/${id}`),
+    enabled: isEdit,
+  });
 
   useEffect(() => {
     const d = doc.data;
@@ -74,6 +91,7 @@ export default function DocumentFormPage() {
       terms: d.terms ?? '',
     });
     setLines(d.lines.length ? d.lines.map(fromDocLine) : [newLine()]);
+    setDirty(false);
   }, [doc.data]);
 
   const save = useMutation({
@@ -106,13 +124,26 @@ export default function DocumentFormPage() {
       };
       return isEdit ? api.patch<TradeDoc>(`/documents/${type}/${id}`, body) : api.post<TradeDoc>(`/documents/${type}`, body);
     },
-    onSuccess: (d) => {
-      toast.success(`${def?.label} ${d.number} saved`);
+    onSuccess: async (d) => {
+      setDirty(false);
       qc.invalidateQueries({ queryKey: ['documents', type.toUpperCase()] });
+      if (confirmAfterSave.current) {
+        try {
+          await api.post(`/documents/${type}/${d.id}/confirm`);
+          toast.success(`${def?.label} ${d.number} saved and confirmed`);
+        } catch (e) {
+          // e.g. approval required: the draft is saved, the document page shows what to do next
+          toast.error(e);
+        }
+        qc.invalidateQueries({ queryKey: ['documents'] });
+      } else toast.success(`${def?.label} ${d.number} saved as draft`);
       navigate(`/documents/${type.toUpperCase()}/${d.id}`, { replace: true });
     },
     onError: (e) => {
-      if (e instanceof ApiError && e.errors) setErrors(e.errors);
+      if (e instanceof ApiError && e.errors) {
+        setErrors(e.errors);
+        requestAnimationFrame(() => document.querySelector('[aria-invalid="true"], .input-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+      }
       toast.error(e);
     },
   });
@@ -128,30 +159,58 @@ export default function DocumentFormPage() {
   if (!(isEdit ? def.can.update : def.can.create)) return <EmptyState icon="shield-alert" title="You do not have permission for this action" />;
 
   const totals = computeTotals(lines, rates, def.priced);
-  const set = <K extends keyof Header>(k: K, v: Header[K]) => setH((s) => ({ ...s, [k]: v }));
-  const submit = (e: FormEvent) => {
+  const set = <K extends keyof Header>(k: K, v: Header[K]) => {
+    setDirty(true);
+    setH((s) => ({ ...s, [k]: v }));
+  };
+  const setLinesDirty: typeof setLines = (v) => {
+    setDirty(true);
+    setLines(v);
+  };
+  const submit = (e: FormEvent, andConfirm = false) => {
     e.preventDefault();
+    if (save.isPending) return;
+    confirmAfterSave.current = andConfirm;
     setErrors({});
     save.mutate();
   };
+  const cancel = async () => {
+    if (
+      dirty &&
+      !(await confirm({
+        title: 'Discard changes?',
+        message: 'You have unsaved changes on this document. Leave without saving?',
+        confirmText: 'Discard',
+        danger: true,
+      }))
+    )
+      return;
+    navigate(-1);
+  };
+  // Enter in a single-line field must not submit the whole document by accident
+  const blockEnter = (e: KeyboardEvent<HTMLFormElement>) => {
+    const t = e.target as HTMLElement;
+    if (e.key === 'Enter' && t.tagName === 'INPUT') e.preventDefault();
+  };
+  const errorCount = Object.keys(errors).length;
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={(e) => submit(e)} onKeyDown={blockEnter} noValidate>
       <PageHeader
         title={isEdit ? `Edit ${def.label} ${doc.data?.number ?? ''}` : `New ${def.label}`}
-        back={() => navigate(-1)}
-        actions={
-          <>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              Cancel
-            </Button>
-            <Button type="submit" icon="save" loading={save.isPending}>
-              Save draft
-            </Button>
-          </>
-        }
+        subtitle={isEdit ? 'Draft - changes are saved when you click Save' : 'Fill in the details and the lines, then save it as a draft or confirm it right away.'}
+        back={cancel}
       />
-      <div className="grid gap-4">
+      {errorCount > 0 && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <Icon name="circle-alert" className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Please check the highlighted field{errorCount > 1 ? 's' : ''} below
+            {errors.lines ? ` - ${errors.lines}` : ''}.
+          </span>
+        </div>
+      )}
+      <div className="grid gap-4 pb-4">
         <Card title="Details">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {def.partner && (
@@ -206,8 +265,8 @@ export default function DocumentFormPage() {
                   <AsyncSelect resource="currencies" value={h.currencyCode || null} onChange={(v) => set('currencyCode', v ?? '')} />
                 </Field>
                 {h.currencyCode && (
-                  <Field label="Exchange rate">
-                    <Input type="number" step="any" min={0} className="text-right" value={h.exchangeRate} onChange={(e) => set('exchangeRate', e.target.value)} />
+                  <Field label="Exchange rate" help={`1 ${h.currencyCode} = ? company currency`}>
+                    <NumberInput value={h.exchangeRate} onChange={(v) => set('exchangeRate', v)} decimals={6} />
                   </Field>
                 )}
               </>
@@ -215,48 +274,60 @@ export default function DocumentFormPage() {
           </div>
         </Card>
 
-        <Card title="Lines">
+        <Card
+          title="Lines"
+          subtitle={def.priced ? 'Prices exclude tax. Choose a product to fill in unit, price and tax automatically.' : 'Choose a product and enter the quantity.'}
+          actions={
+            <span className="text-xs text-slate-400">
+              {lines.length} line{lines.length > 1 ? 's' : ''}
+            </span>
+          }
+        >
           {errors.lines && <p className="mb-2 text-sm text-red-600">{errors.lines}</p>}
-          <LineEditor def={def} lines={lines} onChange={setLines} errors={errors} />
+          <LineEditor def={def} lines={lines} onChange={setLinesDirty} errors={errors} />
+          {def.priced && (
+            <div className="mt-4 border-t border-line pt-4">
+              <LineTotals lines={lines} rates={rates} priced currency={h.currencyCode} />
+              <p className="mt-2 text-right text-[11px] text-slate-400">Preview - the final amounts are calculated when you save.</p>
+            </div>
+          )}
         </Card>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card title="Notes & terms" className="lg:col-span-2">
-            <div className="grid gap-4">
-              <Field label="Notes" help="Printed on the document">
-                <Textarea value={h.notes} maxLength={4000} onChange={(e) => set('notes', e.target.value)} />
+        <Card title="Notes & terms">
+          <div className={def.module !== 'inventory' ? 'grid gap-4 lg:grid-cols-2' : 'grid gap-4'}>
+            <Field label="Notes" help="Printed on the document">
+              <Textarea value={h.notes} maxLength={4000} onChange={(e) => set('notes', e.target.value)} />
+            </Field>
+            {def.module !== 'inventory' && (
+              <Field label="Terms & conditions" help={isEdit ? undefined : 'Leave empty to use the default terms from Settings'}>
+                <Textarea rows={4} value={h.terms} maxLength={4000} onChange={(e) => set('terms', e.target.value)} />
               </Field>
-              {def.module !== 'inventory' && (
-                <Field label="Terms & conditions" help={isEdit ? undefined : 'Empty = default terms from settings'}>
-                  <Textarea rows={4} value={h.terms} maxLength={4000} onChange={(e) => set('terms', e.target.value)} />
-                </Field>
-              )}
-            </div>
-          </Card>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-white/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <div className="flex flex-wrap items-center gap-2">
           {def.priced && (
-            <Card title="Summary">
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Subtotal</dt>
-                  <dd className="tabular-nums">{fmtMoney(totals.subtotal)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Discount</dt>
-                  <dd className="tabular-nums">-{fmtMoney(totals.discount)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Tax</dt>
-                  <dd className="tabular-nums">{fmtMoney(totals.tax)}</dd>
-                </div>
-                <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
-                  <dt>Total</dt>
-                  <dd className="tabular-nums">
-                    {h.currencyCode} {fmtMoney(totals.total)}
-                  </dd>
-                </div>
-                <p className="text-xs text-slate-400">Preview — final amounts are calculated by the server.</p>
-              </dl>
-            </Card>
+            <div className="mr-auto text-sm">
+              <span className="text-slate-500">Total </span>
+              <span className="font-semibold text-slate-900 tabular-nums">
+                {h.currencyCode} {fmtMoney(totals.total)}
+              </span>
+            </div>
+          )}
+          {!def.priced && <span className="mr-auto text-xs text-slate-400">{dirty ? 'Unsaved changes' : ''}</span>}
+          <Button variant="ghost" onClick={cancel}>
+            Cancel
+          </Button>
+          <Button type="submit" variant={def.can.confirm ? 'outline' : 'primary'} icon="save" loading={save.isPending && !confirmAfterSave.current}>
+            Save draft
+          </Button>
+          {def.can.confirm && (
+            <Button icon="circle-check" loading={save.isPending && confirmAfterSave.current} onClick={(e) => submit(e, true)} title="Save and confirm in one step">
+              Save &amp; confirm
+            </Button>
           )}
         </div>
       </div>

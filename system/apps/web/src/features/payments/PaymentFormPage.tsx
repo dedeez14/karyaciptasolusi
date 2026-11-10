@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtDate, fmtMoney, isoDate } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, Spinner, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, Spinner, Textarea, toast, NumberInput } from '@/components/ui';
 import { dirMeta, type PaymentRow } from './common';
 
 interface OpenInvoice {
@@ -126,16 +126,12 @@ export default function PaymentFormPage() {
               <AsyncSelect resource="payment-methods" value={form.paymentMethodId || null} onChange={(v) => setForm({ ...form, paymentMethodId: v ?? '' })} />
             </Field>
             <Field label="Amount" required error={errors.amount ?? (overAllocated ? 'Allocations exceed the payment amount' : undefined)} help={amountTouched ? undefined : 'Defaults to the total allocated below'}>
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min={0}
-                className="text-right"
+              <NumberInput
+                fixed={2}
                 value={amountTouched ? form.amount : allocTotal ? String(allocTotal) : ''}
-                onChange={(e) => {
+                onChange={(v) => {
                   setAmountTouched(true);
-                  setForm({ ...form, amount: e.target.value });
+                  setForm({ ...form, amount: v });
                 }}
                 invalid={overAllocated}
               />
@@ -189,17 +185,13 @@ export default function PaymentFormPage() {
                         </span>
                       </span>
                     </label>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      min={0}
-                      max={Number(inv.balance)}
-                      className="text-right sm:w-44"
+                    <NumberInput
+                      fixed={2}
+                      className="sm:w-44"
                       disabled={!on}
                       value={alloc[inv.id] ?? ''}
                       invalid={on && Number(alloc[inv.id]) > Number(inv.balance) + 0.005}
-                      onChange={(e) => setAlloc((a) => ({ ...a, [inv.id]: e.target.value }))}
+                      onChange={(v) => setAlloc((a) => ({ ...a, [inv.id]: v }))}
                       aria-label={`Amount for ${inv.number}`}
                     />
                   </div>

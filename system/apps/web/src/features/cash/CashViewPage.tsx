@@ -9,6 +9,7 @@ import { Badge, Button, Card, confirm, Dropdown, EmptyState, Icon, PageHeader, p
 import { useLookups } from '@/features/resources/FieldInput';
 import { CASH_ICON } from './CashFormDrawer';
 import type { CashRow } from './CashListPage';
+import { ApprovalPanel, useApproval } from '@/features/approvals/ApprovalPanel';
 
 interface CashDetail extends CashRow {
   createdAt: string;
@@ -23,6 +24,7 @@ export default function CashViewPage() {
   const types = useLookups(['CASH_TYPE']).CASH_TYPE ?? [];
   const [busy, setBusy] = useState<string | null>(null);
   const q = useQuery({ queryKey: ['cash', 'one', id], queryFn: () => api.get<CashDetail>(`/cash/${id}`) });
+  const approval = useApproval(`/cash/${id}`, q.data?.type === 'PAYMENT');
 
   if (q.isLoading)
     return (
@@ -46,10 +48,26 @@ export default function CashViewPage() {
       setBusy(null);
     }
   };
-  const cancel = async () => {
-    if (!(await confirm({ title: `Cancel ${t.number}?`, message: 'The journal entry will be voided. This cannot be undone.', confirmText: 'Cancel transaction', danger: true }))) return;
-    await run('cancel', () => api.post(`/cash/${t.id}/cancel`), `${t.number} cancelled`);
+  const appr = approval.data;
+  const isDraft = t.status === 'DRAFT';
+  const canPost = isDraft && can('accounting.cash.create') && (!appr || ['APPROVED', 'NOT_REQUIRED'].includes(appr.status));
+  const refresh = () => {
     qc.invalidateQueries({ queryKey: ['cash'] });
+    qc.invalidateQueries({ queryKey: ['approval'] });
+  };
+  const post = async () => {
+    if (!(await confirm({ title: `Post ${t.number}?`, message: 'The journal entry is created and the transaction can no longer be changed.', confirmText: 'Post' }))) return;
+    await run('post', () => api.post(`/cash/${t.id}/post`), `${t.number} posted`);
+    refresh();
+  };
+  const requestApproval = async () => {
+    await run('approval', () => api.post(`/cash/${t.id}/request-approval`), 'Approval requested');
+    refresh();
+  };
+  const cancel = async () => {
+    if (!(await confirm({ title: `Cancel ${t.number}?`, message: isDraft ? 'The draft and its approval request are cancelled.' : 'The journal entry will be voided. This cannot be undone.', confirmText: 'Cancel transaction', danger: true }))) return;
+    await run('cancel', () => api.post(`/cash/${t.id}/cancel`), `${t.number} cancelled`);
+    refresh();
   };
 
   return (
@@ -58,13 +76,18 @@ export default function CashViewPage() {
         title={
           <span className="flex flex-wrap items-center gap-2">
             {t.number}
-            <StatusBadge status={t.status} label={t.status === 'CONFIRMED' ? 'Posted' : undefined} />
+            <StatusBadge status={t.status} label={t.status === 'CONFIRMED' ? 'Posted' : isDraft ? 'Draft' : undefined} />
           </span>
         }
         subtitle={type?.label ?? t.type}
         back={() => navigate('/accounting/cash')}
         actions={
           <>
+            {canPost && (
+              <Button icon="check-circle-2" loading={busy === 'post'} onClick={post}>
+                Post
+              </Button>
+            )}
             <Button variant="outline" icon="eye" loading={busy === 'preview'} onClick={() => run('preview', () => previewFile({ path, title: t.number }))}>
               Preview
             </Button>
@@ -105,6 +128,7 @@ export default function CashViewPage() {
             <p className="text-sm text-white/80">Amount</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">{fmtMoney(t.amount)}</p>
           </div>
+          {t.type === 'PAYMENT' && <ApprovalPanel basePath={`/cash/${t.id}`} title={t.number} info={appr} onRequest={requestApproval} requesting={busy === 'approval'} />}
           <Card title="Journal">
             {t.journal ? (
               <Link to={`/accounting/journals/${t.journal.id}`} className="flex items-center justify-between text-sm">
@@ -112,7 +136,7 @@ export default function CashViewPage() {
                 <StatusBadge status={t.journal.status} />
               </Link>
             ) : (
-              <p className="text-sm text-slate-400">No journal entry.</p>
+              <p className="text-sm text-slate-400">{isDraft ? 'Posted after approval.' : 'No journal entry.'}</p>
             )}
           </Card>
         </div>

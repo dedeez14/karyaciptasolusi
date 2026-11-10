@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney, isoDate } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, toast, NumberInput } from '@/components/ui';
 
 interface JLine {
   key: number;
@@ -105,11 +105,11 @@ export default function JournalFormPage() {
                 </div>
                 <div className="md:col-span-1">
                   {i === 0 && <label className="label hidden md:block">Debit</label>}
-                  <Input type="number" inputMode="decimal" step="0.01" min={0} placeholder="Debit" className="text-right" value={l.debit} onChange={(e) => update(l.key, { debit: e.target.value, credit: e.target.value ? '' : l.credit })} />
+                  <NumberInput fixed={2} placeholder="Debit" aria-label="Debit" value={l.debit} onChange={(v) => update(l.key, { debit: v, credit: v ? '' : l.credit })} />
                 </div>
                 <div className="md:col-span-2">
                   {i === 0 && <label className="label hidden md:block">Credit</label>}
-                  <Input type="number" inputMode="decimal" step="0.01" min={0} placeholder="Credit" className="text-right" value={l.credit} onChange={(e) => update(l.key, { credit: e.target.value, debit: e.target.value ? '' : l.debit })} />
+                  <NumberInput fixed={2} placeholder="Credit" aria-label="Credit" value={l.credit} onChange={(v) => update(l.key, { credit: v, debit: v ? '' : l.debit })} />
                 </div>
                 <div className="col-span-2 flex items-end justify-end md:col-span-1">
                   <Button variant="ghost" size="icon" icon="trash-2" className="text-red-500" disabled={lines.length <= 2} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))} aria-label="Remove line" />

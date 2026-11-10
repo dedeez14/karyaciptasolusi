@@ -1,8 +1,43 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * Keeps the hashed bundles of previous builds (14 days) in node_modules/.cache/kcs-web-assets.
+ * The API serves them when a file is missing from dist/assets, so a tab still running the old version
+ * can lazy-load its pages and icons instead of showing a blank page until it reloads.
+ */
+function keepPreviousAssets(): Plugin {
+  const dist = fileURLToPath(new URL('./dist/assets', import.meta.url));
+  const archive = fileURLToPath(new URL('../../node_modules/.cache/kcs-web-assets', import.meta.url));
+  const maxAge = 14 * 24 * 3600_000;
+  return {
+    name: 'kcs-keep-previous-assets',
+    apply: 'build',
+    buildStart() {
+      try {
+        if (!existsSync(dist)) return;
+        mkdirSync(archive, { recursive: true });
+        cpSync(dist, archive, { recursive: true, force: false, errorOnExist: false });
+        const prune = (dir: string) => {
+          for (const name of readdirSync(dir)) {
+            const f = join(dir, name);
+            const st = statSync(f);
+            if (st.isDirectory()) prune(f);
+            else if (Date.now() - st.mtimeMs > maxAge) rmSync(f, { force: true });
+          }
+        };
+        prune(archive);
+      } catch (e) {
+        this.warn(`could not archive previous assets: ${(e as Error).message}`);
+      }
+    },
+  };
+}
 
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
@@ -10,6 +45,7 @@ export default defineConfig({
   // the company website's postcss.config.js in the repository root.
   css: { postcss: {} },
   plugins: [
+    keepPreviousAssets(),
     react(),
     tailwindcss(),
     VitePWA({

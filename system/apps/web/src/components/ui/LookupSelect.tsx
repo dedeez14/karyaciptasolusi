@@ -4,6 +4,7 @@ import { useLookupOptions } from '@/hooks/useLookups';
 import { useSession } from '@/stores/session';
 import { cn } from './primitives';
 import { Icon } from './Icon';
+import { Floating } from './Floating';
 
 /**
  * Searchable dropdown whose options come from Master Data > Lookup Values (category).
@@ -37,7 +38,7 @@ export function LookupSelect({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [active, setActive] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLButtonElement>(null);
   const current = options.find((o) => o.value === value);
 
   const filtered = useMemo(() => {
@@ -49,9 +50,6 @@ export function LookupSelect({
     if (!open) return;
     setSearch('');
     setActive(Math.max(0, options.findIndex((o) => o.value === value)));
-    const h = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -62,8 +60,9 @@ export function LookupSelect({
   const dot = (color: string | null | undefined) => (color ? <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} /> : null);
 
   return (
-    <div className={cn('relative', className)} ref={ref}>
+    <div className={cn('relative min-w-0', className)}>
       <button
+        ref={ref}
         id={id}
         type="button"
         disabled={disabled}
@@ -97,10 +96,9 @@ export function LookupSelect({
         )}
         <Icon name="chevrons-up-down" className="h-3.5 w-3.5 shrink-0 text-slate-400" />
       </button>
-      {open && (
-        <div className="absolute z-50 mt-1.5 w-full min-w-52 overflow-hidden rounded-xl border border-line bg-white shadow-pop">
+      <Floating anchorRef={ref} open={open} onClose={() => setOpen(false)} minWidth={210}>
           {options.length > 7 && (
-            <div className="border-b border-line p-2">
+            <div className="shrink-0 border-b border-line p-2">
               <input
                 autoFocus
                 className="input h-9"
@@ -114,7 +112,7 @@ export function LookupSelect({
               />
             </div>
           )}
-          <ul className="max-h-60 overflow-y-auto py-1" role="listbox" tabIndex={-1} onKeyDown={(e) => keys(e)} ref={(el) => void (options.length <= 7 && el?.focus())}>
+          <ul className="max-h-72 min-h-0 flex-1 overflow-y-auto py-1 outline-none" role="listbox" tabIndex={-1} onKeyDown={(e) => keys(e)} ref={(el) => void (options.length <= 7 && el?.focus())}>
             {filtered.length === 0 && <li className="px-3 py-2 text-sm text-slate-400">No values</li>}
             {filtered.map((o, i) => (
               <li
@@ -132,13 +130,12 @@ export function LookupSelect({
             ))}
           </ul>
           {can('system.lookup.read') && (
-            <Link to={`/r/lookups?f.category=${encodeURIComponent(category)}`} onClick={() => setOpen(false)} className="flex items-center gap-1.5 border-t border-line bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-600 hover:text-brand-700">
+            <Link to={`/r/lookups?f.category=${encodeURIComponent(category)}`} onClick={() => setOpen(false)} className="flex shrink-0 items-center gap-1.5 border-t border-line bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-600 hover:text-brand-700">
               <Icon name="settings-2" className="h-3.5 w-3.5" />
               Manage values
             </Link>
           )}
-        </div>
-      )}
+      </Floating>
     </div>
   );
 
@@ -152,6 +149,9 @@ export function LookupSelect({
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (filtered[active]) pick(filtered[active].value);
-    } else if (e.key === 'Escape') setOpen(false);
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      ref.current?.focus();
+    }
   }
 }

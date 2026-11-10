@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { isoDate } from '@/lib/format';
-import { AsyncSelect, Button, cn, DatePicker, Drawer, Field, Icon, Input, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Button, cn, DatePicker, Drawer, Field, Icon, Input, Textarea, toast, NumberInput } from '@/components/ui';
 import { useLookups } from '@/features/resources/FieldInput';
 
 export type CashType = 'RECEIPT' | 'PAYMENT' | 'TRANSFER';
@@ -26,9 +26,10 @@ export function CashFormDrawer({ open, onClose, initialType = 'PAYMENT', onSaved
   const t = form.type as CashType;
 
   const save = useMutation({
-    mutationFn: () => api.post<{ id: string; number: string }>('/cash', { ...form, amount: Number(form.amount), toBankAccountId: t === 'TRANSFER' ? form.toBankAccountId : null, accountId: t === 'TRANSFER' ? null : form.accountId }),
+    mutationFn: () => api.post<{ id: string; number: string; approvalRequested?: boolean }>('/cash', { ...form, amount: Number(form.amount), toBankAccountId: t === 'TRANSFER' ? form.toBankAccountId : null, accountId: t === 'TRANSFER' ? null : form.accountId }),
     onSuccess: (r) => {
-      toast.success(`${r.number} recorded and posted`);
+      if (r.approvalRequested) toast.success(`${r.number} saved as draft and sent for approval. It is posted after approval.`);
+      else toast.success(`${r.number} recorded and posted`);
       qc.invalidateQueries({ queryKey: ['cash'] });
       onSaved?.(r.id);
       onClose();
@@ -74,7 +75,7 @@ export function CashFormDrawer({ open, onClose, initialType = 'PAYMENT', onSaved
             <DatePicker value={form.date} onChange={(v) => set('date', v)} clearable={false} invalid={!!errors.date} />
           </Field>
           <Field label="Amount" required error={errors.amount}>
-            <Input type="number" min={0} step="0.01" inputMode="decimal" value={form.amount} onChange={(e) => set('amount', e.target.value)} className="text-right text-base font-semibold tabular-nums" invalid={!!errors.amount} />
+            <NumberInput fixed={2} value={form.amount} onChange={(v) => set('amount', v)} className="text-base font-semibold" invalid={!!errors.amount} />
           </Field>
           <Field label={t === 'RECEIPT' ? 'Deposit to' : t === 'PAYMENT' ? 'Pay from' : 'From account'} required error={errors.bankAccountId}>
             <AsyncSelect resource="bank-accounts" value={form.bankAccountId} onChange={(v) => set('bankAccountId', v ?? '')} invalid={!!errors.bankAccountId} />
@@ -112,7 +113,7 @@ export function CashFormDrawer({ open, onClose, initialType = 'PAYMENT', onSaved
         </Field>
         <p className="flex items-start gap-2 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800">
           <Icon name="info" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          The journal entry is posted automatically. To correct a transaction, cancel it and record a new one.
+          The journal entry is posted automatically. Payments above an approval threshold are saved as a draft and posted once approved. To correct a transaction, cancel it and record a new one.
         </p>
       </div>
     </Drawer>

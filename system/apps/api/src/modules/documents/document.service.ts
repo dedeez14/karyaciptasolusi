@@ -12,6 +12,10 @@ import { paged } from '../../common/utils/query';
 import { JournalService, PostingLine } from '../accounting/journal.service';
 import { InventoryService } from './inventory.service';
 import { DOC_MAP, DocTypeDef } from './document.registry';
+import { ApprovalService } from '../approvals/approval.service';
+
+/** document types that go through the approval workflow (APPROVAL_DOC_TYPE) */
+export const APPROVAL_DOC_TYPES = new Set(['SQ', 'SO', 'PR', 'PO', 'PI']);
 
 const optUuid = z.preprocess((v) => (v === '' ? null : v), z.uuid().nullable().optional());
 const optText = (max: number) => z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(max).nullable().optional());
@@ -60,6 +64,7 @@ export class DocumentService {
     private readonly settings: SettingsService,
     private readonly journal: JournalService,
     private readonly inventory: InventoryService,
+    private readonly approvals: ApprovalService,
   ) {}
 
   def(type: string): DocTypeDef {
@@ -140,6 +145,12 @@ export class DocumentService {
     return {
       ...doc,
       partnerName: names.get(doc.customerId ?? doc.supplierId ?? '') ?? null,
+      // pre-fills the "Send by e-mail" dialog
+      partnerEmail: doc.customerId
+        ? ((await this.prisma.customer.findUnique({ where: { id: doc.customerId }, select: { email: true } }))?.email ?? null)
+        : doc.supplierId
+          ? ((await this.prisma.supplier.findUnique({ where: { id: doc.supplierId }, select: { email: true } }))?.email ?? null)
+          : null,
       warehouseName: doc.warehouseId ? wm.get(doc.warehouseId) : null,
       toWarehouseName: doc.toWarehouseId ? wm.get(doc.toWarehouseId) : null,
       balance: D(doc.grandTotal).minus(D(doc.paidAmount)),
@@ -276,6 +287,7 @@ export class DocumentService {
     return this.prisma.$transaction(async (tx) => {
       await tx.tradeDocumentLine.deleteMany({ where: { documentId: id } });
       const d = await tx.tradeDocument.update({ where: { id }, data: { ...header, updatedById: RequestCtx.user().id, lines: { create: lines } }, include: { lines: true } });
+      if (APPROVAL_DOC_TYPES.has(def.code)) await this.approvals.reset(tx, def.code, id);
       await this.audit.record(def.label, id, 'UPDATE', before, d, tx);
       return d;
     });
@@ -288,6 +300,7 @@ export class DocumentService {
     if (before.status !== 'DRAFT') throw new ConflictException('Only draft documents can be deleted. Cancel it instead.');
     await this.prisma.$transaction(async (tx) => {
       await tx.tradeDocument.update({ where: { id }, data: { deletedAt: new Date(), updatedById: RequestCtx.user().id } });
+      await this.approvals.reset(tx, def.code, id);
       await this.audit.record(def.label, id, 'DELETE', before, undefined, tx);
     });
     return { success: true };
@@ -314,6 +327,7 @@ export class DocumentService {
         if (def.warehouse !== 'none' && def.warehouse !== 'optional' && !doc.warehouseId) throw new BadRequestException('Warehouse is required');
         if (def.warehouse === 'transfer' && !doc.toWarehouseId) throw new BadRequestException('Destination warehouse is required');
         await this.checkSourceQuantities(tx, def, doc);
+        if (APPROVAL_DOC_TYPES.has(def.code)) await this.approvals.assertApproved(u.companyId, this.approvalSubject(def, doc), tx);
 
         await this.post(tx, def, doc, allowNegative);
 
@@ -452,12 +466,46 @@ export class DocumentService {
           await this.journal.voidBySource(tx, def.code, id);
         }
         const updated = await tx.tradeDocument.update({ where: { id }, data: { status: 'CANCELLED', cancelledAt: new Date(), updatedById: RequestCtx.user().id } });
+        if (APPROVAL_DOC_TYPES.has(def.code)) await this.approvals.reset(tx, def.code, id);
         if (doc.sourceId) await this.refreshSourceStatus(tx, doc.sourceId);
         await this.audit.record(def.label, id, 'CANCEL', doc, updated, tx);
         return updated;
       },
       { timeout: 30_000 },
     );
+  }
+
+  // ------------------------------------------------------------------ approval workflow
+  /** Amount in base currency is what approval thresholds are compared with */
+  private approvalSubject(def: DocTypeDef, doc: { id: string; number: string; grandTotal: Prisma.Decimal; exchangeRate: Prisma.Decimal }) {
+    return { docType: def.code, documentId: doc.id, documentNumber: doc.number, amount: round(D(doc.grandTotal).times(D(doc.exchangeRate))), label: `${def.label} ${doc.number}` };
+  }
+
+  private approvalDef(type: string) {
+    const def = this.def(type);
+    if (!APPROVAL_DOC_TYPES.has(def.code)) throw new NotFoundException(`${def.label} does not use the approval workflow`);
+    return def;
+  }
+
+  async approval(type: string, id: string) {
+    const def = this.approvalDef(type);
+    RequestCtx.assert(`${def.permission}.read`);
+    this.assertId(id);
+    const doc = await this.findOwned(def, id);
+    const info = await this.approvals.info(doc.companyId, this.approvalSubject(def, doc));
+    const canRequest = doc.status === 'DRAFT' && (RequestCtx.can(`${def.permission}.confirm`) || RequestCtx.can(`${def.permission}.update`)) && ['NOT_REQUESTED', 'REJECTED'].includes(info.status);
+    return { ...info, canRequest };
+  }
+
+  async requestApproval(type: string, id: string) {
+    const def = this.approvalDef(type);
+    if (!RequestCtx.can(`${def.permission}.confirm`)) RequestCtx.assert(`${def.permission}.update`);
+    this.assertId(id);
+    const doc = await this.findOwned(def, id);
+    if (doc.status !== 'DRAFT') throw new ConflictException('Only draft documents can be sent for approval');
+    const req = await this.approvals.submit(this.approvalSubject(def, doc));
+    if (!req) throw new ConflictException(`${def.label} ${doc.number} does not need approval. You can confirm it directly.`);
+    return req;
   }
 
   /** Creates a draft target document prefilled with the remaining quantities */

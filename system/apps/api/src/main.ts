@@ -67,11 +67,23 @@ async function bootstrap() {
 
   // A missing bundle (old page after an update) must 404 instead of falling back to index.html,
   // otherwise the browser receives HTML for a CSS/JS file and renders an unstyled, broken page.
+  // Bundles of the previous builds are kept in an archive (see web/vite.config.ts) so a tab that is still
+  // running the old version can lazy-load its pages and icons until it reloads into the new version.
   const assetsDir = join(__dirname, '..', '..', 'web', 'dist', 'assets');
+  const archiveDir = join(__dirname, '..', '..', '..', 'node_modules', '.cache', 'kcs-web-assets');
   app.use('/assets', (req: any, res: any, next: () => void) => {
-    const rel = normalize(decodeURIComponent(req.path)).replace(/^[/\\]+/, '');
-    if (rel.includes('..') || !existsSync(join(assetsDir, rel))) return res.status(404).type('text/plain').send('Not found');
-    next();
+    let rel: string;
+    try {
+      rel = normalize(decodeURIComponent(req.path)).replace(/^[/\\]+/, '');
+    } catch {
+      return res.status(400).type('text/plain').send('Bad request');
+    }
+    if (!rel || rel.includes('..')) return res.status(404).type('text/plain').send('Not found');
+    if (existsSync(join(assetsDir, rel))) return next();
+    const archived = join(archiveDir, rel);
+    // dotfiles: the archive lives under node_modules/.cache, which send() refuses by default (-> 500)
+    if (existsSync(archived)) return res.sendFile(archived, { dotfiles: 'allow', headers: { 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' } });
+    return res.status(404).type('text/plain').send('Not found');
   });
 
   // API responses must never be cached by browsers/proxies

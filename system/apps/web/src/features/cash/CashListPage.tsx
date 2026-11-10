@@ -66,7 +66,7 @@ export default function CashListPage() {
       align: 'right',
       render: (r) => <span className={r.type === 'RECEIPT' ? 'font-semibold text-emerald-600' : r.type === 'PAYMENT' ? 'font-semibold text-red-600' : 'font-semibold'}>{`${r.type === 'PAYMENT' ? '-' : r.type === 'RECEIPT' ? '+' : ''}${fmtMoney(r.amount)}`}</span>,
     },
-    { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} label={r.status === 'CONFIRMED' ? 'Posted' : undefined} /> },
+    { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} label={r.status === 'CONFIRMED' ? 'Posted' : r.status === 'DRAFT' ? 'Draft (approval)' : undefined} /> },
   ];
 
   const totals = q.data?.totals ?? {};

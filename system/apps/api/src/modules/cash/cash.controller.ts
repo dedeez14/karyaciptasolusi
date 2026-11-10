@@ -37,6 +37,21 @@ export class CashController {
     return this.cash.create(body);
   }
 
+  @Post(':id/post')
+  post(@Param('id') id: string) {
+    return this.cash.post(id);
+  }
+
+  @Get(':id/approval')
+  approval(@Param('id') id: string) {
+    return this.cash.approval(id);
+  }
+
+  @Post(':id/request-approval')
+  requestApproval(@Param('id') id: string) {
+    return this.cash.requestApproval(id);
+  }
+
   @Post(':id/cancel')
   cancel(@Param('id') id: string) {
     return this.cash.cancel(id);

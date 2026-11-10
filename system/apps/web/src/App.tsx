@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { useSession } from '@/stores/session';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ConfirmHost, PreviewHost, Spinner, ToastHost } from '@/components/ui';
+import { extraRoutes } from '@/routes/extra';
 
 // Route level code splitting: each page is loaded on demand (fast first paint)
 const LoginPage = lazy(() => import('@/features/auth/LoginPage'));
@@ -104,6 +105,9 @@ export default function App() {
             <Route path="system/security" element={<SecurityCenterPage />} />
             <Route path="system/activity" element={<ActivityPage />} />
             <Route path="system/sessions" element={<SessionsPage />} />
+            {extraRoutes.map((r) => (
+              <Route key={r.path} path={r.path} element={r.element} />
+            ))}
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

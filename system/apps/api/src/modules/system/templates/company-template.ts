@@ -77,6 +77,12 @@ export const ACCOUNT_MAPPING_TEMPLATE: [string, string, string][] = [
   ['PAYROLL_DEDUCTION', 'Payroll Deductions Payable', '2-1500'],
   ['RETAINED_EARNINGS', 'Retained Earnings', '3-2000'],
   ['CURRENT_EARNINGS', 'Current Year Earnings', '3-3000'],
+  ['EXPENSE_PAYABLE', 'Employee reimbursements payable', '2-1600'],
+  ['FIXED_ASSET', 'Fixed assets (default)', '1-2200'],
+  ['ACCUM_DEPRECIATION', 'Accumulated depreciation', '1-2900'],
+  ['DEPRECIATION_EXPENSE', 'Depreciation expense', '6-2800'],
+  ['ASSET_DISPOSAL_GAIN', 'Gain on asset disposal', '4-9000'],
+  ['ASSET_DISPOSAL_LOSS', 'Loss on asset disposal', '6-9000'],
 ];
 
 /** code, name, prefix, reset */
@@ -107,6 +113,11 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['CAMPAIGN', 'Campaign Code', 'CMP-', 'NEVER'],
   ['PROJECT', 'Project Code', 'PRJ-', 'NEVER'],
   ['TASK', 'Task Code', 'TASK-', 'NEVER'],
+  ['SUBSCRIPTION', 'Subscription Code', 'SUB-', 'NEVER'],
+  ['ASSET', 'Fixed Asset Code', 'FA-', 'NEVER'],
+  ['BUDGET', 'Budget Code', 'BGT-', 'NEVER'],
+  ['EXPENSE', 'Expense Claim', 'EXP/{YYYY}/{MM}/', 'MONTHLY'],
+  ['TICKET', 'Support Ticket', 'TCK-', 'NEVER'],
 ];
 
 export const SIMPLE_TEMPLATE = {

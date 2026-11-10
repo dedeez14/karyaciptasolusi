@@ -240,7 +240,7 @@ export function AppLayout() {
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="no-print flex h-16 shrink-0 items-center gap-3 border-b border-line bg-white/80 px-3 backdrop-blur sm:px-6">
+        <header className="no-print relative z-30 flex h-16 shrink-0 items-center gap-3 border-b border-line bg-white/80 px-3 backdrop-blur sm:px-6">
           <Button variant="ghost" size="icon" icon="menu" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu" />
           <nav className="hidden min-w-0 flex-1 items-center gap-1.5 text-sm md:flex" aria-label="Breadcrumb">
             <Link to="/" className="text-slate-400 hover:text-slate-700" aria-label="Dashboard">

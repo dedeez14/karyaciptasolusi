@@ -9,6 +9,8 @@ import { RequestCtx } from '../../common/context/request-context';
 import { D } from '../../common/utils/money';
 import { paged } from '../../common/utils/query';
 import { JournalService } from '../accounting/journal.service';
+import { ApprovalService } from '../approvals/approval.service';
+import { Tx } from '../../common/prisma/prisma.service';
 
 const optUuid = z.preprocess((v) => (v === '' ? null : v), z.uuid().nullable().optional());
 
@@ -43,6 +45,7 @@ export class CashService {
     private readonly audit: AuditService,
     private readonly access: AccessService,
     private readonly journal: JournalService,
+    private readonly approvals: ApprovalService,
   ) {}
 
   private scope() {
@@ -69,7 +72,7 @@ export class CashService {
     const [rows, total, sums] = await Promise.all([
       this.prisma.cashTransaction.findMany({ where, orderBy: [{ date: 'desc' }, { number: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
       this.prisma.cashTransaction.count({ where }),
-      this.prisma.cashTransaction.groupBy({ by: ['type'], where: { ...where, status: { not: 'CANCELLED' } }, _sum: { amount: true } }),
+      this.prisma.cashTransaction.groupBy({ by: ['type'], where: { ...where, status: { notIn: ['CANCELLED', 'DRAFT'] } }, _sum: { amount: true } }),
     ]);
     const n = await this.names(rows);
     return {
@@ -106,7 +109,8 @@ export class CashService {
     if (!bank.accountId || (toBank && !toBank.accountId)) throw new BadRequestException('The cash/bank account has no ledger account');
     if (counter?.isGroup) throw new BadRequestException({ message: 'Validation failed', errors: { accountId: 'Choose a detail account, not a header' } });
     const amount = D(input.amount);
-    const dims = { costCenterId: input.costCenterId ?? null, projectId: input.projectId ?? null };
+    // money out above an approval threshold is saved as a draft and goes through the approval workflow first
+    const needsApproval = input.type === 'PAYMENT' && (await this.approvals.requiredFor(u.companyId, 'CASH', amount)).length > 0;
 
     return this.prisma.$transaction(async (tx) => {
       const number = await this.sequence.next(SEQ[input.type], u.companyId, input.date, tx);
@@ -117,37 +121,87 @@ export class CashService {
           number,
           date: input.date,
           type: input.type,
+          status: needsApproval ? 'DRAFT' : 'CONFIRMED',
           bankAccountId: bank.id,
           toBankAccountId: toBank?.id ?? null,
           accountId: counter?.id ?? null,
           amount,
           partyName: input.partyName ?? null,
-          costCenterId: dims.costCenterId,
-          projectId: dims.projectId,
+          costCenterId: input.costCenterId ?? null,
+          projectId: input.projectId ?? null,
           reference: input.reference ?? null,
           description: input.description,
           createdById: u.id,
         },
       });
-      const lines =
-        input.type === 'RECEIPT'
-          ? [
-              { accountId: bank.accountId, debit: amount, description: input.description },
-              { accountId: counter!.id, credit: amount, description: input.description, ...dims },
-            ]
-          : input.type === 'PAYMENT'
-            ? [
-                { accountId: counter!.id, debit: amount, description: input.description, ...dims },
-                { accountId: bank.accountId, credit: amount, description: input.description },
-              ]
-            : [
-                { accountId: toBank!.accountId, debit: amount, description: input.description },
-                { accountId: bank.accountId, credit: amount, description: input.description },
-              ];
-      await this.journal.post(tx, { companyId: u.companyId, branchId: u.branchId, date: input.date, description: `${number} - ${input.description}`, reference: input.reference ?? undefined, sourceType: `CASH_${input.type}`, sourceId: row.id, lines });
+      if (needsApproval) await this.approvals.submit(this.approvalSubject(row), tx);
+      else await this.postJournal(tx, row);
       await this.audit.record('Cash Transaction', row.id, 'CREATE', undefined, row, tx);
-      return row;
+      return { ...row, approvalRequested: needsApproval };
     });
+  }
+
+  private approvalSubject(row: { id: string; number: string; amount: Prisma.Decimal; type: string }) {
+    return { docType: 'CASH', documentId: row.id, documentNumber: row.number, amount: row.amount, label: `Cash payment ${row.number}` };
+  }
+
+  /** Balanced journal of a cash transaction */
+  private async postJournal(tx: Tx, row: { id: string; companyId: string; branchId: string | null; number: string; date: Date; type: string; bankAccountId: string; toBankAccountId: string | null; accountId: string | null; amount: Prisma.Decimal; costCenterId: string | null; projectId: string | null; reference: string | null; description: string }) {
+    const [bank, toBank] = await Promise.all([
+      tx.bankAccount.findUnique({ where: { id: row.bankAccountId } }),
+      row.toBankAccountId ? tx.bankAccount.findUnique({ where: { id: row.toBankAccountId } }) : null,
+    ]);
+    if (!bank?.accountId || (row.toBankAccountId && !toBank?.accountId)) throw new BadRequestException('The cash/bank account has no ledger account');
+    const amount = D(row.amount);
+    const dims = { costCenterId: row.costCenterId, projectId: row.projectId };
+    const d = row.description;
+    const lines =
+      row.type === 'RECEIPT'
+        ? [
+            { accountId: bank.accountId, debit: amount, description: d },
+            { accountId: row.accountId!, credit: amount, description: d, ...dims },
+          ]
+        : row.type === 'PAYMENT'
+          ? [
+              { accountId: row.accountId!, debit: amount, description: d, ...dims },
+              { accountId: bank.accountId, credit: amount, description: d },
+            ]
+          : [
+              { accountId: toBank!.accountId, debit: amount, description: d },
+              { accountId: bank.accountId, credit: amount, description: d },
+            ];
+    await this.journal.post(tx, { companyId: row.companyId, branchId: row.branchId, date: row.date, description: `${row.number} - ${d}`, reference: row.reference ?? undefined, sourceType: `CASH_${row.type}`, sourceId: row.id, lines });
+  }
+
+  /** Posts an approved draft payment */
+  async post(id: string) {
+    RequestCtx.assert('accounting.cash.create');
+    await this.get(id);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM cash_transactions WHERE id = ${id}::uuid FOR UPDATE`;
+      const row = await tx.cashTransaction.findUniqueOrThrow({ where: { id } });
+      if (row.status !== 'DRAFT') throw new ConflictException('Transaction is already posted or cancelled');
+      await this.approvals.assertApproved(row.companyId, this.approvalSubject(row), tx);
+      await this.postJournal(tx, row);
+      const r = await tx.cashTransaction.update({ where: { id }, data: { status: 'CONFIRMED', updatedById: RequestCtx.user().id } });
+      await this.audit.record('Cash Transaction', id, 'CONFIRM', row, r, tx);
+      return r;
+    });
+  }
+
+  async approval(id: string) {
+    const t = await this.get(id);
+    const info = await this.approvals.info(t.companyId, this.approvalSubject(t));
+    return { ...info, canRequest: t.status === 'DRAFT' && RequestCtx.can('accounting.cash.create') && ['NOT_REQUESTED', 'REJECTED'].includes(info.status) };
+  }
+
+  async requestApproval(id: string) {
+    RequestCtx.assert('accounting.cash.create');
+    const t = await this.get(id);
+    if (t.status !== 'DRAFT') throw new ConflictException('Only draft transactions can be sent for approval');
+    const req = await this.approvals.submit(this.approvalSubject(t));
+    if (!req) throw new ConflictException(`${t.number} does not need approval. You can post it directly.`);
+    return req;
   }
 
   async cancel(id: string) {
@@ -155,7 +209,8 @@ export class CashService {
     const before = await this.get(id);
     if (before.status === 'CANCELLED') throw new ConflictException('Transaction is already cancelled');
     return this.prisma.$transaction(async (tx) => {
-      await this.journal.voidBySource(tx, `CASH_${before.type}`, id);
+      if (before.status !== 'DRAFT') await this.journal.voidBySource(tx, `CASH_${before.type}`, id);
+      await this.approvals.reset(tx, 'CASH', id);
       const r = await tx.cashTransaction.update({ where: { id }, data: { status: 'CANCELLED', updatedById: RequestCtx.user().id } });
       await this.audit.record('Cash Transaction', id, 'CANCEL', before, r, tx);
       return r;

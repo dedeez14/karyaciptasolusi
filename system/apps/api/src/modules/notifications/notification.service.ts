@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { SettingsService } from '../../common/settings/settings.service';
 import { AuthUser } from '../../common/context/request-context';
+import { ApprovalService } from '../approvals/approval.service';
 
 export interface NotificationItem {
   key: string;
@@ -32,7 +33,7 @@ const can = (u: AuthUser, p: string) => u.isSuperAdmin || u.permissions.has(p);
  */
 @Injectable()
 export class NotificationService {
-  constructor(private readonly prisma: PrismaService, private readonly settings: SettingsService) {}
+  constructor(private readonly prisma: PrismaService, private readonly settings: SettingsService, private readonly approvals: ApprovalService) {}
 
   async summary(u: AuthUser): Promise<NotificationSummary> {
     const c = u.companyId;
@@ -89,6 +90,37 @@ export class NotificationService {
     if (can(u, 'task.task.read') && (await on('tasks'))) {
       const n = await this.prisma.task.count({ where: { companyId: c, deletedAt: null, assigneeId: u.id, completedAt: null, dueDate: { lt: new Date(dayStart.getTime() + 86_400_000) } } });
       if (n) items.push({ key: 'tasks', title: 'My tasks due', message: n > 1 ? `${n} of your tasks are due today or overdue` : 'One of your tasks is due today or overdue', count: n, severity: 'warning', icon: 'list-todo', link: '/tasks/my' });
+    }
+    if (can(u, 'approval.request.decide') && (await on('approvals'))) {
+      const n = await this.prisma.approvalRequest.count({ where: await this.approvals.waitingWhere(u) });
+      if (n) items.push({ key: 'approvals', title: 'Approvals waiting for you', message: n > 1 ? `${n} requests are waiting for your decision` : 'One request is waiting for your decision', count: n, severity: 'warning', icon: 'stamp', link: '/approvals' });
+    }
+    if (can(u, 'support.ticket.read') && (await on('tickets'))) {
+      const open = { companyId: c, deletedAt: null, statusCode: { notIn: ['RESOLVED', 'CLOSED'] } };
+      const [mine, late] = await Promise.all([
+        this.prisma.ticket.count({ where: { ...open, assigneeId: u.id } }),
+        this.prisma.ticket.count({ where: { ...open, assigneeId: u.id, dueAt: { lt: new Date() } } }),
+      ]);
+      if (mine) items.push({ key: 'tickets', title: 'My open tickets', message: late ? `${mine} open, ${late} past the SLA target` : `${mine} ticket${mine > 1 ? 's are' : ' is'} assigned to you`, count: mine, severity: late ? 'danger' : 'info', icon: 'life-buoy', link: '/helpdesk/tickets?f.assignee=me' });
+      if (can(u, 'support.ticket.manage')) {
+        const n = await this.prisma.ticket.count({ where: { ...open, assigneeId: null } });
+        if (n) items.push({ key: 'ticketsUnassigned', title: 'Unassigned tickets', message: n > 1 ? `${n} open tickets have no assignee` : 'One open ticket has no assignee', count: n, severity: 'warning', icon: 'ticket', link: '/helpdesk/tickets?f.assignee=none' });
+      }
+    }
+    if (await on('expenses')) {
+      if (can(u, 'hris.expense.approve')) {
+        // claims routed through approval rules are counted under "Approvals waiting for you"
+        const [submitted, routed] = await Promise.all([
+          this.prisma.expenseClaim.count({ where: { companyId: c, deletedAt: null, statusCode: 'SUBMITTED', ...(branch() as Prisma.ExpenseClaimWhereInput) } }),
+          this.prisma.approvalRequest.count({ where: { companyId: c, docType: 'EXPENSE', statusCode: 'PENDING' } }),
+        ]);
+        const n = Math.max(0, submitted - routed);
+        if (n) items.push({ key: 'expenseApprove', title: 'Expense claims to approve', message: n > 1 ? `${n} claims are waiting for approval` : 'One claim is waiting for approval', count: n, severity: 'warning', icon: 'receipt-text', link: '/expenses?f.status=SUBMITTED' });
+      }
+      if (can(u, 'hris.expense.pay')) {
+        const n = await this.prisma.expenseClaim.count({ where: { companyId: c, deletedAt: null, statusCode: 'APPROVED', ...(branch() as Prisma.ExpenseClaimWhereInput) } });
+        if (n) items.push({ key: 'expensePay', title: 'Expense claims to pay', message: n > 1 ? `${n} approved claims are waiting for reimbursement` : 'One approved claim is waiting for reimbursement', count: n, severity: 'info', icon: 'wallet', link: '/expenses?f.status=APPROVED' });
+      }
     }
     if (await on('draftDocuments')) {
       const n = await this.prisma.tradeDocument.count({ where: { companyId: c, createdById: u.id, status: 'DRAFT', deletedAt: null, createdAt: { lt: new Date(Date.now() - 3 * 86_400_000) } } });

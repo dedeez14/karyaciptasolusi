@@ -17,6 +17,11 @@ export default function PaymentListPage() {
   const params = { page: ls.page, pageSize: ls.pageSize, search: ls.search, partnerId: f.partnerId, from: f.from, to: f.to };
   const list = useQuery({ queryKey: ['payments', m.dir, 'list', params], queryFn: () => api.get<Paged<PaymentRow>>(`/payments/${m.dir}`, params), placeholderData: keepPreviousData });
 
+  const filtered = !!ls.search || Object.keys(f).length > 0;
+  const clear = () => {
+    ls.setSearchInput('');
+    navigate({ search: '' }, { replace: true });
+  };
   const columns: Column<PaymentRow>[] = [
     { key: 'number', header: 'Number', render: (r) => <span className="font-medium text-brand-700">{r.number}</span> },
     { key: 'date', header: 'Date', render: (r) => fmtDate(r.date) },
@@ -55,6 +60,13 @@ export default function PaymentListPage() {
           <AsyncSelect resource={m.partnerResource} value={f.partnerId} onChange={(v) => ls.setFilter('partnerId', v)} placeholder={`All ${m.partner.toLowerCase()}s`} />
           <DatePicker value={f.from ?? ''} onChange={(v) => ls.setFilter('from', v)} placeholder="From date" aria-label="From date" />
           <DatePicker value={f.to ?? ''} onChange={(v) => ls.setFilter('to', v)} placeholder="To date" aria-label="To date" />
+          {filtered && (
+            <div className="sm:col-span-2 lg:col-span-5">
+              <Button size="sm" variant="ghost" icon="x" onClick={clear}>
+                Clear search & filters
+              </Button>
+            </div>
+          )}
         </div>
         <DataTable
           columns={columns}
@@ -62,7 +74,26 @@ export default function PaymentListPage() {
           rowKey={(r) => r.id}
           loading={list.isFetching}
           onRowClick={(r) => navigate(`/payments/${m.dir}/${r.id}`)}
-          empty={<EmptyState icon="hand-coins" title="No payments found" />}
+          empty={
+            <EmptyState
+              icon="hand-coins"
+              title={filtered ? 'No payments match your filters' : `No ${m.title.toLowerCase()} yet`}
+              description={filtered ? 'Try another search or clear the filters.' : `Record a ${m.singular.toLowerCase()} here, or open an invoice and use its payment action.`}
+              action={
+                filtered ? (
+                  <Button variant="outline" icon="x" onClick={clear}>
+                    Clear search & filters
+                  </Button>
+                ) : (
+                  can(`${m.perm}.create`) && (
+                    <Button icon="plus" onClick={() => navigate(`/payments/${m.dir}/new`)}>
+                      New {m.singular}
+                    </Button>
+                  )
+                )
+              }
+            />
+          }
         />
         {list.data && <Pagination page={ls.page} totalPages={list.data.meta.totalPages} total={list.data.meta.total} pageSize={ls.pageSize} onPage={ls.setPage} onPageSize={ls.setPageSize} />}
       </Card>

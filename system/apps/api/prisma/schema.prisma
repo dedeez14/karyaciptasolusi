@@ -1539,3 +1539,368 @@ model TaskTimeLog {
   @@index([taskId])
   @@map("task_time_logs")
 }
+
+// ----------------------------------------------------------------------------
+// Recurring billing (subscriptions, maintenance & hosting contracts)
+// ----------------------------------------------------------------------------
+
+model Subscription {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  branchId      String?   @db.Uuid
+  code          String    @db.VarChar(30)
+  name          String    @db.VarChar(200)
+  customerId    String    @db.Uuid
+  projectId     String?   @db.Uuid
+  intervalCode  String    @db.VarChar(20) // lookup BILLING_INTERVAL
+  intervalCount Int       @default(1)
+  startDate     DateTime  @db.Date
+  endDate       DateTime? @db.Date
+  nextRunDate   DateTime  @db.Date
+  paymentTermId String?   @db.Uuid
+  currencyCode  String    @default("IDR") @db.VarChar(3)
+  autoConfirm   Boolean   @default(true)
+  autoEmail     Boolean   @default(false)
+  emailTo       String?   @db.VarChar(150)
+  notes         String?
+  isActive      Boolean   @default(true)
+  lastRunAt     DateTime?
+  lastInvoiceId String?   @db.Uuid
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+  deletedAt     DateTime?
+
+  lines SubscriptionLine[]
+
+  @@unique([companyId, code])
+  @@index([companyId, nextRunDate])
+  @@map("subscriptions")
+}
+
+model SubscriptionLine {
+  id             String  @id @default(uuid()) @db.Uuid
+  subscriptionId String  @db.Uuid
+  lineNo         Int
+  productId      String? @db.Uuid
+  description    String?
+  qty            Decimal @db.Decimal(18, 4)
+  uomId          String? @db.Uuid
+  unitPrice      Decimal @default(0) @db.Decimal(18, 2)
+  discountPct    Decimal @default(0) @db.Decimal(9, 4)
+  taxId          String? @db.Uuid
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@map("subscription_lines")
+}
+
+/// Overdue invoice reminders already sent (prevents duplicates)
+model InvoiceReminder {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  documentId String   @db.Uuid
+  level      Int
+  sentTo     String   @db.VarChar(150)
+  sentAt     DateTime @default(now())
+
+  @@unique([documentId, level])
+  @@map("invoice_reminders")
+}
+
+// ----------------------------------------------------------------------------
+// Fixed assets & depreciation
+// ----------------------------------------------------------------------------
+
+model FixedAsset {
+  id                      String    @id @default(uuid()) @db.Uuid
+  companyId               String    @db.Uuid
+  branchId                String?   @db.Uuid
+  code                    String    @db.VarChar(30)
+  name                    String    @db.VarChar(200)
+  categoryCode            String?   @db.VarChar(50) // lookup ASSET_CATEGORY
+  serialNumber            String?   @db.VarChar(100)
+  location                String?   @db.VarChar(150)
+  custodianEmployeeId     String?   @db.Uuid
+  supplierId              String?   @db.Uuid
+  acquisitionDate         DateTime  @db.Date
+  depreciationStartDate   DateTime  @db.Date
+  cost                    Decimal   @db.Decimal(18, 2)
+  salvageValue            Decimal   @default(0) @db.Decimal(18, 2)
+  usefulLifeMonths        Int
+  methodCode              String    @default("STRAIGHT_LINE") @db.VarChar(30) // lookup DEPRECIATION_METHOD
+  assetAccountId          String?   @db.Uuid
+  accumDepAccountId       String?   @db.Uuid
+  depExpenseAccountId     String?   @db.Uuid
+  accumulatedDepreciation Decimal   @default(0) @db.Decimal(18, 2)
+  lastDepreciationPeriod  String?   @db.VarChar(7) // YYYY-MM
+  statusCode              String    @default("ACTIVE") @db.VarChar(30) // lookup ASSET_STATUS
+  disposalDate            DateTime? @db.Date
+  disposalAmount          Decimal?  @db.Decimal(18, 2)
+  notes                   String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  createdById             String?   @db.Uuid
+  updatedById             String?   @db.Uuid
+  deletedAt               DateTime?
+
+  depreciations AssetDepreciation[]
+
+  @@unique([companyId, code])
+  @@map("fixed_assets")
+}
+
+model AssetDepreciation {
+  id             String   @id @default(uuid()) @db.Uuid
+  assetId        String   @db.Uuid
+  period         String   @db.VarChar(7)
+  date           DateTime @db.Date
+  amount         Decimal  @db.Decimal(18, 2)
+  bookValueAfter Decimal  @db.Decimal(18, 2)
+  journalEntryId String?  @db.Uuid
+  createdAt      DateTime @default(now())
+
+  asset FixedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, period])
+  @@map("asset_depreciations")
+}
+
+// ----------------------------------------------------------------------------
+// Budgets
+// ----------------------------------------------------------------------------
+
+model Budget {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  code         String    @db.VarChar(30)
+  name         String    @db.VarChar(200)
+  year         Int
+  statusCode   String    @default("DRAFT") @db.VarChar(30) // lookup BUDGET_STATUS
+  notes        String?
+  approvedById String?   @db.Uuid
+  approvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdById  String?   @db.Uuid
+  updatedById  String?   @db.Uuid
+  deletedAt    DateTime?
+
+  lines BudgetLine[]
+
+  @@unique([companyId, code])
+  @@map("budgets")
+}
+
+model BudgetLine {
+  id           String  @id @default(uuid()) @db.Uuid
+  budgetId     String  @db.Uuid
+  accountId    String  @db.Uuid
+  costCenterId String? @db.Uuid
+  projectId    String? @db.Uuid
+  month        Int // 1..12
+  amount       Decimal @db.Decimal(18, 2)
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+  @@map("budget_lines")
+}
+
+// ----------------------------------------------------------------------------
+// Approval workflow
+// ----------------------------------------------------------------------------
+
+model ApprovalRule {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  name           String    @db.VarChar(150)
+  docType        String    @db.VarChar(20) // lookup APPROVAL_DOC_TYPE
+  minAmount      Decimal   @default(0) @db.Decimal(18, 2)
+  level          Int       @default(1)
+  approverRoleId String?   @db.Uuid
+  approverUserId String?   @db.Uuid
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  deletedAt      DateTime?
+
+  @@index([companyId, docType])
+  @@map("approval_rules")
+}
+
+model ApprovalRequest {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  ruleId         String?   @db.Uuid
+  docType        String    @db.VarChar(20)
+  documentId     String    @db.Uuid
+  documentNumber String    @db.VarChar(60)
+  amount         Decimal   @default(0) @db.Decimal(18, 2)
+  level          Int       @default(1)
+  statusCode     String    @default("PENDING") @db.VarChar(20) // lookup APPROVAL_STATUS
+  approverRoleId String?   @db.Uuid
+  approverUserId String?   @db.Uuid
+  requestedById  String?   @db.Uuid
+  decidedById    String?   @db.Uuid
+  decidedAt      DateTime?
+  comment        String?
+  createdAt      DateTime  @default(now())
+
+  @@index([companyId, statusCode])
+  @@index([documentId])
+  @@map("approval_requests")
+}
+
+// ----------------------------------------------------------------------------
+// Expense claims (reimbursement)
+// ----------------------------------------------------------------------------
+
+model ExpenseClaim {
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @db.Uuid
+  branchId          String?   @db.Uuid
+  number            String    @db.VarChar(40)
+  employeeId        String    @db.Uuid
+  date              DateTime  @db.Date
+  title             String    @db.VarChar(200)
+  statusCode        String    @default("DRAFT") @db.VarChar(20) // lookup EXPENSE_STATUS
+  totalAmount       Decimal   @default(0) @db.Decimal(18, 2)
+  notes             String?
+  submittedAt       DateTime?
+  approvedById      String?   @db.Uuid
+  approvedAt        DateTime?
+  rejectReason      String?
+  paidAt            DateTime?
+  paidBankAccountId String?   @db.Uuid
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdById       String?   @db.Uuid
+  updatedById       String?   @db.Uuid
+  deletedAt         DateTime?
+
+  lines ExpenseClaimLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, statusCode])
+  @@map("expense_claims")
+}
+
+model ExpenseClaimLine {
+  id           String   @id @default(uuid()) @db.Uuid
+  claimId      String   @db.Uuid
+  lineNo       Int
+  date         DateTime @db.Date
+  categoryCode String?  @db.VarChar(50) // lookup EXPENSE_CATEGORY
+  accountId    String?  @db.Uuid
+  description  String   @db.VarChar(500)
+  amount       Decimal  @db.Decimal(18, 2)
+  projectId    String?  @db.Uuid
+  costCenterId String?  @db.Uuid
+
+  claim ExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@map("expense_claim_lines")
+}
+
+// ----------------------------------------------------------------------------
+// Helpdesk
+// ----------------------------------------------------------------------------
+
+model Ticket {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  branchId        String?   @db.Uuid
+  code            String    @db.VarChar(30)
+  subject         String    @db.VarChar(250)
+  description     String?
+  customerId      String?   @db.Uuid
+  contactName     String?   @db.VarChar(150)
+  contactEmail    String?   @db.VarChar(150)
+  contactPhone    String?   @db.VarChar(50)
+  projectId       String?   @db.Uuid
+  categoryCode    String?   @db.VarChar(50) // lookup TICKET_CATEGORY
+  priorityCode    String    @default("MEDIUM") @db.VarChar(50) // lookup TICKET_PRIORITY
+  statusCode      String    @default("OPEN") @db.VarChar(50) // lookup TICKET_STATUS
+  channelCode     String?   @db.VarChar(50) // lookup TICKET_CHANNEL
+  assigneeId      String?   @db.Uuid
+  dueAt           DateTime?
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  satisfaction    Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   @db.Uuid
+  updatedById     String?   @db.Uuid
+  deletedAt       DateTime?
+
+  messages TicketMessage[]
+
+  @@unique([companyId, code])
+  @@index([companyId, statusCode])
+  @@index([assigneeId])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  ticketId   String   @db.Uuid
+  userId     String?  @db.Uuid
+  authorName String?  @db.VarChar(150)
+  body       String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+/// SHA-256 fingerprint of every digitally signed PDF issued. Lets the public verify page tell an
+/// untouched file from one that was edited after it was issued.
+model SignedFile {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  /// sha256 of the signature token printed in the QR code
+  tokenHash String   @db.VarChar(64)
+  /// short code printed in the QR code (/verify?c=...) - keeps the QR small and easy to scan
+  code      String?  @db.VarChar(24)
+  /// full signature token (public: it is what the QR used to contain)
+  token     String?
+  sha256    String   @db.VarChar(64)
+  size      Int
+  docKind   String   @db.VarChar(20)
+  docNumber String?  @db.VarChar(60)
+  createdAt DateTime @default(now())
+
+  @@index([sha256])
+  @@index([tokenHash])
+  @@index([code])
+  @@map("signed_files")
+}
+
+/// Public holidays and collective leave days (shown on the attendance sheet, excluded from working days)
+model Holiday {
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @db.Uuid
+  date              DateTime  @db.Date
+  name              String    @db.VarChar(150)
+  isCollectiveLeave Boolean   @default(false)
+  notes             String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdById       String?   @db.Uuid
+  updatedById       String?   @db.Uuid
+  deletedAt         DateTime?
+
+  @@index([companyId, date])
+  @@map("holidays")
+}

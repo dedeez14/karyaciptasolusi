@@ -537,6 +537,25 @@ export const RESOURCES: ResourceDef[] = [
   // ----- HRIS -------------------------------------------------------------------------
   simple('departments', 'department', 'hris', 'Departments', 'Department', 'hris.department', [rel('parentId', 'Parent Department', 'departments', { list: true })]),
   simple('positions', 'position', 'hris', 'Positions', 'Position', 'hris.position', [lookup('levelCode', 'Job Level', 'JOB_LEVEL', { list: true, filter: true })]),
+  {
+    key: 'holidays',
+    model: 'holiday',
+    module: 'hris',
+    label: 'Public Holidays',
+    singular: 'Holiday',
+    permission: 'hris.holiday',
+    scope: 'company',
+    fields: [
+      date('date', 'Date', { required: true, list: true, sortable: true }),
+      name(),
+      bool('isCollectiveLeave', 'Collective leave (cuti bersama)', { list: true, filter: true, help: 'Counted as a day off on the attendance sheet' }),
+      area('notes', 'Notes'),
+      active(),
+    ],
+    searchFields: ['name'],
+    labelFields: ['name'],
+    defaultSort: { field: 'date', order: 'asc' },
+  },
   simple('leave-types', 'leaveType', 'hris', 'Leave Types', 'Leave Type', 'hris.leave-type', [int('daysPerYear', 'Days per Year', { min: 0, max: 365, list: true }), bool('isPaid', 'Paid Leave', { default: true, list: true })]),
   simple('salary-components', 'salaryComponent', 'hris', 'Salary Components', 'Salary Component', 'hris.salary-component', [
     lookup('kind', 'Kind', 'SALARY_KIND', { required: true, list: true, filter: true }),
@@ -646,6 +665,6 @@ export const RESOURCES: ResourceDef[] = [
 ];
 
 /** Lists whose codes drive application logic: values can be renamed, recoloured and re-ordered, not added or deleted */
-export const SYSTEM_LOOKUPS = new Set(['PRODUCT_TYPE', 'ACCOUNT_TYPE', 'SALARY_KIND', 'SALARY_CALC', 'SEQUENCE_RESET', 'REQUEST_STATUS', 'DOC_STATUS', 'JOURNAL_STATUS', 'DATA_SCOPE', 'CASH_TYPE', 'FILE_SOURCE', 'FILE_TYPE', 'PAPER_SIZE', 'LANGUAGE', 'JOURNAL_SOURCE', 'DUE_FILTER', 'TASK_STATE', 'YES_NO', 'RECORD_STATUS', 'FILE_GROUP_BY']);
+export const SYSTEM_LOOKUPS = new Set(['PRODUCT_TYPE', 'ACCOUNT_TYPE', 'SALARY_KIND', 'SALARY_CALC', 'SEQUENCE_RESET', 'REQUEST_STATUS', 'DOC_STATUS', 'JOURNAL_STATUS', 'DATA_SCOPE', 'CASH_TYPE', 'FILE_SOURCE', 'FILE_TYPE', 'PAPER_SIZE', 'LANGUAGE', 'JOURNAL_SOURCE', 'DUE_FILTER', 'TASK_STATE', 'YES_NO', 'RECORD_STATUS', 'FILE_GROUP_BY', 'BILLING_INTERVAL', 'DEPRECIATION_METHOD', 'ASSET_STATUS', 'BUDGET_STATUS', 'APPROVAL_DOC_TYPE', 'APPROVAL_STATUS', 'EXPENSE_STATUS', 'TICKET_STATUS', 'TICKET_PRIORITY']);
 
 export const RESOURCE_MAP = new Map(RESOURCES.map((r) => [r.key, r]));

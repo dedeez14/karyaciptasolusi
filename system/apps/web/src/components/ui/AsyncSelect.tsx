@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn, Spinner } from './primitives';
 import { Icon } from './Icon';
+import { Floating } from './Floating';
 
 interface Option {
   value: string;
@@ -25,7 +26,13 @@ export function AsyncSelect({
   initialLabel,
   manageHref,
   manageLabel,
+  className,
+  id,
+  'aria-label': ariaLabel,
 }: {
+  className?: string;
+  id?: string;
+  'aria-label'?: string;
   /** optional link to the master data page of this list (shown in the dropdown footer) */
   manageHref?: string;
   manageLabel?: string;
@@ -41,7 +48,7 @@ export function AsyncSelect({
   const [search, setSearch] = useState('');
   const [active, setActive] = useState(0);
   const q = useDebounce(search, 250);
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLButtonElement>(null);
 
   const list = useQuery({ queryKey: ['options', resource, q], queryFn: () => api.get<Option[]>(`/resources/${resource}/options`, { search: q }), enabled: open, staleTime: 30_000 });
   const selected = useQuery({
@@ -52,13 +59,6 @@ export function AsyncSelect({
   });
   const label = useMemo(() => (value ? initialLabel ?? selected.data?.[0]?.label ?? list.data?.find((o) => o.value === value)?.label ?? '...' : ''), [value, initialLabel, selected.data, list.data]);
 
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [open]);
-
   const options = list.data ?? [];
   const pick = (o: Option | null) => {
     onChange(o?.value ?? null, o ?? undefined);
@@ -67,17 +67,26 @@ export function AsyncSelect({
   };
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative min-w-0">
       <button
+        ref={ref}
         type="button"
         disabled={disabled}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown' && !open) {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={value ? label : placeholder}
-        className={cn('input flex items-center justify-between gap-2 text-left', invalid && 'input-error', !value && 'text-slate-400')}
+        id={id}
+        aria-label={ariaLabel ? `${ariaLabel}: ${value ? label : placeholder}` : value ? label : placeholder}
+        title={value ? label : undefined}
+        className={cn('input flex items-center justify-between gap-2 text-left', invalid && 'input-error', !value && 'text-slate-400', className)}
       >
-        <span className="truncate">{value ? label : placeholder}</span>
+        <span className="min-w-0 truncate">{value ? label : placeholder}</span>
         <span className="flex items-center gap-1">
           {value && !disabled && (
             <span
@@ -96,9 +105,8 @@ export function AsyncSelect({
           <Icon name="chevrons-up-down" className="h-3.5 w-3.5 text-slate-400" />
         </span>
       </button>
-      {open && (
-        <div className="absolute z-50 mt-1.5 w-full min-w-56 overflow-hidden rounded-xl border border-line bg-white shadow-pop">
-          <div className="border-b border-line p-2">
+      <Floating anchorRef={ref} open={open} onClose={() => setOpen(false)} minWidth={260}>
+          <div className="shrink-0 border-b border-line p-2">
             <input
               autoFocus
               className="input h-9"
@@ -114,11 +122,14 @@ export function AsyncSelect({
                 else if (e.key === 'Enter') {
                   e.preventDefault();
                   if (options[active]) pick(options[active]);
-                } else if (e.key === 'Escape') setOpen(false);
+                } else if (e.key === 'Escape') {
+                  setOpen(false);
+                  ref.current?.focus();
+                }
               }}
             />
           </div>
-          <ul className="max-h-60 overflow-y-auto py-1" role="listbox">
+          <ul className="max-h-72 min-h-0 flex-1 overflow-y-auto py-1" role="listbox">
             {list.isFetching && (
               <li className="flex justify-center py-3">
                 <Spinner className="h-4 w-4 text-slate-400" />
@@ -132,20 +143,21 @@ export function AsyncSelect({
                 aria-selected={o.value === value}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(o)}
-                className={cn('mx-1 cursor-pointer rounded-lg px-3 py-2 text-sm', i === active && 'bg-brand-50', o.value === value && 'font-semibold text-brand-700')}
+                title={o.label}
+                className={cn('mx-1 flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm', i === active && 'bg-brand-50', o.value === value && 'font-semibold text-brand-700')}
               >
-                {o.label}
+                <span className="flex-1 break-words">{o.label}</span>
+                {o.value === value && <Icon name="check" className="h-4 w-4 shrink-0 text-brand-600" />}
               </li>
             ))}
           </ul>
           {manageHref && (
-            <Link to={manageHref} onClick={() => setOpen(false)} className="flex items-center gap-1.5 border-t border-line bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-600 hover:text-brand-700">
+            <Link to={manageHref} onClick={() => setOpen(false)} className="flex shrink-0 items-center gap-1.5 border-t border-line bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-600 hover:text-brand-700">
               <Icon name="settings-2" className="h-3.5 w-3.5" />
               {manageLabel ?? 'Manage list'}
             </Link>
           )}
-        </div>
-      )}
+      </Floating>
     </div>
   );
 }

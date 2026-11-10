@@ -8,9 +8,18 @@ import { fmtDate, fmtDateTime, fmtMoney, fmtNumber } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, Dropdown, EmptyState, Field, Icon, Input, Modal, PageHeader, Spinner, StatusBadge, Textarea, toast, Steps } from '@/components/ui';
 import { docPath, statusLabel, useDocType, useDocTypes, type TradeDoc } from './useDocTypes';
+import { APPROVAL_STATE, ApprovalPanel, useApproval } from '@/features/approvals/ApprovalPanel';
+
+/** document types that go through the approval workflow (lookup APPROVAL_DOC_TYPE) */
+const APPROVAL_TYPES = ['SQ', 'SO', 'PR', 'PO', 'PI'];
 
 function EmailModal({ open, onClose, doc, title }: { open: boolean; onClose: () => void; doc: TradeDoc; title: string }) {
-  const [form, setForm] = useState({ to: '', cc: '', subject: `${title} ${doc.number}`, message: `Dear ${doc.partnerName ?? 'Sir/Madam'},\n\nPlease find attached ${title.toLowerCase()} ${doc.number}.\n\nBest regards,` });
+  const [form, setForm] = useState({
+    to: doc.partnerEmail ?? '',
+    cc: '',
+    subject: `${title} ${doc.number}`,
+    message: `Dear ${doc.partnerName ?? 'Sir/Madam'},\n\nPlease find attached ${title.toLowerCase()} ${doc.number}.\n\nBest regards,`,
+  });
   const [busy, setBusy] = useState(false);
   const send = async () => {
     setBusy(true);
@@ -41,7 +50,7 @@ function EmailModal({ open, onClose, doc, title }: { open: boolean; onClose: () 
       }
     >
       <div className="grid gap-3">
-        <Field label="To" required>
+        <Field label="To" required help={doc.partnerEmail ? undefined : `No e-mail address is saved for ${doc.partnerName ?? 'this partner'} - add one in Master Data to fill this in automatically.`}>
           <Input type="email" value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} />
         </Field>
         <Field label="Cc">
@@ -67,7 +76,13 @@ export default function DocumentViewPage() {
   const can = useSession((s) => s.can);
   const [busy, setBusy] = useState<string | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
-  const q = useQuery({ queryKey: ['documents', type.toUpperCase(), 'one', id], queryFn: () => api.get<TradeDoc>(`/documents/${type}/${id}`), enabled: !!def });
+  const q = useQuery({
+    queryKey: ['documents', type.toUpperCase(), 'one', id],
+    queryFn: () => api.get<TradeDoc>(`/documents/${type}/${id}`),
+    enabled: !!def,
+  });
+  const usesApproval = APPROVAL_TYPES.includes(type.toUpperCase());
+  const approval = useApproval(`/documents/${type.toUpperCase()}/${id}`, !!def && usesApproval && q.data?.status === 'DRAFT');
 
   if (isLoading || q.isLoading)
     return (
@@ -86,6 +101,7 @@ export default function DocumentViewPage() {
       await fn();
       if (success) toast.success(success);
       qc.invalidateQueries({ queryKey: ['documents'] });
+      qc.invalidateQueries({ queryKey: ['approval'] });
     } catch (e) {
       toast.error(e);
     } finally {
@@ -96,15 +112,37 @@ export default function DocumentViewPage() {
   const doConfirm = async () => {
     const effects = [def.stock ? 'stock will be updated' : '', ['SI', 'PI', 'DO', 'GR', 'ADJ'].includes(def.code) ? 'journal entries will be posted' : ''].filter(Boolean);
     const extra = effects.length ? ` ${effects.join(' and ').replace(/^./, (c) => c.toUpperCase())}.` : '';
-    if (!(await confirm({ title: `Confirm ${d.number}?`, message: `After confirmation the document can no longer be edited.${extra}`, confirmText: 'Confirm' }))) return;
+    if (
+      !(await confirm({
+        title: `Confirm ${d.number}?`,
+        message: `After confirmation the document can no longer be edited.${extra}`,
+        confirmText: 'Confirm',
+      }))
+    )
+      return;
     act('confirm', () => api.post(`/documents/${def.code}/${d.id}/confirm`), `${d.number} confirmed`);
   };
   const doCancel = async () => {
-    if (!(await confirm({ title: `Cancel ${d.number}?`, message: 'Stock movements and journal entries created by this document will be reversed. This cannot be undone.', confirmText: 'Cancel document', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: `Cancel ${d.number}?`,
+        message: 'Stock movements and journal entries created by this document will be reversed. This cannot be undone.',
+        confirmText: 'Cancel document',
+        danger: true,
+      }))
+    )
+      return;
     act('cancel', () => api.post(`/documents/${def.code}/${d.id}/cancel`), `${d.number} cancelled`);
   };
   const doDelete = async () => {
-    if (!(await confirm({ title: `Delete draft ${d.number}?`, confirmText: 'Delete', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: `Delete draft ${d.number}?`,
+        confirmText: 'Delete',
+        danger: true,
+      }))
+    )
+      return;
     setBusy('delete');
     try {
       await api.delete(`/documents/${def.code}/${d.id}`);
@@ -131,21 +169,41 @@ export default function DocumentViewPage() {
   const pdf = (mode: 'preview' | 'download' | 'save') =>
     act(
       `pdf-${mode}`,
-      () => (mode === 'preview' ? previewFile({ path: `/documents/${def.code}/${d.id}/pdf`, title: `${def.label} ${d.number}` }) : download(`/documents/${def.code}/${d.id}/pdf`, mode === 'save' ? { save: 1 } : undefined)),
+      () =>
+        mode === 'preview'
+          ? previewFile({
+              path: `/documents/${def.code}/${d.id}/pdf`,
+              title: `${def.label} ${d.number}`,
+            })
+          : download(`/documents/${def.code}/${d.id}/pdf`, mode === 'save' ? { save: 1 } : undefined),
       mode === 'save' ? 'PDF saved to File Manager' : mode === 'download' ? 'PDF downloaded' : '',
     );
 
   const isDraft = d.status === 'DRAFT';
+  const appr = isDraft && usesApproval ? approval.data : undefined;
+  // documents above an approval threshold are confirmed only after the last level approved
+  const needsApproval = !!appr && ['NOT_REQUESTED', 'PENDING', 'REJECTED'].includes(appr.status);
+  const requestApproval = () => act('approval', () => api.post(`/documents/${def.code}/${d.id}/request-approval`), 'Approval requested');
   const doneLabel = def.payable ? 'Paid' : def.convertTo.length ? 'Completed' : 'Done';
   const midLabel = def.payable ? 'Partially paid' : 'In progress';
   const flow = {
     steps: [
       { label: 'Draft', hint: fmtDate(d.createdAt) },
-      { label: def.payable ? 'Issued' : 'Confirmed', hint: d.confirmedAt ? fmtDate(d.confirmedAt) : undefined },
+      {
+        label: def.payable ? 'Issued' : 'Confirmed',
+        hint: d.confirmedAt ? fmtDate(d.confirmedAt) : undefined,
+      },
       ...(def.convertTo.length || def.payable ? [{ label: midLabel }] : []),
       ...(def.convertTo.length || def.payable ? [{ label: doneLabel }] : []),
     ],
-    current: { DRAFT: 0, CONFIRMED: 1, PARTIAL: 2, COMPLETED: def.convertTo.length || def.payable ? 3 : 1, CANCELLED: 0 }[d.status] ?? 0,
+    current:
+      {
+        DRAFT: 0,
+        CONFIRMED: 1,
+        PARTIAL: 2,
+        COMPLETED: def.convertTo.length || def.payable ? 3 : 1,
+        CANCELLED: 0,
+      }[d.status] ?? 0,
   };
   if (!def.convertTo.length && !def.payable && d.status !== 'DRAFT') flow.current = flow.steps.length;
   const canConvert = ['CONFIRMED', 'PARTIAL', 'COMPLETED'].includes(d.status);
@@ -171,10 +229,21 @@ export default function DocumentViewPage() {
                 Edit
               </Button>
             )}
-            {isDraft && def.can.confirm && (
+            {isDraft && def.can.confirm && !needsApproval && (
               <Button icon="check-circle-2" loading={busy === 'confirm'} onClick={doConfirm}>
                 Confirm
               </Button>
+            )}
+            {needsApproval && appr?.canRequest && (
+              <Button icon="send" loading={busy === 'approval'} onClick={requestApproval}>
+                {appr.status === 'REJECTED' ? 'Request approval again' : 'Request approval'}
+              </Button>
+            )}
+            {needsApproval && appr?.status === 'PENDING' && (
+              <span className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-amber-50 px-3 text-sm font-medium text-amber-700">
+                <Icon name={APPROVAL_STATE.PENDING.icon} className="h-4 w-4" />
+                {appr.pending?.canDecide ? 'Waiting for your approval' : `Waiting for approval (level ${appr.pending?.level ?? 1})`}
+              </span>
             )}
             {canConvert &&
               def.convertTo
@@ -192,13 +261,45 @@ export default function DocumentViewPage() {
             <Dropdown
               trigger={<Button variant="outline" icon="more-horizontal" aria-label="More actions" />}
               items={[
-                { label: 'Preview PDF', icon: 'eye', onClick: () => pdf('preview'), hidden: !def.can.print },
-                { label: 'Download PDF', icon: 'download', onClick: () => pdf('download'), hidden: !def.can.print },
-                { label: 'Save PDF to File Manager', icon: 'folder-input', onClick: () => pdf('save'), hidden: !def.can.print },
-                { label: 'Send by e-mail', icon: 'mail', onClick: () => setEmailOpen(true), hidden: !def.can.print || !def.partner },
+                {
+                  label: 'Preview PDF',
+                  icon: 'eye',
+                  onClick: () => pdf('preview'),
+                  hidden: !def.can.print,
+                },
+                {
+                  label: 'Download PDF',
+                  icon: 'download',
+                  onClick: () => pdf('download'),
+                  hidden: !def.can.print,
+                },
+                {
+                  label: 'Save PDF to File Manager',
+                  icon: 'folder-input',
+                  onClick: () => pdf('save'),
+                  hidden: !def.can.print,
+                },
+                {
+                  label: 'Send by e-mail',
+                  icon: 'mail',
+                  onClick: () => setEmailOpen(true),
+                  hidden: !def.can.print || !def.partner,
+                },
                 'divider',
-                { label: 'Cancel document', icon: 'ban', danger: true, onClick: doCancel, hidden: !def.can.cancel || d.status === 'CANCELLED' },
-                { label: 'Delete draft', icon: 'trash-2', danger: true, onClick: doDelete, hidden: !def.can.delete || !isDraft },
+                {
+                  label: 'Cancel document',
+                  icon: 'ban',
+                  danger: true,
+                  onClick: doCancel,
+                  hidden: !def.can.cancel || d.status === 'CANCELLED',
+                },
+                {
+                  label: 'Delete draft',
+                  icon: 'trash-2',
+                  danger: true,
+                  onClick: doDelete,
+                  hidden: !def.can.delete || !isDraft,
+                },
               ]}
             />
           </>
@@ -304,7 +405,12 @@ export default function DocumentViewPage() {
                 {def.payable && (
                   <div className="!mt-4 space-y-2">
                     <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, (Number(d.paidAmount) / Math.max(1, Number(d.grandTotal))) * 100)}%` }} />
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-all"
+                        style={{
+                          width: `${Math.min(100, (Number(d.paidAmount) / Math.max(1, Number(d.grandTotal))) * 100)}%`,
+                        }}
+                      />
                     </div>
                     <Row label="Paid" value={fmtMoney(d.paidAmount)} />
                     <div className={`flex justify-between font-semibold ${Number(d.balance) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -364,6 +470,7 @@ export default function DocumentViewPage() {
               <Badge tone="red">Cancelled</Badge> Stock and journal effects of this document were reversed.
             </div>
           )}
+          {usesApproval && <ApprovalPanel basePath={`/documents/${def.code}/${d.id}`} title={`${def.label} ${d.number}`} info={appr} onRequest={requestApproval} requesting={busy === 'approval'} />}
           <HistoryCard type={def.code} id={d.id} />
         </div>
       </div>
@@ -405,12 +512,23 @@ const ACTION_STYLE: Record<string, { icon: string; color: string }> = {
   CONFIRM: { icon: 'check', color: 'bg-emerald-600' },
   CANCEL: { icon: 'ban', color: 'bg-red-600' },
   DELETE: { icon: 'trash-2', color: 'bg-red-600' },
+  APPROVAL_REQUEST: { icon: 'send', color: 'bg-amber-500' },
+  APPROVAL_WITHDRAW: { icon: 'undo-2', color: 'bg-slate-500' },
+  APPROVE: { icon: 'badge-check', color: 'bg-emerald-600' },
+  REJECT: { icon: 'circle-x', color: 'bg-red-600' },
 };
 
 /** Who changed what and when, from the immutable audit trail */
 function HistoryCard({ type, id }: { type: string; id: string }) {
-  const q = useQuery({ queryKey: ['documents', type, id, 'history'], queryFn: () => api.get<HistoryEntry[]>(`/documents/${type}/${id}/history`) });
-  const humanize = (k: string) => k.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+  const q = useQuery({
+    queryKey: ['documents', type, id, 'history'],
+    queryFn: () => api.get<HistoryEntry[]>(`/documents/${type}/${id}/history`),
+  });
+  const humanize = (k: string) =>
+    k
+      .replace(/Id$/, '')
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, (c) => c.toUpperCase());
   return (
     <Card title="History">
       {q.isLoading ? (
@@ -420,7 +538,10 @@ function HistoryCard({ type, id }: { type: string; id: string }) {
       ) : (
         <ol className="relative space-y-4 border-l border-line pl-5">
           {q.data.map((h) => {
-            const st = ACTION_STYLE[h.action] ?? { icon: 'circle', color: 'bg-slate-400' };
+            const st = ACTION_STYLE[h.action] ?? {
+              icon: 'circle',
+              color: 'bg-slate-400',
+            };
             const changed = h.action === 'UPDATE' ? Object.keys(h.after ?? {}).filter((k) => !['lines', 'subtotal', 'discountTotal', 'taxTotal'].includes(k)) : [];
             return (
               <li key={h.id} className="relative">
@@ -432,7 +553,12 @@ function HistoryCard({ type, id }: { type: string; id: string }) {
                   <span className="font-normal text-slate-500"> by {h.username ?? 'system'}</span>
                 </p>
                 <p className="text-xs text-slate-500">{fmtDateTime(h.createdAt)}</p>
-                {changed.length > 0 && <p className="mt-0.5 text-xs text-slate-500">Changed: {changed.slice(0, 6).map(humanize).join(', ')}{changed.length > 6 ? '...' : ''}</p>}
+                {changed.length > 0 && (
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Changed: {changed.slice(0, 6).map(humanize).join(', ')}
+                    {changed.length > 6 ? '...' : ''}
+                  </p>
+                )}
               </li>
             );
           })}

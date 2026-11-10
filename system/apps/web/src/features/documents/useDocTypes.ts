@@ -80,6 +80,7 @@ export interface TradeDoc {
   paidAmount: string;
   balance: string;
   partnerName: string | null;
+  partnerEmail?: string | null;
   warehouseName?: string | null;
   toWarehouseName?: string | null;
   confirmedAt?: string | null;

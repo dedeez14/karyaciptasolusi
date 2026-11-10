@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { create } from 'zustand';
 import { Button, cn } from './primitives';
 import { Icon } from './Icon';
+import { Floating } from './Floating';
 
 function useEscape(open: boolean, onClose: () => void) {
   useEffect(() => {
@@ -105,17 +106,18 @@ export function Dropdown({ trigger, items, align = 'right' }: { trigger: ReactNo
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const h = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('keydown', k);
+    return () => document.removeEventListener('keydown', k);
   }, [open]);
   const visible = items.filter((i) => i === 'divider' || !i.hidden);
   if (!visible.some((i) => i !== 'divider')) return null;
   return (
-    <div className="relative" ref={ref}>
-      <div onClick={() => setOpen((o) => !o)}>{trigger}</div>
-      {open && (
-        <div className={cn('absolute z-40 mt-1.5 min-w-52 overflow-hidden rounded-xl border border-line bg-white p-1 shadow-pop', align === 'right' ? 'right-0' : 'left-0')}>
+    <div className="relative">
+      <div ref={ref} onClick={() => setOpen((o) => !o)}>
+        {trigger}
+      </div>
+      <Floating anchorRef={ref} open={open} onClose={() => setOpen(false)} matchWidth={false} minWidth={208} align={align} className="overflow-y-auto p-1">
           {visible.map((i, idx) =>
             i === 'divider' ? (
               <div key={idx} className="my-1 border-t border-line" />
@@ -134,8 +136,7 @@ export function Dropdown({ trigger, items, align = 'right' }: { trigger: ReactNo
               </button>
             ),
           )}
-        </div>
-      )}
+      </Floating>
     </div>
   );
 }

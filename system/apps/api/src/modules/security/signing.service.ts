@@ -13,9 +13,14 @@ export interface SignedFacts {
   d: string;
   a: number | null;
   cur: string | null;
+  /** party name (customer, supplier, employee) */
+  p?: string;
 }
 
 const b64u = (b: Buffer) => b.toString('base64url');
+
+/** sha256 (hex) of a signature token; links issued files to the QR token without storing the token */
+export const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 
 /**
  * Digital signatures (Ed25519) for every generated document.
