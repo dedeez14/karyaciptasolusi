@@ -13,7 +13,10 @@ Runs locally on your PC, installable as a **PWA** (desktop & phone), multi compa
 
 ## Mulai cepat (Quick start)
 
+The ERP lives in the `system/` folder of the repository (the company website is at the repository root).
+
 ```bash
+cd system
 npm install                 # install all workspaces
 npm run setup               # create apps/api/.env with random secrets + roles, database, migrations, security, seed
 npm run dev                 # API http://localhost:3000  +  web http://localhost:5173

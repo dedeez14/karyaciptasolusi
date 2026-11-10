@@ -12,7 +12,8 @@ import { CryptoService } from '../../common/crypto/crypto.service';
 @Injectable()
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger('Storage');
-  readonly root = resolve(env.STORAGE_DIR);
+  // relative paths are resolved against apps/api (not the process working directory)
+  readonly root = resolve(__dirname, '..', '..', '..', env.STORAGE_DIR);
 
   constructor(private readonly crypto: CryptoService) {}
 
