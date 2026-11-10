@@ -27,6 +27,9 @@ interface Props<T> {
   footer?: ReactNode;
 }
 
+/** long free text may wrap; short values (dates, amounts, codes, badges) stay on one line */
+const isLong = (v: unknown) => typeof v === 'string' && v.length > 40;
+
 /** Responsive table: classic table on desktop, card list on phones. */
 export function DataTable<T>({ columns, rows, rowKey, loading, onRowClick, sort, onSort, actions, empty, selectable, footer }: Props<T>) {
   const allSelected = !!selectable && rows.length > 0 && rows.every((r) => selectable.selected.has(rowKey(r)));
@@ -85,7 +88,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, onRowClick, sort,
                   </td>
                 )}
                 {columns.map((c) => (
-                  <td key={c.key} className={cn('px-4 py-3 align-middle whitespace-nowrap text-slate-700 first:font-medium first:text-slate-900', c.align === 'right' && 'text-right tabular-nums', c.align === 'center' && 'text-center', c.className)}>
+                  <td key={c.key} className={cn('px-4 py-3 align-middle text-slate-700 first:font-medium first:text-slate-900', isLong((r as any)[c.key]) ? 'min-w-64 whitespace-normal' : 'whitespace-nowrap', c.align === 'right' && 'text-right tabular-nums', c.align === 'center' && 'text-center', c.className)}>
                     {cell(c, r)}
                   </td>
                 ))}
