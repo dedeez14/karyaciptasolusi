@@ -1,0 +1,100 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { Tx } from '../../common/prisma/prisma.service';
+import { D, round, ZERO } from '../../common/utils/money';
+import { RequestCtx } from '../../common/context/request-context';
+
+export interface MoveRequest {
+  companyId: string;
+  branchId?: string | null;
+  productId: string;
+  productName: string;
+  warehouseId: string;
+  date: Date;
+  qty: Prisma.Decimal; // signed
+  unitCost?: Prisma.Decimal; // required for inbound
+  docType: string;
+  documentId: string;
+  documentNumber: string;
+  allowNegative: boolean;
+}
+
+/** Perpetual inventory with moving-average costing per product & warehouse. */
+@Injectable()
+export class InventoryService {
+  async move(tx: Tx, m: MoveRequest): Promise<{ unitCost: Prisma.Decimal; totalCost: Prisma.Decimal }> {
+    await tx.stockBalance.upsert({
+      where: { productId_warehouseId: { productId: m.productId, warehouseId: m.warehouseId } },
+      create: { companyId: m.companyId, productId: m.productId, warehouseId: m.warehouseId },
+      update: {},
+    });
+    const [bal] = await tx.$queryRaw<{ id: string; qty: Prisma.Decimal; avgCost: Prisma.Decimal }[]>`
+      SELECT id, qty, "avgCost" FROM stock_balances WHERE "productId" = ${m.productId}::uuid AND "warehouseId" = ${m.warehouseId}::uuid FOR UPDATE`;
+    const qty = D(bal.qty);
+    const avg = D(bal.avgCost);
+    let unitCost: Prisma.Decimal;
+    let newQty = qty.plus(m.qty);
+    let newAvg = avg;
+
+    if (m.qty.gt(0)) {
+      unitCost = m.unitCost && m.unitCost.gt(0) ? m.unitCost : avg;
+      const value = qty.gt(0) ? qty.times(avg) : ZERO;
+      newAvg = newQty.gt(0) ? value.plus(m.qty.times(unitCost)).div(newQty) : unitCost;
+    } else {
+      unitCost = m.unitCost ?? avg;
+      if (newQty.lt(0) && !m.allowNegative) {
+        throw new BadRequestException(`Insufficient stock for ${m.productName}: available ${qty.toString()}, required ${m.qty.abs().toString()}`);
+      }
+      if (m.unitCost && newQty.gt(0)) {
+        // reversal of an inbound movement: remove its value at its original cost
+        newAvg = qty.times(avg).plus(m.qty.times(m.unitCost)).div(newQty);
+        if (newAvg.lt(0)) newAvg = avg;
+      }
+    }
+    newQty = newQty.toDecimalPlaces(4);
+    await tx.stockBalance.update({ where: { id: bal.id }, data: { qty: newQty, avgCost: newAvg.toDecimalPlaces(4) } });
+    const totalCost = round(m.qty.times(unitCost));
+    await tx.stockMovement.create({
+      data: {
+        companyId: m.companyId,
+        branchId: m.branchId ?? null,
+        productId: m.productId,
+        warehouseId: m.warehouseId,
+        date: m.date,
+        qty: m.qty,
+        unitCost: unitCost.toDecimalPlaces(4),
+        totalCost,
+        balanceQty: newQty,
+        docType: m.docType,
+        documentId: m.documentId,
+        documentNumber: m.documentNumber,
+        createdById: RequestCtx.get()?.user?.id,
+      },
+    });
+    return { unitCost, totalCost };
+  }
+
+  /** Reverses all movements of a document (used on cancellation). */
+  async reverse(tx: Tx, documentId: string, allowNegative: boolean) {
+    const moves = await tx.stockMovement.findMany({ where: { documentId }, orderBy: { createdAt: 'desc' } });
+    const products = await tx.product.findMany({ where: { id: { in: moves.map((m) => m.productId) } }, select: { id: true, name: true } });
+    const names = new Map(products.map((p) => [p.id, p.name]));
+    for (const mv of moves) {
+      if (mv.docType.endsWith('-REV')) continue;
+      await this.move(tx, {
+        companyId: mv.companyId,
+        branchId: mv.branchId,
+        productId: mv.productId,
+        productName: names.get(mv.productId) ?? 'product',
+        warehouseId: mv.warehouseId,
+        date: new Date(),
+        qty: D(mv.qty).neg(),
+        unitCost: D(mv.unitCost),
+        docType: `${mv.docType}-REV`,
+        documentId,
+        documentNumber: mv.documentNumber ?? '',
+        allowNegative,
+      });
+    }
+  }
+}

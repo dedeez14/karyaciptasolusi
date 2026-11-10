@@ -1,0 +1,215 @@
+import { clsx } from 'clsx';
+import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { Icon } from './Icon';
+
+export const cn = clsx;
+
+// ---------------------------------------------------------------- Button
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline';
+const variants: Record<Variant, string> = {
+  primary: 'bg-brand-700 text-white hover:bg-brand-800 shadow-xs',
+  secondary: 'bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
+  outline: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
+  ghost: 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+  danger: 'bg-red-600 text-white hover:bg-red-700 shadow-xs',
+  success: 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs',
+};
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: Variant;
+  size?: 'sm' | 'md' | 'icon';
+  icon?: string;
+  loading?: boolean;
+}
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ variant = 'primary', size = 'md', icon, loading, className, children, disabled, type = 'button', ...rest }, ref) => (
+  <button
+    ref={ref}
+    type={type}
+    disabled={disabled || loading}
+    className={cn(
+      'inline-flex items-center justify-center gap-2 rounded-lg font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+      size === 'sm' && 'h-8 px-3 text-xs',
+      size === 'md' && 'h-9 px-4 text-sm',
+      size === 'icon' && 'h-9 w-9 text-sm',
+      variants[variant],
+      className,
+    )}
+    {...rest}
+  >
+    {loading ? <Spinner className="h-4 w-4" /> : icon ? <Icon name={icon} className="h-4 w-4" /> : null}
+    {children}
+  </button>
+));
+
+// ---------------------------------------------------------------- Inputs
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(({ className, invalid, ...rest }, ref) => (
+  <input ref={ref} className={cn('input', invalid && 'input-error', className)} {...rest} />
+));
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }>(({ className, invalid, rows = 3, ...rest }, ref) => (
+  <textarea ref={ref} rows={rows} className={cn('input', invalid && 'input-error', className)} {...rest} />
+));
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean; options: { value: string; label: string }[]; placeholder?: string }>(
+  ({ className, invalid, options, placeholder, ...rest }, ref) => (
+    <select ref={ref} className={cn('input pr-8', invalid && 'input-error', className)} {...rest}>
+      {placeholder !== undefined && <option value="">{placeholder}</option>}
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  ),
+);
+export function Checkbox({ label, checked, onChange, disabled }: { label?: ReactNode; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <label className={cn('inline-flex cursor-pointer items-center gap-2 text-sm select-none', disabled && 'cursor-not-allowed opacity-60')}>
+      <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand-700 accent-brand-700" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      {label}
+    </label>
+  );
+}
+export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode; disabled?: boolean }) {
+  return (
+    <label className={cn('inline-flex cursor-pointer items-center gap-2 text-sm select-none', disabled && 'opacity-60')}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={cn('relative h-5 w-9 rounded-full transition-colors', checked ? 'bg-brand-700' : 'bg-slate-300 dark:bg-slate-700')}
+      >
+        <span className={cn('absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform', checked && 'translate-x-4')} />
+      </button>
+      {label}
+    </label>
+  );
+}
+
+export function Field({ label, error, required, help, children, className }: { label?: ReactNode; error?: string; required?: boolean; help?: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={className}>
+      {label && (
+        <label className="label">
+          {label}
+          {required && <span className="ml-0.5 text-red-500">*</span>}
+        </label>
+      )}
+      {children}
+      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : help ? <p className="mt-1 text-xs text-slate-400">{help}</p> : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Display
+export function Spinner({ className }: { className?: string }) {
+  return <span className={cn('inline-block animate-spin rounded-full border-2 border-current border-t-transparent', className ?? 'h-5 w-5')} aria-label="Loading" />;
+}
+
+export function Card({ title, actions, children, className, bodyClass }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyClass?: string }) {
+  return (
+    <section className={cn('card', className)}>
+      {(title || actions) && (
+        <header className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <div className="flex items-center gap-2">{actions}</div>
+        </header>
+      )}
+      <div className={cn('p-4', bodyClass)}>{children}</div>
+    </section>
+  );
+}
+
+const tones = {
+  gray: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  blue: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  green: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+  amber: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+  red: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300',
+  violet: 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
+};
+export type Tone = keyof typeof tones;
+export function Badge({ tone = 'gray', children, color }: { tone?: Tone; children: ReactNode; color?: string | null }) {
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap', !color && tones[tone])} style={color ? { backgroundColor: `${color}1a`, color } : undefined}>
+      {children}
+    </span>
+  );
+}
+
+const STATUS_TONE: Record<string, Tone> = {
+  DRAFT: 'gray',
+  CONFIRMED: 'blue',
+  PARTIAL: 'amber',
+  COMPLETED: 'green',
+  CANCELLED: 'red',
+  POSTED: 'green',
+  VOID: 'red',
+  PENDING: 'amber',
+  APPROVED: 'green',
+  REJECTED: 'red',
+};
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
+  return <Badge tone={STATUS_TONE[status] ?? 'gray'}>{label ?? status.charAt(0) + status.slice(1).toLowerCase()}</Badge>;
+}
+
+export function EmptyState({ icon = 'inbox', title, description, action }: { icon?: string; title: string; description?: string; action?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+      <div className="mb-3 rounded-full bg-slate-100 p-3 text-slate-400 dark:bg-slate-800">
+        <Icon name={icon} className="h-6 w-6" />
+      </div>
+      <p className="font-medium">{title}</p>
+      {description && <p className="mt-1 max-w-sm text-sm text-slate-500">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+export function PageHeader({ title, subtitle, actions, back }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; back?: () => void }) {
+  return (
+    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-2">
+        {back && <Button variant="ghost" size="icon" icon="arrow-left" onClick={back} aria-label="Back" />}
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-semibold sm:text-xl">{title}</h1>
+          {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+        </div>
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+export function StatCard({ label, value, hint, icon, tone = 'blue' }: { label: string; value: ReactNode; hint?: ReactNode; icon?: string; tone?: Tone }) {
+  return (
+    <div className="card flex items-start gap-3 p-4">
+      {icon && (
+        <div className={cn('rounded-lg p-2', tones[tone])}>
+          <Icon name={icon} className="h-5 w-5" />
+        </div>
+      )}
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-slate-500">{label}</p>
+        <p className="mt-0.5 truncate text-lg font-semibold">{value}</p>
+        {hint && <p className="text-xs text-slate-400">{hint}</p>}
+      </div>
+    </div>
+  );
+}
+
+export function Tabs<T extends string>({ value, onChange, tabs }: { value: T; onChange: (v: T) => void; tabs: { value: T; label: ReactNode }[] }) {
+  return (
+    <div className="scrollbar-thin flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
+      {tabs.map((t) => (
+        <button
+          key={t.value}
+          type="button"
+          onClick={() => onChange(t.value)}
+          className={cn('-mb-px border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap', value === t.value ? 'border-brand-700 text-brand-700 dark:text-brand-500' : 'border-transparent text-slate-500 hover:text-slate-700')}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}

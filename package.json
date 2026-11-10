@@ -1,0 +1,37 @@
+{
+  "name": "kcs-erp",
+  "private": true,
+  "version": "1.0.0",
+  "description": "KaryaCiptaSolusi ERP - multi company business management (marketing to reporting)",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "start": "npm run start --workspace=apps/api",
+    "db:setup": "npm run db:setup --workspace=apps/api",
+    "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "db:seed": "npm run db:seed --workspace=apps/api",
+    "db:backup": "node scripts/backup.mjs",
+    "typecheck": "npm run typecheck --workspace=apps/api && npm run typecheck --workspace=apps/web",
+    "setup": "node apps/api/scripts/init-env.mjs && npm run db:setup --workspace=apps/api",
+    "db:security": "node apps/api/scripts/db-security.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "prisma@6.19.3": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}
