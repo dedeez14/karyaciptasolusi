@@ -85,7 +85,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, onRowClick, sort,
                   </td>
                 )}
                 {columns.map((c) => (
-                  <td key={c.key} className={cn('px-4 py-3 align-middle text-slate-700 first:font-medium first:text-slate-900', c.align === 'right' && 'text-right tabular-nums', c.align === 'center' && 'text-center', c.className)}>
+                  <td key={c.key} className={cn('px-4 py-3 align-middle whitespace-nowrap text-slate-700 first:font-medium first:text-slate-900', c.align === 'right' && 'text-right tabular-nums', c.align === 'center' && 'text-center', c.className)}>
                     {cell(c, r)}
                   </td>
                 ))}

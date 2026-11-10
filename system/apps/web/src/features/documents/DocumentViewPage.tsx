@@ -94,9 +94,9 @@ export default function DocumentViewPage() {
   };
 
   const doConfirm = async () => {
-    const effect = def.stock ? ' Stock will be updated' : '';
-    const journal = ['SI', 'PI', 'DO', 'GR', 'ADJ'].includes(def.code) ? ' and journal entries will be posted' : '';
-    if (!(await confirm({ title: `Confirm ${d.number}?`, message: `After confirmation the document can no longer be edited.${effect}${journal}.`, confirmText: 'Confirm' }))) return;
+    const effects = [def.stock ? 'stock will be updated' : '', ['SI', 'PI', 'DO', 'GR', 'ADJ'].includes(def.code) ? 'journal entries will be posted' : ''].filter(Boolean);
+    const extra = effects.length ? ` ${effects.join(' and ').replace(/^./, (c) => c.toUpperCase())}.` : '';
+    if (!(await confirm({ title: `Confirm ${d.number}?`, message: `After confirmation the document can no longer be edited.${extra}`, confirmText: 'Confirm' }))) return;
     act('confirm', () => api.post(`/documents/${def.code}/${d.id}/confirm`), `${d.number} confirmed`);
   };
   const doCancel = async () => {

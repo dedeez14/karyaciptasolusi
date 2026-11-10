@@ -66,6 +66,9 @@ export function AsyncSelect({
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={value ? label : placeholder}
         className={cn('input flex items-center justify-between gap-2 text-left', invalid && 'input-error', !value && 'text-slate-400')}
       >
         <span className="truncate">{value ? label : placeholder}</span>

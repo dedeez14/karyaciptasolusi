@@ -111,17 +111,17 @@ export function LineEditor({ def, lines, onChange, errors }: { def: DocTypeDef; 
     <div>
       {/* desktop table */}
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[1000px] text-sm [&_th]:whitespace-nowrap">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-semibold text-slate-500 uppercase dark:border-slate-800">
               <th className="w-8 px-2 py-2">#</th>
-              <th className="min-w-56 px-2 py-2">Product / Description</th>
-              <th className="w-24 px-2 py-2 text-right">Qty</th>
-              <th className="w-32 px-2 py-2">Unit</th>
-              {(priced || allowNegative) && <th className="w-36 px-2 py-2 text-right">{priced ? 'Unit Price' : 'Unit Cost'}</th>}
-              {priced && <th className="w-20 px-2 py-2 text-right">Disc %</th>}
-              {priced && def.taxField && <th className="w-40 px-2 py-2">Tax</th>}
-              {priced && <th className="w-32 px-2 py-2 text-right">Amount</th>}
+              <th className="min-w-72 px-2 py-2">Product / Description</th>
+              <th className="w-24 min-w-24 px-2 py-2 text-right">Qty</th>
+              <th className="w-32 min-w-32 px-2 py-2">Unit</th>
+              {(priced || allowNegative) && <th className="w-40 min-w-40 px-2 py-2 text-right">{priced ? 'Unit Price' : 'Unit Cost'}</th>}
+              {priced && <th className="w-24 min-w-24 px-2 py-2 text-right">Disc %</th>}
+              {priced && def.taxField && <th className="w-48 min-w-48 px-2 py-2">Tax</th>}
+              {priced && <th className="w-36 min-w-36 px-2 py-2 text-right">Amount</th>}
               <th className="w-10" />
             </tr>
           </thead>
