@@ -22,7 +22,7 @@ export class DocumentPrintService {
     const tax = this.crypto.decrypt(p.taxId);
     return {
       name: p.name,
-      lines: [p.contactPerson && `Attn: ${p.contactPerson}`, this.crypto.decrypt(p.address), p.city, [p.phone, p.email].filter(Boolean).join('  |  '), tax && `Tax ID: ${tax}`].filter(Boolean) as string[],
+      lines: [p.contactPerson && `Attn: ${p.contactPerson}`, this.crypto.decrypt(p.address), p.city, [p.phone, p.email].filter(Boolean).join('  ·  '), tax && `NPWP ${tax}`].filter(Boolean) as string[],
     };
   }
 

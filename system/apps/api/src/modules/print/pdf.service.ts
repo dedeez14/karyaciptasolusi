@@ -44,6 +44,8 @@ interface Brand {
   lines: string[];
   logo?: Buffer;
   color: string;
+  /** small accents (top bar) */
+  color2: string;
   footer: string;
   paper: string;
   showSignatures: boolean;
@@ -82,6 +84,7 @@ export class PdfService {
       ].filter(Boolean),
       logo,
       color: await this.settings.str('document.primaryColor', companyId, '#1e40af'),
+      color2: (await this.settings.str('document.secondaryColor', companyId, '')) || '',
       footer: await this.settings.str('document.footerText', companyId, ''),
       paper: await this.settings.str('document.paperSize', companyId, 'A4'),
       showSignatures: await this.settings.bool('document.showSignatures', companyId, true),
@@ -127,8 +130,8 @@ export class PdfService {
     let logoDrawn = false;
     if (b.logo) {
       try {
-        doc.image(b.logo, L, y, { fit: [64, 44] });
-        textX = L + 74;
+        doc.image(b.logo, L, y - 2, { fit: [48, 48], align: 'center', valign: 'center' });
+        textX = L + 60;
         logoDrawn = true;
       } catch {
         /* unsupported image -> monogram */
@@ -140,14 +143,19 @@ export class PdfService {
       doc.font('Helvetica-Bold').fontSize(15).fillColor('#ffffff').text(initials, L, y + 12.5, { width: 40, align: 'center', lineBreak: false });
       textX = L + 52;
     }
-    const leftW = W * 0.56 - (textX - L);
+    const leftW = W * 0.62 - (textX - L);
     doc.font('Helvetica-Bold').fontSize(14).fillColor(ink).text(b.name, textX, y + 1, { width: leftW });
     doc.font('Helvetica').fontSize(7.8).fillColor(GREY);
-    for (const line of b.lines) doc.text(line, textX, doc.y + 1.5, { width: leftW });
+    for (const line of b.lines) {
+      // a line that does not fit breaks at its last ", " (e.g. the city goes to its own line) instead of mid-phrase
+      const cut = line.lastIndexOf(', ');
+      const parts = doc.widthOfString(line) > leftW && cut > 0 ? [line.slice(0, cut), line.slice(cut + 2)] : [line];
+      for (const part of parts) doc.text(part, textX, doc.y + 1.5, { width: leftW });
+    }
     const leftBottom = Math.max(doc.y, y + 44);
 
-    const rx = L + W * 0.56;
-    const rw = W * 0.44;
+    const rx = L + W * 0.62;
+    const rw = W * 0.38;
     doc.font('Helvetica-Bold').fontSize(18).fillColor(accent).text(d.title.toUpperCase(), rx, y, { width: rw, align: 'right', characterSpacing: 0.6 });
     if (d.number) doc.font('Helvetica-Bold').fontSize(10).fillColor(ink).text(d.number, rx, doc.y + 3, { width: rw, align: 'right' });
     let rightBottom = doc.y;
@@ -256,15 +264,6 @@ export class PdfService {
         }
       }
       y = Math.max(ty, top + wordsH) + 6;
-      if (stamp && /^paid$/i.test(d.status ?? '') && rows.length) {
-        // "PAID" stamp next to the totals
-        doc.save();
-        doc.rotate(-12, { origin: [tx - 46, top + totalsH / 2] });
-        doc.roundedRect(tx - 86, top + totalsH / 2 - 14, 76, 28, 4).lineWidth(1.6).strokeColor('#16a34a').strokeOpacity(0.7).stroke();
-        doc.font('Helvetica-Bold').fontSize(14).fillColor('#16a34a').fillOpacity(0.75).text('PAID', tx - 86, top + totalsH / 2 - 7, { width: 76, align: 'center', characterSpacing: 2, lineBreak: false });
-        doc.restore();
-        doc.fillOpacity(1).strokeOpacity(1);
-      }
     }
 
     // ---------- Payment information / notes / terms
@@ -318,6 +317,7 @@ export class PdfService {
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
       doc.rect(0, 0, doc.page.width, 4).fill(accent);
+      if (b.color2) doc.rect(doc.page.width * 0.78, 0, doc.page.width * 0.22, 4).fill(b.color2);
       const fy = doc.page.height - 38;
       doc.moveTo(L, fy - 6).lineTo(L + W, fy - 6).lineWidth(0.5).strokeColor(LINE).stroke();
       doc.font('Helvetica').fontSize(7).fillColor(GREY);
