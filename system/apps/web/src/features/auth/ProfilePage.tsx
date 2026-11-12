@@ -5,6 +5,7 @@ import { fmtDateTime } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Button, Card, Field, Icon, Input, PageHeader, toast } from '@/components/ui';
 import { TwoFactorCard } from './TwoFactorCard';
+import { SignatureCard } from './SignatureCard';
 
 export default function ProfilePage() {
   const { me, logout } = useSession();
@@ -46,6 +47,7 @@ export default function ProfilePage() {
         </div>
       )}
       <div className="grid gap-4">
+        {!forced && <SignatureCard />}
         {!forced && <TwoFactorCard />}
         <Card title="Account">
           <dl className="grid grid-cols-2 gap-3 text-sm">

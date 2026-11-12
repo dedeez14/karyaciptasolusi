@@ -51,6 +51,8 @@ interface Brand {
   showSignatures: boolean;
   wordsLang: 'en' | 'id';
   locale: string;
+  /** the configured signer (Settings > Documents) with the signature saved on their profile, if they allow it */
+  signer?: { name: string; title: string; image: Buffer };
 }
 
 /** content of an official company letter (see renderLetter) */
@@ -61,7 +63,11 @@ export interface LetterContent {
   date: string;
   subject: string;
   recipient: string | null;
-  personName: string;
+  /** PERSON (default) or PLAIN */
+  layout?: string;
+  /** LETTER_TYPE code, picks the opening sentence */
+  type?: string;
+  personName: string | null;
   personIdNumber: string | null;
   personAddress: string | null;
   personPosition: string | null;
@@ -108,6 +114,22 @@ export class PdfService {
       showSignatures: await this.settings.bool('document.showSignatures', companyId, true),
       wordsLang: (await this.settings.str('document.amountInWordsLanguage', companyId, 'en')) === 'id' ? 'id' : 'en',
       locale: await this.settings.str('general.locale', companyId, 'en-US'),
+      signer: await this.signer(companyId),
+    };
+  }
+
+  /** Signature of the user named in document.signerUsername - only while that user keeps it enabled */
+  private async signer(companyId: string): Promise<Brand['signer']> {
+    const username = (await this.settings.str('document.signerUsername', companyId, ''))?.trim();
+    if (!username) return undefined;
+    const u = await this.prisma.user.findFirst({ where: { username, deletedAt: null, isActive: true }, select: { fullName: true, signatureKey: true, signatureEnabled: true } });
+    if (!u?.signatureKey || !u.signatureEnabled) return undefined;
+    const image = await this.storage.get(u.signatureKey, true).catch(() => null);
+    if (!image) return undefined;
+    return {
+      name: (await this.settings.str('document.signerName', companyId, '')) || u.fullName,
+      title: (await this.settings.str('document.signerTitle', companyId, '')) || '',
+      image,
     };
   }
 
@@ -310,8 +332,19 @@ export class PdfService {
         const x = startX + i * sw + 8;
         const w = sw - 16;
         doc.font('Helvetica-Bold').fontSize(7).fillColor(GREY).text(s.toUpperCase(), x, y, { width: w, align: 'center', characterSpacing: 0.6 });
+        const signHere = !!b.signer && /authori|approv/i.test(s) && !/draft|cancel/i.test(d.status ?? '');
+        if (signHere) {
+          try {
+            doc.image(b.signer!.image, x + 6, y + 12, { fit: [w - 12, 48], align: 'center', valign: 'bottom' });
+          } catch {
+            /* unreadable image: leave the box empty */
+          }
+        }
         doc.moveTo(x + 6, y + 62).lineTo(x + w - 6, y + 62).lineWidth(0.6).strokeColor('#94a3b8').stroke();
-        doc.font('Helvetica').fontSize(6.8).fillColor('#94a3b8').text('Name & date', x, y + 66, { width: w, align: 'center' });
+        if (signHere) {
+          doc.font('Helvetica-Bold').fontSize(7.4).fillColor('#0f172a').text(b.signer!.name, x, y + 65, { width: w, align: 'center' });
+          if (b.signer!.title) doc.font('Helvetica').fontSize(6.8).fillColor('#64748b').text(b.signer!.title, x, doc.y + 0.5, { width: w, align: 'center' });
+        } else doc.font('Helvetica').fontSize(6.8).fillColor('#94a3b8').text('Name & date', x, y + 66, { width: w, align: 'center' });
       });
       y += 82;
     }
@@ -477,7 +510,7 @@ export class PdfService {
    */
   async renderLetter(companyId: string, l: LetterContent): Promise<Buffer> {
     const b = await this.brand(companyId);
-    const token = await this.signing.sign(companyId, { k: 'LETTER', id: l.id, n: l.number, d: l.date, a: null, cur: null, p: l.personName.slice(0, 150) });
+    const token = await this.signing.sign(companyId, { k: 'LETTER', id: l.id, n: l.number, d: l.date, a: null, cur: null, ...(l.personName ? { p: l.personName.slice(0, 150) } : {}) });
     const code = tokenHash(token).slice(0, 20);
     const publicUrl = (await this.settings.str('general.publicUrl', companyId, 'http://localhost:3000')).replace(/\/$/, '');
     const verifyUrl = `${publicUrl}/verify?c=${code}`;
@@ -539,20 +572,50 @@ export class PdfService {
       lines.forEach((line, i) => doc.font(i === 0 ? 'Helvetica-Bold' : 'Helvetica').text(line, L, doc.y + 1, { width: W }));
       y = doc.y + 12;
     }
-    doc.font('Helvetica').fontSize(size).text('Dengan hormat,', L, y);
-    y = doc.y + 8;
-    doc.text('Yang bertanda tangan di bawah ini:', L, y);
-    y = kv([['Nama', l.signerName, true], ['Jabatan', l.signerTitle], ['Perusahaan', b.name]], L + 8, 110, doc.y + gap) + 6;
-    doc.font('Helvetica').fontSize(size).text('dengan ini menerangkan bahwa:', L, y);
-    const person: [string, string, boolean?][] = [['Nama', l.personName, true]];
-    if (l.personIdNumber) person.push(['NIK', l.personIdNumber]);
-    if (l.personAddress) person.push(['Alamat', l.personAddress.replace(/\s*\r?\n\s*/g, ', ')]);
-    if (l.personPosition) person.push(['Jabatan', l.personPosition]);
-    y = kv(person, L + 8, 110, doc.y + gap) + 8;
+    if (l.layout !== 'PLAIN') {
+      doc.font('Helvetica').fontSize(size).text('Dengan hormat,', L, y);
+      y = doc.y + 8;
+      doc.text('Yang bertanda tangan di bawah ini:', L, y);
+      y = kv([['Nama', l.signerName, true], ['Jabatan', l.signerTitle], ['Perusahaan', b.name]], L + 8, 110, doc.y + gap) + 6;
+      if (l.personName) {
+        const INTRO: Record<string, string> = {
+          RECOMMENDATION: 'dengan ini menerangkan dan memberikan rekomendasi kepada:',
+          ASSIGNMENT: 'dengan ini memberikan tugas kepada:',
+          POWER_OF_ATTORNEY: 'dengan ini memberikan kuasa kepada:',
+          APPOINTMENT: 'dengan ini menetapkan, atas nama:',
+          WARNING: 'dengan ini memberikan Surat Peringatan kepada:',
+        };
+        doc.font('Helvetica').fontSize(size).text(INTRO[l.type ?? ''] ?? 'dengan ini menerangkan bahwa:', L, y);
+        const person: [string, string, boolean?][] = [['Nama', l.personName, true]];
+        if (l.personIdNumber) person.push(['NIK', l.personIdNumber]);
+        if (l.personAddress) person.push(['Alamat', l.personAddress.replace(/\s*\r?\n\s*/g, ', ')]);
+        if (l.personPosition) person.push(['Jabatan', l.personPosition]);
+        y = kv(person, L + 8, 110, doc.y + gap) + 8;
+      }
+    }
 
-    // ---------- text
-    for (const para of l.body.split(/\r?\n\s*\r?\n/).map((s) => s.replace(/\s*\r?\n\s*/g, ' ').trim()).filter(Boolean)) {
-      doc.font('Helvetica').fontSize(size).fillColor(ink).text(para, L, y, { width: W, align: 'justify', lineGap: 1.5 });
+    // ---------- text: "# " starts a heading (e.g. Pasal 1), lines starting with "- " or "1." form a list
+    for (const block of l.body.split(/\r?\n\s*\r?\n/).map((s) => s.trim()).filter(Boolean)) {
+      y = this.ensure(doc, y, 40);
+      const lines = block.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      if (lines[0].startsWith('# ')) {
+        doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(lines[0].slice(2), L, y, { width: W, align: lines[0].length < 40 ? 'center' : 'left' });
+        y = doc.y + 4;
+        lines.shift();
+        if (!lines.length) continue;
+      }
+      if (lines.every((x) => /^(-|\d+[.)]|[a-z][.)])\s+/.test(x))) {
+        for (const item of lines) {
+          const m = /^(-|\d+[.)]|[a-z][.)])\s+(.*)$/.exec(item)!;
+          const bullet = m[1] === '-' ? '•' : m[1];
+          doc.font('Helvetica').fontSize(size).fillColor(ink).text(bullet, L + 6, y, { width: 18 });
+          doc.text(m[2], L + 24, y, { width: W - 24, align: 'justify', lineGap: 1.5 });
+          y = doc.y + 3;
+        }
+        y += 4;
+        continue;
+      }
+      doc.font('Helvetica').fontSize(size).fillColor(ink).text(lines.join(' '), L, y, { width: W, align: 'justify', lineGap: 1.5 });
       y = doc.y + 7;
     }
 
@@ -569,13 +632,28 @@ export class PdfService {
     doc.text('Hormat kami,', sx, doc.y + 1, { width: sw });
     doc.font('Helvetica-Bold').text(b.name, sx, doc.y + 1, { width: sw });
     const qy = doc.y + 6;
-    const QR = 64;
     const qr = await QRCode.toBuffer(verifyUrl, { margin: 0, width: 240, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
-    doc.image(qr, sx, qy, { width: QR, height: QR });
-    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(accent).text('DITANDATANGANI SECARA ELEKTRONIK', sx + QR + 8, qy + 4, { width: sw - QR - 8, characterSpacing: 0.3 });
-    doc.font('Helvetica').fontSize(7).fillColor(GREY).text(`oleh sistem ${b.name}.${publicHost ? ' Pindai kode QR untuk memeriksa keaslian surat ini.' : ''}`, sx + QR + 8, doc.y + 2, { width: sw - QR - 8 });
-    doc.font('Helvetica').fontSize(6.5).fillColor(GREY).text(`Kode: ${code}`, sx + QR + 8, doc.y + 3, { width: sw - QR - 8 });
-    const ny = qy + QR + 8;
+    // the signer's own signature (My Profile) when they are the configured document signer
+    const sig = b.signer && b.signer.name.trim().toLowerCase() === l.signerName.trim().toLowerCase() ? b.signer.image : null;
+    let ny: number;
+    if (sig) {
+      const QR = 50;
+      try {
+        doc.image(sig, sx, qy, { fit: [sw - QR - 16, 62], valign: 'bottom' });
+      } catch {
+        /* unreadable image */
+      }
+      doc.image(qr, sx + sw - QR, qy + 6, { width: QR, height: QR });
+      doc.font('Helvetica').fontSize(5.6).fillColor(GREY).text('Tanda tangan elektronik', sx + sw - QR - 8, qy + QR + 8, { width: QR + 16, align: 'center' });
+      ny = qy + 66;
+    } else {
+      const QR = 64;
+      doc.image(qr, sx, qy, { width: QR, height: QR });
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(accent).text('DITANDATANGANI SECARA ELEKTRONIK', sx + QR + 8, qy + 4, { width: sw - QR - 8, characterSpacing: 0.3 });
+      doc.font('Helvetica').fontSize(7).fillColor(GREY).text(`oleh sistem ${b.name}.${publicHost ? ' Pindai kode QR untuk memeriksa keaslian surat ini.' : ''}`, sx + QR + 8, doc.y + 2, { width: sw - QR - 8 });
+      doc.font('Helvetica').fontSize(6.5).fillColor(GREY).text(`Kode: ${code}`, sx + QR + 8, doc.y + 3, { width: sw - QR - 8 });
+      ny = qy + QR + 8;
+    }
     doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(l.signerName, sx, ny, { width: sw, underline: true });
     doc.font('Helvetica').text(l.signerTitle, sx, doc.y + 1, { width: sw });
 

@@ -7,6 +7,7 @@ import { CryptoService } from '../../common/crypto/crypto.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { PdfService } from '../print/pdf.service';
 import { FileOutputService } from '../files/file-output.service';
+import { SettingsService } from '../../common/settings/settings.service';
 
 /** Company letters (CRUD through the generic "letters" resource): the signed PDF */
 @Controller('letters')
@@ -17,7 +18,19 @@ export class LetterController {
     private readonly pdf: PdfService,
     private readonly output: FileOutputService,
     private readonly audit: AuditService,
+    private readonly settings: SettingsService,
   ) {}
+
+  /** Who signs generated documents and whether a signature image is available (Document Center banner) */
+  @Get('signer')
+  @Permission('hris.letter.read')
+  async signer() {
+    const companyId = RequestCtx.companyId();
+    const brand = await this.pdf.brand(companyId);
+    const name = (await this.settings.str('document.signerName', companyId, '')) || 'Dede Febriansyah';
+    const title = (await this.settings.str('document.signerTitle', companyId, '')) || 'Direktur';
+    return { signerName: brand.signer?.name ?? name, signerTitle: brand.signer?.title || title, hasSignature: !!brand.signer };
+  }
 
   /** Every print is signed and registered, so the verification page knows this exact file */
   @Get(':id/pdf')
@@ -32,6 +45,8 @@ export class LetterController {
       number: l.number,
       date: l.letterDate.toISOString().slice(0, 10),
       subject: l.subject,
+      layout: l.layout,
+      type: l.letterType,
       recipient: l.recipient,
       personName: l.personName,
       personIdNumber: this.crypto.decrypt(l.personIdNumber),

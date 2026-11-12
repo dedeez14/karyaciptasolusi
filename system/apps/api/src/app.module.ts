@@ -69,6 +69,7 @@ import { LEADFINDER_CONTROLLERS, LEADFINDER_PROVIDERS } from './modules/leadfind
 import { WEBSITE_CONTROLLERS, WEBSITE_PROVIDERS } from './modules/website';
 import { AnnouncementController } from './modules/announcements/announcement.controller';
 import { LetterController } from './modules/letters/letter.controller';
+import { SignatureController } from './modules/letters/signature.controller';
 import { EMAILCAMPAIGN_CONTROLLERS, EMAILCAMPAIGN_PROVIDERS } from './modules/emailcampaign';
 import { AttendanceController } from './modules/hris/attendance.controller';
 import { AttendanceService } from './modules/hris/attendance.service';
@@ -139,6 +140,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...WEBSITE_CONTROLLERS,
     AnnouncementController,
     LetterController,
+    SignatureController,
     ...EMAILCAMPAIGN_CONTROLLERS,
     AttendanceController,
   ],

@@ -12,6 +12,7 @@ import { routes as closing } from '@/features/closing/routes';
 import { routes as timebilling } from '@/features/timebilling/routes';
 import { routes as leadfinder } from '@/features/leadfinder/routes';
 import { routes as emailcampaign } from '@/features/emailcampaign/routes';
+import { routes as documentcenter } from '@/features/documentcenter/routes';
 
 /** Routes contributed by feature modules (keeps App.tsx free of per-module edits). */
-export const extraRoutes: { path: string; element: ReactNode }[] = [...billing, ...assets, ...budget, ...approvals, ...expenses, ...helpdesk, ...views, ...opening, ...bankrec, ...closing, ...timebilling, ...leadfinder, ...emailcampaign];
+export const extraRoutes: { path: string; element: ReactNode }[] = [...billing, ...assets, ...budget, ...approvals, ...expenses, ...helpdesk, ...views, ...opening, ...bankrec, ...closing, ...timebilling, ...leadfinder, ...emailcampaign, ...documentcenter];

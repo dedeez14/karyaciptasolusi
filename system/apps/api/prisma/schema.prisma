@@ -158,6 +158,10 @@ model User {
   createdById        String?   @db.Uuid
   updatedById        String?   @db.Uuid
   deletedAt          DateTime?
+  /// the user's own signature image (encrypted PNG in storage), placed on documents only when signatureEnabled
+  signatureKey       String?   @db.VarChar(255)
+  signatureEnabled   Boolean   @default(false)
+  signatureUpdatedAt DateTime?
 
   assignments UserAssignment[]
   sessions    Session[]
@@ -2317,10 +2321,12 @@ model CompanyLetter {
   companyId      String    @db.Uuid
   number         String    @db.VarChar(60)
   letterType     String    @db.VarChar(30)
+  /// PERSON: signer + person details before the text; PLAIN: the text only (memo, invitation, minutes)
+  layout         String    @default("PERSON") @db.VarChar(10)
   letterDate     DateTime  @db.Date
   subject        String    @db.VarChar(200)
   recipient      String?
-  personName     String    @db.VarChar(150)
+  personName     String?   @db.VarChar(150)
   /// encrypted
   personIdNumber String?   @db.VarChar(255)
   /// encrypted
