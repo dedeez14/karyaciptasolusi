@@ -751,6 +751,8 @@ model Project {
   /// time billing: hourly rate and the service product used on invoices
   hourlyRate       Decimal   @default(0) @db.Decimal(18, 2)
   billingProductId String?   @db.Uuid
+  /// agreed price with the client, split into billing milestones (termin)
+  contractValue    Decimal   @default(0) @db.Decimal(18, 2)
   statusCode       String?   @db.VarChar(50)
   description      String?
   isActive         Boolean   @default(true)
@@ -2365,4 +2367,27 @@ model LetterTemplate {
 
   @@index([companyId, letterType])
   @@map("letter_templates")
+}
+
+/// Billing milestone (termin) of a client project: invoiced on its own, e.g. 30% down payment, 40% demo, 30% handover
+model ProjectMilestone {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  projectId   String    @db.Uuid
+  sortOrder   Int       @default(0)
+  name        String    @db.VarChar(150)
+  percent     Decimal?  @db.Decimal(5, 2)
+  amount      Decimal   @db.Decimal(18, 2)
+  dueDate     DateTime? @db.Date
+  /// when it may be billed, e.g. "Setelah BAST ditandatangani"
+  trigger     String?   @db.VarChar(200)
+  invoiceId   String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@index([companyId, projectId])
+  @@map("project_milestones")
 }

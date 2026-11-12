@@ -70,6 +70,7 @@ import { WEBSITE_CONTROLLERS, WEBSITE_PROVIDERS } from './modules/website';
 import { AnnouncementController } from './modules/announcements/announcement.controller';
 import { LetterController } from './modules/letters/letter.controller';
 import { SignatureController } from './modules/letters/signature.controller';
+import { MilestoneController } from './modules/projects/milestone.controller';
 import { EMAILCAMPAIGN_CONTROLLERS, EMAILCAMPAIGN_PROVIDERS } from './modules/emailcampaign';
 import { AttendanceController } from './modules/hris/attendance.controller';
 import { AttendanceService } from './modules/hris/attendance.service';
@@ -141,6 +142,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     AnnouncementController,
     LetterController,
     SignatureController,
+    MilestoneController,
     ...EMAILCAMPAIGN_CONTROLLERS,
     AttendanceController,
   ],

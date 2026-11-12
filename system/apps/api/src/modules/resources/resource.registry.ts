@@ -332,6 +332,7 @@ export const RESOURCES: ResourceDef[] = [
       lookup('statusCode', 'Status', 'PROJECT_STATUS', { list: true, filter: true }),
       date('startDate', 'Start Date', { list: true, sortable: true }),
       date('endDate', 'End Date'),
+      money('contractValue', 'Contract value', { help: 'Price agreed with the client; split it into billing milestones on the project page' }),
       money('budget', 'Budget', { list: true }),
       money('hourlyRate', 'Hourly rate', { section: 'Time billing', help: 'Price per billable hour when invoicing logged time' }),
       rel('billingProductId', 'Billing product', 'products', { section: 'Time billing', help: 'Service product used on time invoices (its sales tax applies)' }),

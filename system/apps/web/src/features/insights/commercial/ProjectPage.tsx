@@ -7,6 +7,7 @@ import { useLookupOptions } from '@/hooks/useLookups';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, Checkbox, cn, confirm, DatePicker, Field, Icon, StatusBadge, toast } from '@/components/ui';
 import type { Row } from '@/features/resources/types';
+import { MilestonesTab } from './MilestonesTab';
 import { DetailShell, DOC_LABEL, InfoGrid, Kpi, Loading, LookupBadge, MiniTable, money, Muted, Progress, TabBar, useHashTab } from '../shared';
 
 export interface ProjectStats {
@@ -46,7 +47,7 @@ interface Billing {
   invoices: { id: string; number: string; date: string; status: string; grandTotal: number; hours: number }[];
 }
 
-const TABS = ['overview', 'tasks', 'billing', 'documents', 'tickets'] as const;
+const TABS = ['overview', 'milestones', 'tasks', 'billing', 'documents', 'tickets'] as const;
 type Tab = (typeof TABS)[number];
 
 /** Project 360°: progress, budget vs actuals, tasks, documents, time and tickets */
@@ -89,6 +90,7 @@ export default function ProjectPage() {
 
 function Body({ id, r }: { id: string; r: Row }) {
   const navigate = useNavigate();
+  const can = useSession((st) => st.can);
   const [tab, setTab] = useHashTab<Tab>(TABS, 'overview');
   const q = useQuery({ queryKey: ['insights', 'project', id], queryFn: () => api.get<Overview>(`/insights/projects/${id}`) });
   const pri = useLookupOptions('TASK_PRIORITY');
@@ -133,6 +135,7 @@ function Body({ id, r }: { id: string; r: Row }) {
         onChange={setTab}
         tabs={[
           { value: 'overview', label: 'Overview' },
+          { value: 'milestones', label: 'Milestones', hidden: !can('master.project.read') },
           { value: 'tasks', label: 'Tasks', count: o?.tasks?.filter((t) => !t.completedAt).length ?? null, hidden: o && !o.tasks },
           { value: 'billing', label: 'Billing', count: o?.billing ? o.billing.unbilledHours || null : null, hidden: o && !o.billing },
           { value: 'documents', label: 'Documents', count: o?.documents?.length ?? null, hidden: o && !o.documents },
@@ -229,6 +232,8 @@ function Body({ id, r }: { id: string; r: Row }) {
             ]}
           />
         </Card>
+      ) : tab === 'milestones' ? (
+        <MilestonesTab id={id} />
       ) : tab === 'billing' && o?.billing ? (
         <BillingTab id={id} />
       ) : tab === 'documents' && o?.documents ? (
