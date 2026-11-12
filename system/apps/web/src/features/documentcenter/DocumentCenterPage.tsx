@@ -3,11 +3,36 @@ import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Badge, Button, Card, DatePicker, Field, Icon, Input, PageHeader, previewFile, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Badge, Button, Card, confirm, DatePicker, Field, Icon, Input, PageHeader, previewFile, Textarea, toast } from '@/components/ui';
 import { cn } from '@/components/ui/primitives';
 import { GROUPS, TEMPLATES, type DocTemplate } from './templates';
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Fills the placeholders the form already knows: day and date of the document, and the person's details.
+ * Everything else in [square brackets] stays for the user to write.
+ */
+function autoFill(text: string, f: Form, client?: { name: string; contact: string }) {
+  const d = new Date(`${f.letterDate}T00:00:00Z`);
+  const valid = !Number.isNaN(d.getTime());
+  const day = valid ? d.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'UTC' }) : '';
+  const date = valid ? d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
+  const map: [RegExp, string][] = [
+    [/\[hari\]/gi, day],
+    [/\[tanggal\]/gi, date],
+    [/\[nama (karyawan|kandidat|klien|penerima kuasa)\]/gi, f.personName.trim()],
+    [/\[NIK\]/g, f.personIdNumber.trim()],
+    [/\[alamat\]/gi, f.personAddress.trim().replace(/\s*\n\s*/g, ', ')],
+    [/\[jabatan\]/gi, f.personPosition.trim()],
+    [/\[nama penerima\]/gi, f.personName.trim()],
+    [/\[nama perusahaan klien\]/gi, client?.name ?? ''],
+    [/\[nama kontak\]/gi, client?.contact || f.personName.trim()],
+  ];
+  let out = text;
+  for (const [re, v] of map) if (v) out = out.replace(re, v);
+  return out;
+}
 
 interface Form {
   letterDate: string;
@@ -29,6 +54,8 @@ export default function DocumentCenterPage() {
   const [tpl, setTpl] = useState<DocTemplate | null>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [employeeId, setEmployeeId] = useState('');
+  const [customerId, setCustomerId] = useState('');
+  const [client, setClient] = useState<{ name: string; contact: string } | undefined>();
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState('');
   const signer = useQuery({
@@ -39,6 +66,8 @@ export default function DocumentCenterPage() {
   const start = (t: DocTemplate) => {
     setTpl(t);
     setEmployeeId('');
+    setCustomerId('');
+    setClient(undefined);
     setForm({
       letterDate: today(),
       subject: t.subject,
@@ -68,17 +97,47 @@ export default function DocumentCenterPage() {
     }
   };
 
-  const placeholders = useMemo(() => (form ? [...new Set(`${form.subject}\n${form.recipient}\n${form.body}`.match(/\[[^\]]{2,60}\]/g) ?? [])] : []), [form]);
+  // choosing a customer fills the client company, its contact person and address
+  const pickCustomer = async (id: string) => {
+    setCustomerId(id);
+    if (!id) return setClient(undefined);
+    try {
+      const c = await api.get<Record<string, any>>(`/resources/customers/${id}`);
+      const name = String(c.name ?? '');
+      const contact = String(c.contactPerson ?? '');
+      setClient({ name, contact });
+      setForm((f) =>
+        f && tpl?.person
+          ? { ...f, personName: contact || name, personPosition: contact ? `Perwakilan ${name}` : '', personAddress: [c.address, c.city].filter(Boolean).join(', '), personIdNumber: '' }
+          : f,
+      );
+    } catch (err) {
+      toast.error(err);
+    }
+  };
+
+  const placeholders = useMemo(() => (form ? [...new Set(autoFill(`${form.subject}\n${form.recipient}\n${form.body}`, form, client).match(/\[[^\]]{2,60}\]/g) ?? [])] : []), [form, client]);
 
   const generate = async () => {
     if (!tpl || !form) return;
-    if (tpl.person && !form.personName.trim()) return toast.error('Fill in the person (or choose an employee)');
+    if (tpl.person && !form.personName.trim()) return toast.error(`Fill in the ${(tpl.personLabel ?? 'person').toLowerCase()} (or choose an employee)`);
+    const filled = { ...form, subject: autoFill(form.subject, form, client), recipient: autoFill(form.recipient, form, client), body: autoFill(form.body, form, client) };
+    const left = [...new Set(`${filled.subject}\n${filled.recipient}\n${filled.body}`.match(/\[[^\]]{2,60}\]/g) ?? [])];
+    if (
+      left.length &&
+      !(await confirm({
+        title: `${left.length} part${left.length > 1 ? 's are' : ' is'} still to fill in`,
+        message: `${left.slice(0, 6).join(', ')}${left.length > 6 ? ', ...' : ''} will be printed as written. Generate anyway?`,
+        confirmText: 'Generate anyway',
+      }))
+    )
+      return;
     setBusy(true);
     try {
       const created = await api.post<{ id: string; number: string }>('/resources/letters', {
         letterType: tpl.type,
         layout: tpl.layout,
-        ...form,
+        ...filled,
         personName: form.personName || null,
         personIdNumber: form.personIdNumber || null,
         personAddress: form.personAddress || null,
@@ -158,15 +217,26 @@ export default function DocumentCenterPage() {
                 </Field>
               </div>
 
+              {!tpl.person && tpl.party === 'customer' && can('master.customer.read') && (
+                <Field label="Customer" help="Fills the client name and contact in the text">
+                  <AsyncSelect resource="customers" value={customerId} onChange={(v) => pickCustomer(v ?? '')} placeholder="Search customer..." />
+                </Field>
+              )}
               {tpl.person && (
                 <div className="rounded-xl border border-line p-4">
-                  <p className="mb-3 text-sm font-semibold text-slate-800">Person</p>
+                  <p className="mb-3 text-sm font-semibold text-slate-800">{tpl.personLabel ?? 'Person'}</p>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {can('hris.employee.read') && (
-                      <Field label="Choose an employee" help="Fills the details below" className="sm:col-span-2">
-                        <AsyncSelect resource="employees" value={employeeId} onChange={(v) => pickEmployee(v ?? '')} placeholder="Search employee..." />
-                      </Field>
-                    )}
+                    {tpl.party === 'customer'
+                      ? can('master.customer.read') && (
+                          <Field label="Choose a customer" help="Fills the client, contact person and address" className="sm:col-span-2">
+                            <AsyncSelect resource="customers" value={customerId} onChange={(v) => pickCustomer(v ?? '')} placeholder="Search customer..." />
+                          </Field>
+                        )
+                      : can('hris.employee.read') && (
+                          <Field label="Choose an employee" help="Fills the details below" className="sm:col-span-2">
+                            <AsyncSelect resource="employees" value={employeeId} onChange={(v) => pickEmployee(v ?? '')} placeholder="Search employee..." />
+                          </Field>
+                        )}
                     <Field label="Name" required>
                       <Input value={form.personName} maxLength={150} onChange={(e) => set('personName', e.target.value)} />
                     </Field>

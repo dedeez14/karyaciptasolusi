@@ -24,7 +24,7 @@ export class ResourceHooks {
   private async letterNumber(type: string, date: Date) {
     const companyId = RequestCtx.companyId();
     const year = date.getUTCFullYear();
-    const ABBR: Record<string, string> = { RECOMMENDATION: 'SR', STATEMENT: 'SKET', EMPLOYMENT: 'SKK', INCOME: 'SKP', ASSIGNMENT: 'ST', POWER_OF_ATTORNEY: 'SKU', DECLARATION: 'SPN', APPOINTMENT: 'SK', OFFER: 'SPK', CONTRACT: 'PKWT', WARNING: 'SP', REFERENCE: 'SRK', HANDOVER: 'BAST', INVITATION: 'UND', MEMO: 'MEMO', OTHER: 'SU' };
+    const ABBR: Record<string, string> = { RECOMMENDATION: 'SR', STATEMENT: 'SKET', EMPLOYMENT: 'SKK', INCOME: 'SKP', ASSIGNMENT: 'ST', POWER_OF_ATTORNEY: 'SKU', DECLARATION: 'SPN', APPOINTMENT: 'SK', OFFER: 'OL', CONTRACT: 'PKWT', WARNING: 'SP', REFERENCE: 'SRK', HANDOVER: 'BAST', INVITATION: 'UND', MEMO: 'MEMO', MINUTES: 'NOT', PROJECT_AGREEMENT: 'PKS', NDA: 'NDA', WORK_ORDER: 'SPK', PAYMENT_REMINDER: 'STG', RESIGNATION: 'SPR', LEAVE_PERMIT: 'SIC', OTHER: 'SU' };
     const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
     const company = await this.prisma.company.findUnique({ where: { id: companyId }, select: { code: true } });
     const seq = await this.prisma.numberSequence.upsert({

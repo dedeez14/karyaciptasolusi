@@ -77,6 +77,18 @@ export interface LetterContent {
   signerTitle: string;
 }
 
+/** formal documents: centred title + number instead of number / subject / addressee */
+const TITLED_LETTERS = new Set(['EMPLOYMENT', 'INCOME', 'ASSIGNMENT', 'POWER_OF_ATTORNEY', 'DECLARATION', 'APPOINTMENT', 'CONTRACT', 'WARNING', 'REFERENCE', 'HANDOVER', 'STATEMENT', 'MEMO', 'MINUTES', 'PROJECT_AGREEMENT', 'NDA', 'WORK_ORDER', 'RESIGNATION', 'LEAVE_PERMIT']);
+/** documents signed by both sides: label of the other party, label of the company, stamp duty box */
+const TWO_PARTY_LETTERS: Record<string, { other: string; company: string; stamp: boolean }> = {
+  CONTRACT: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
+  HANDOVER: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: false },
+  POWER_OF_ATTORNEY: { other: 'Penerima Kuasa,', company: 'Pemberi Kuasa,', stamp: true },
+  PROJECT_AGREEMENT: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
+  NDA: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
+  WORK_ORDER: { other: 'Penerima Pekerjaan,', company: 'Pemberi Pekerjaan,', stamp: false },
+};
+
 const GREY = '#6b7280';
 const LINE = '#e5e7eb';
 
@@ -563,20 +575,40 @@ export class PdfService {
       }
       return yy;
     };
-    y = kv([['Nomor', l.number], ['Lampiran', '-'], ['Perihal', l.subject, true]], L, 62, y) + 10;
-
-    // ---------- addressee
-    if (l.recipient?.trim()) {
-      doc.font('Helvetica').fontSize(size).fillColor(ink).text('Kepada Yth.', L, y);
-      const lines = l.recipient.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-      lines.forEach((line, i) => doc.font(i === 0 ? 'Helvetica-Bold' : 'Helvetica').text(line, L, doc.y + 1, { width: W }));
-      y = doc.y + 12;
+    const dateText = new Date(`${l.date}T00:00:00Z`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+    // formal documents (statements, decrees, contracts...) carry a centred title with the number;
+    // letters addressed to someone carry number / attachment / subject and "Kepada Yth."
+    const titled = TITLED_LETTERS.has(l.type ?? '');
+    if (titled) {
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(ink).text(l.type === 'MEMO' ? 'MEMO INTERNAL' : l.subject.toUpperCase(), L, y, { width: W, align: 'center', underline: true });
+      doc.font('Helvetica').fontSize(size).text(`Nomor: ${l.number}`, L, doc.y + 4, { width: W, align: 'center' });
+      y = doc.y + 18;
+      if (l.type === 'MEMO') {
+        const to = (l.recipient ?? '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean).join(', ');
+        y = kv([['Kepada', to || 'Seluruh karyawan'], ['Dari', `${l.signerTitle}, ${b.name}`], ['Tanggal', dateText], ['Perihal', l.subject, true]], L, 62, y);
+        doc.moveTo(L, y + 2).lineTo(L + W, y + 2).lineWidth(0.6).strokeColor(LINE).stroke();
+        y += 14;
+      }
+    } else {
+      y = kv([['Nomor', l.number], ['Lampiran', '-'], ['Perihal', l.subject, true]], L, 62, y) + 10;
+      if (l.recipient?.trim()) {
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text('Kepada Yth.', L, y);
+        const lines = l.recipient.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+        lines.forEach((line, i) => doc.font(i === 0 ? 'Helvetica-Bold' : 'Helvetica').text(line, L, doc.y + 1, { width: W }));
+        y = doc.y + 12;
+      }
     }
     if (l.layout !== 'PLAIN') {
-      doc.font('Helvetica').fontSize(size).text('Dengan hormat,', L, y);
-      y = doc.y + 8;
-      doc.text('Yang bertanda tangan di bawah ini:', L, y);
+      if (!titled) {
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text('Dengan hormat,', L, y);
+        y = doc.y + 8;
+      }
+      doc.font('Helvetica').fontSize(size).fillColor(ink).text('Yang bertanda tangan di bawah ini:', L, y);
       y = kv([['Nama', l.signerName, true], ['Jabatan', l.signerTitle], ['Perusahaan', b.name]], L + 8, 110, doc.y + gap) + 6;
+      if (l.type === 'POWER_OF_ATTORNEY') {
+        doc.font('Helvetica').fontSize(size).text('selanjutnya disebut Pemberi Kuasa,', L, y);
+        y = doc.y + 4;
+      }
       if (l.personName) {
         const INTRO: Record<string, string> = {
           RECOMMENDATION: 'dengan ini menerangkan dan memberikan rekomendasi kepada:',
@@ -584,6 +616,8 @@ export class PdfService {
           POWER_OF_ATTORNEY: 'dengan ini memberikan kuasa kepada:',
           APPOINTMENT: 'dengan ini menetapkan, atas nama:',
           WARNING: 'dengan ini memberikan Surat Peringatan kepada:',
+          LEAVE_PERMIT: 'dengan ini memberikan izin cuti kepada:',
+          RESIGNATION: 'dengan ini menerangkan bahwa karyawan berikut:',
         };
         doc.font('Helvetica').fontSize(size).text(INTRO[l.type ?? ''] ?? 'dengan ini menerangkan bahwa:', L, y);
         const person: [string, string, boolean?][] = [['Nama', l.personName, true]];
@@ -604,69 +638,88 @@ export class PdfService {
         lines.shift();
         if (!lines.length) continue;
       }
-      if (lines.every((x) => /^(-|\d+[.)]|[a-z][.)])\s+/.test(x))) {
-        for (const item of lines) {
-          const m = /^(-|\d+[.)]|[a-z][.)])\s+(.*)$/.exec(item)!;
-          const bullet = m[1] === '-' ? '•' : m[1];
-          doc.font('Helvetica').fontSize(size).fillColor(ink).text(bullet, L + 6, y, { width: 18 });
-          doc.text(m[2], L + 24, y, { width: W - 24, align: 'justify', lineGap: 1.5 });
-          y = doc.y + 3;
+      // a block may mix sentences and list items ("dibayar bertahap:" followed by 1. 2. 3.)
+      let text: string[] = [];
+      const flush = () => {
+        if (!text.length) return;
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text(text.join(' '), L, y, { width: W, align: 'justify', lineGap: 1.5 });
+        y = doc.y + 4;
+        text = [];
+      };
+      let listed = false;
+      for (const line of lines) {
+        const m = /^(-|\d+[.)]|[a-z][.)])\s+(.*)$/.exec(line);
+        if (!m) {
+          if (listed) y += 2;
+          listed = false;
+          text.push(line);
+          continue;
         }
-        y += 4;
-        continue;
+        flush();
+        listed = true;
+        y = this.ensure(doc, y, 16);
+        const bullet = m[1] === '-' ? '•' : m[1];
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text(bullet, L + 6, y, { width: 18 });
+        doc.text(m[2], L + 24, y, { width: W - 24, align: 'justify', lineGap: 1.5 });
+        y = doc.y + 3;
       }
-      doc.font('Helvetica').fontSize(size).fillColor(ink).text(lines.join(' '), L, y, { width: W, align: 'justify', lineGap: 1.5 });
-      y = doc.y + 7;
+      flush();
+      y += 4;
     }
 
-    // ---------- signature: place & date, company, electronic signature (QR) and the signer
-    const blockH = 150;
+    // ---------- signature: place & date, company, the signer's signature (QR once the system is public)
+    const parties = TWO_PARTY_LETTERS[l.type ?? ''] && l.personName ? TWO_PARTY_LETTERS[l.type ?? ''] : null;
+    const blockH = 160;
     if (y + blockH > doc.page.height - doc.page.margins.bottom) {
       doc.addPage();
       y = doc.page.margins.top;
     }
-    // signature block sits against the right margin
+    // the company's block sits against the right margin; the other party (if any) mirrors it on the left
     const sw = Math.min(W * 0.36, 175);
     const sx = L + W - sw;
-    const dateText = new Date(`${l.date}T00:00:00Z`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-    doc.font('Helvetica').fontSize(size).fillColor(ink).text(`${l.place}, ${dateText}`, sx, y + 4, { width: sw, align: 'center' });
-    doc.text('Hormat kami,', sx, doc.y + 1, { width: sw, align: 'center' });
-    doc.font('Helvetica-Bold').text(b.name, sx, doc.y + 1, { width: sw, align: 'center' });
+    const center = { width: sw, align: 'center' as const };
+    doc.font('Helvetica').fontSize(size).fillColor(ink).text(`${l.place}, ${dateText}`, sx, y + 4, center);
+    let top = doc.y + 6;
+    if (parties) {
+      doc.font('Helvetica').fontSize(size).fillColor(ink).text(parties.other, L, top, center);
+      doc.text(parties.company, sx, top, center);
+      top = doc.y + 1;
+    } else if (!titled) {
+      doc.font('Helvetica').fontSize(size).fillColor(ink).text('Hormat kami,', sx, doc.y + 1, center);
+      top = doc.y + 1;
+    }
+    doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(b.name, sx, top, center);
+    if (parties) doc.font('Helvetica').fontSize(size).text(' ', L, top, center);
     const qy = doc.y + 6;
     const qr = await QRCode.toBuffer(verifyUrl, { margin: 0, width: 240, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
     // the signer's own signature (My Profile) when they are the configured document signer
     const sig = b.signer && b.signer.name.trim().toLowerCase() === l.signerName.trim().toLowerCase() ? b.signer.image : null;
-    let ny: number;
-    if (!publicHost) {
-      // no public address yet: nobody could open the QR, so it is left out (the file itself stays signed)
-      if (sig) {
-        try {
-          doc.image(sig, sx, qy, { fit: [sw, 64], align: 'center', valign: 'bottom' });
-        } catch {
-          /* unreadable image */
-        }
-      }
-      ny = qy + 70;
-    } else if (sig) {
-      const QR = 50;
+    const QR = 50;
+    if (sig) {
       try {
-        doc.image(sig, sx, qy, { fit: [sw - QR - 16, 62], valign: 'bottom' });
+        doc.image(sig, publicHost ? sx : sx, qy, { fit: [publicHost ? sw - QR - 10 : sw, 64], align: 'center', valign: 'bottom' });
       } catch {
         /* unreadable image */
       }
-      doc.image(qr, sx + sw - QR, qy + 6, { width: QR, height: QR });
-      doc.font('Helvetica').fontSize(5.6).fillColor(GREY).text('Tanda tangan elektronik', sx + sw - QR - 8, qy + QR + 8, { width: QR + 16, align: 'center' });
-      ny = qy + 66;
-    } else {
-      const QR = 64;
-      doc.image(qr, sx, qy, { width: QR, height: QR });
-      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(accent).text('DITANDATANGANI SECARA ELEKTRONIK', sx + QR + 8, qy + 4, { width: sw - QR - 8, characterSpacing: 0.3 });
-      doc.font('Helvetica').fontSize(7).fillColor(GREY).text(`oleh sistem ${b.name}.${publicHost ? ' Pindai kode QR untuk memeriksa keaslian surat ini.' : ''}`, sx + QR + 8, doc.y + 2, { width: sw - QR - 8 });
-      doc.font('Helvetica').fontSize(6.5).fillColor(GREY).text(`Kode: ${code}`, sx + QR + 8, doc.y + 3, { width: sw - QR - 8 });
-      ny = qy + QR + 8;
     }
-    doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(l.signerName, sx, ny, { width: sw, underline: true, align: 'center' });
-    doc.font('Helvetica').text(l.signerTitle, sx, doc.y + 1, { width: sw, align: 'center' });
+    if (publicHost) {
+      doc.image(qr, sx + sw - QR, qy + 8, { width: QR, height: QR });
+      doc.font('Helvetica').fontSize(5.6).fillColor(GREY).text('Tanda tangan elektronik', sx + sw - QR - 8, qy + QR + 10, { width: QR + 16, align: 'center' });
+    }
+    // contracts and powers of attorney: stamp duty (meterai) on the other party's side
+    if (parties?.stamp) {
+      const mw = 62;
+      const mx = L + (sw - mw) / 2;
+      doc.save().dash(2, { space: 2 }).roundedRect(mx, qy + 8, mw, 46, 3).lineWidth(0.6).strokeColor('#94a3b8').stroke().undash().restore();
+      doc.font('Helvetica').fontSize(6.5).fillColor('#94a3b8').text('Meterai\n10.000', mx, qy + 22, { width: mw, align: 'center' });
+    }
+    const ny = qy + 70;
+    if (parties) {
+      doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(l.personName!, L, ny, { ...center, underline: true });
+      if (l.personPosition) doc.font('Helvetica').text(l.personPosition, L, doc.y + 1, center);
+    }
+    doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(l.signerName, sx, ny, { ...center, underline: true });
+    doc.font('Helvetica').text(l.signerTitle, sx, doc.y + 1, center);
 
     // ---------- footer on every page
     const range = doc.bufferedPageRange();
