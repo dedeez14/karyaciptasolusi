@@ -233,7 +233,7 @@ function Body({ id, r }: { id: string; r: Row }) {
           />
         </Card>
       ) : tab === 'milestones' ? (
-        <MilestonesTab id={id} />
+        <MilestonesTab id={id} projectName={r.name} />
       ) : tab === 'billing' && o?.billing ? (
         <BillingTab id={id} />
       ) : tab === 'documents' && o?.documents ? (

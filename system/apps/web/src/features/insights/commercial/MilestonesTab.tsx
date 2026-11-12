@@ -60,7 +60,7 @@ const PRESETS: { label: string; parts: [string, number, string][] }[] = [
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Project page > Milestones: the contract value split into billing milestones (termin), each invoiced in one click */
-export function MilestonesTab({ id }: { id: string }) {
+export function MilestonesTab({ id, projectName }: { id: string; projectName?: string }) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['projects', id, 'milestones'], queryFn: () => api.get<Plan>(`/projects/${id}/milestones`) });
   const [editing, setEditing] = useState(false);
@@ -264,9 +264,14 @@ export function MilestonesTab({ id }: { id: string }) {
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
         <Icon name="file-signature" className="h-4 w-4 shrink-0 text-slate-400" />
         <span className="flex-1">Agreement with the client (Perjanjian Kerja Sama) and handover (BAST) for this project are made in the Document Center.</span>
-        <Link to="/document-center" className="link">
-          Open Document Center
-        </Link>
+        <span className="flex gap-3">
+          <Link to={`/document-center?template=PROJECT_AGREEMENT${p.customer ? `&customer=${p.customer.id}` : ''}${projectName ? `&project=${encodeURIComponent(projectName)}` : ''}&value=${p.contractValue}`} className="link">
+            Agreement
+          </Link>
+          <Link to={`/document-center?template=HANDOVER${p.customer ? `&customer=${p.customer.id}` : ''}${projectName ? `&project=${encodeURIComponent(projectName)}` : ''}`} className="link">
+            BAST
+          </Link>
+        </span>
       </div>
     </div>
   );

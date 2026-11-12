@@ -7,6 +7,7 @@ import { useSession } from '@/stores/session';
 import { Button, Card, EmptyState, Icon, Spinner, StatCard, StatusBadge, type Tone } from '@/components/ui';
 
 import { PersonalWidgets } from './PersonalWidgets';
+import { UpcomingObligations } from '@/features/director/UpcomingObligations';
 
 const TrendChart = lazy(() => import('./TrendChart'));
 
@@ -74,6 +75,7 @@ export default function DashboardPage() {
       </section>
 
       <PersonalWidgets />
+      <UpcomingObligations />
 
       {q.isLoading ? (
         <div className="flex justify-center py-16">

@@ -15,6 +15,20 @@ export interface RowAction {
 
 /** Extra, resource-specific row actions plugged into the generic resource page. */
 export const RESOURCE_ACTIONS: Record<string, RowAction[]> = {
+  opportunities: [
+    {
+      label: 'Won - create project',
+      icon: 'folder-plus',
+      permission: 'master.project.create',
+      confirm: 'Create a project for this customer with the deal amount as contract value and milestones 30% / 40% / 30% (you can change them on the project), and mark the deal as won?',
+      run: async (r) => {
+        const p = await api.post<{ projectId: string; code: string }>(`/crm/opportunities/${r.id}/to-project`, { preset: '30-40-30' });
+        window.location.assign(`/projects/${p.projectId}#milestones`);
+        return p;
+      },
+      success: 'Project created',
+    },
+  ],
   letters: [
     {
       label: 'Preview & print (signed PDF)',

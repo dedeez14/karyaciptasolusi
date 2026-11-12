@@ -187,6 +187,25 @@ export default function DocumentCenterPage() {
   };
   const set = (k: keyof Form, v: string) => setForm((f) => (f ? { ...f, [k]: v } : f));
 
+  // from a project: /document-center?template=PROJECT_AGREEMENT&customer=<id>&project=<name>&value=<amount>
+  useEffect(() => {
+    const type = sp.get('template');
+    if (!type || !signer.data) return;
+    const t = TEMPLATES.find((x) => x.type === type);
+    if (!t) return;
+    const project = sp.get('project') ?? '';
+    const value = Number(sp.get('value') ?? 0);
+    const fill = (text: string) =>
+      text
+        .replace(/\[nama proyek\]/gi, project || '[nama proyek]')
+        .replace(/Rp \[jumlah\] \(\[terbilang\]\)/g, value > 0 ? `Rp ${value.toLocaleString('id-ID')} ([terbilang])` : 'Rp [jumlah] ([terbilang])');
+    start(t, { subject: fill(t.subject), body: fill(t.body) });
+    const customer = sp.get('customer');
+    if (customer) void pickCustomer(customer, t);
+    setSp({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sp.get('template'), signer.data]);
+
   // "Use again" from Issued Documents: /document-center?from=<letter id>
   useEffect(() => {
     const id = sp.get('from');
@@ -229,7 +248,7 @@ export default function DocumentCenterPage() {
     const p = await loadEmployee(id);
     if (p) setPeople((list) => (list.some((x) => x.personName === p.personName) ? list : [...list, p]));
   };
-  const pickCustomer = async (id: string) => {
+  const pickCustomer = async (id: string, forTemplate?: DocTemplate) => {
     setCustomerId(id);
     if (!id) return setClient(undefined);
     try {
@@ -237,7 +256,7 @@ export default function DocumentCenterPage() {
       const name = String(c.name ?? '');
       const contact = String(c.contactPerson ?? '');
       setClient({ name, contact });
-      setForm((f) => (f && tpl?.person ? { ...f, personName: contact || name, personPosition: contact ? `Perwakilan ${name}` : '', personAddress: [c.address, c.city].filter(Boolean).join(', '), personIdNumber: '' } : f));
+      setForm((f) => (f && (forTemplate ?? tpl)?.person ? { ...f, personName: contact || name, personPosition: contact ? `Perwakilan ${name}` : '', personAddress: [c.address, c.city].filter(Boolean).join(', '), personIdNumber: '' } : f));
     } catch (err) {
       toast.error(err);
     }

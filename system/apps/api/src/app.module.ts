@@ -71,6 +71,9 @@ import { AnnouncementController } from './modules/announcements/announcement.con
 import { LetterController } from './modules/letters/letter.controller';
 import { SignatureController } from './modules/letters/signature.controller';
 import { MilestoneController } from './modules/projects/milestone.controller';
+import { CashflowController } from './modules/director/cashflow.controller';
+import { ObligationsController } from './modules/director/obligations.controller';
+import { DealProjectController } from './modules/director/deal-project.controller';
 import { EMAILCAMPAIGN_CONTROLLERS, EMAILCAMPAIGN_PROVIDERS } from './modules/emailcampaign';
 import { AttendanceController } from './modules/hris/attendance.controller';
 import { AttendanceService } from './modules/hris/attendance.service';
@@ -143,10 +146,14 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     LetterController,
     SignatureController,
     MilestoneController,
+    CashflowController,
+    ObligationsController,
+    DealProjectController,
     ...EMAILCAMPAIGN_CONTROLLERS,
     AttendanceController,
   ],
   providers: [
+    MilestoneController,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

@@ -219,6 +219,11 @@ export const SETTINGS: [string, string, string, string, string | null, boolean, 
   ['website', 'website.hiddenSections', 'Hidden sections', 'text', '', false, 'One per line: stats, clients, portfolio, services, whyus, testimonials, consultation, faq, blog, business, career, newsletter, contact'],
   ['website', 'website.enquiryOwner', 'Assign website enquiries to', 'string', '', false, 'Username that becomes owner of leads from the website form (empty = none)'],
   ['notifications', 'notifications.websiteEnquiries', 'New website enquiries', 'boolean', 'true', false, 'Contact form messages from the website that are still new'],
+  ['obligations', 'obligations.pph21', 'PPh 21 (employee income tax)', 'boolean', 'true', false, 'Remind to pay by the 15th and file by the 20th of the next month (when the company has employees)'],
+  ['obligations', 'obligations.pphFinal', 'PPh Final UMKM 0,5%', 'boolean', 'true', false, 'Remind to pay by the 15th of the next month, with an estimate from the invoiced revenue. Switch off when the company no longer uses this rate'],
+  ['obligations', 'obligations.ppn', 'PPN (VAT)', 'boolean', 'true', false, 'Remind to pay and file by the end of the next month (only for a VAT payer, PKP)'],
+  ['obligations', 'obligations.bpjs', 'BPJS contributions', 'boolean', 'true', false, 'Remind BPJS Kesehatan by the 10th and BPJS Ketenagakerjaan by the 15th (when the company has employees)'],
+  ['obligations', 'obligations.annualTax', 'Annual corporate tax return', 'boolean', 'true', false, 'Remind to file the SPT Tahunan PPh Badan by 30 April'],
   ['integration', 'integration.hostinger.baseUrl', 'Hostinger API URL', 'string', 'https://developers.hostinger.com', false, ''],
   ['integration', 'integration.hostinger.apiToken', 'Hostinger API token', 'secret', null, true, 'Stored encrypted. Create it in hPanel > Account > API'],
 ];
@@ -235,6 +240,10 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['crm.leadfinder', 'crm', 'Lead Finder (Maps)', 'map-pinned', '/crm/lead-finder', 'crm.leadfinder.read'],
   ['crm.emailcampaigns', 'crm', 'E-mail Campaigns', 'mails', '/crm/email-campaigns', 'crm.emailcampaign.read'],
   ['crm.campaigns', 'crm', 'Campaigns', 'rocket', '/r/campaigns', 'crm.campaign.read'],
+
+  ['director', null, 'Director', 'gauge', null, null],
+  ['director.cashflow', 'director', 'Cash Flow Forecast', 'chart-spline', '/director/cashflow', 'accounting.cash.read'],
+  ['director.obligations', 'director', 'Obligations Calendar', 'calendar-clock', '/director/obligations', null],
 
   ['documents', null, 'Document Center', 'file-signature', null, null],
   ['documents.generate', 'documents', 'Generate Document', 'file-plus-2', '/document-center', 'hris.letter.create'],

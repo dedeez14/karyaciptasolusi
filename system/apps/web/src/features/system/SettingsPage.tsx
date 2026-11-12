@@ -49,6 +49,7 @@ const GROUPS: Record<string, { label: string; icon: string }> = {
   mail: { label: "E-mail", icon: "mail" },
   website: { label: "Website", icon: "globe" },
   marketing: { label: "Marketing", icon: "megaphone" },
+  obligations: { label: "Obligations", icon: "calendar-clock" },
   integration: { label: "Integrations", icon: "plug" },
 };
 
