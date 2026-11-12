@@ -13,6 +13,7 @@ import { MenuService } from '../system/menu.service';
 import { SettingsService } from '../../common/settings/settings.service';
 import { TicketService } from '../../common/access/ticket.service';
 import { mfaRequiredFor } from '../../common/access/mfa-policy';
+import { isLocalDevRequest } from '../../common/context/local-dev';
 
 const COOKIE = 'kcs_rt';
 const loginSchema = z.object({ username: z.string().trim().min(1).max(150), password: z.string().min(1).max(200) });
@@ -70,10 +71,7 @@ export class AuthController {
   @Post('dev-login')
   @HttpCode(200)
   async devLogin(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const loopback = (ip: string | undefined) => !!ip && /^(127\.\d+\.\d+\.\d+|::1|::ffff:127\.\d+\.\d+\.\d+)$/.test(ip);
-    const host = String(req.headers.host ?? '').replace(/:\d+$/, '').toLowerCase();
-    const proxied = !!(req.headers['x-forwarded-for'] || req.headers['x-forwarded-host'] || req.headers['x-real-ip'] || req.headers.forwarded);
-    if (isProd || !env.DEV_AUTO_LOGIN || proxied || !loopback(req.socket.remoteAddress) || !['localhost', '127.0.0.1', '[::1]'].includes(host)) throw new NotFoundException();
+    if (isProd || !env.DEV_AUTO_LOGIN || !isLocalDevRequest(req)) throw new NotFoundException();
     this.assertCsrf(req);
     const t = await this.auth.devLogin(env.DEV_AUTO_LOGIN);
     this.setCookie(req, res, t.refreshToken, t.refreshExpires);

@@ -32,6 +32,8 @@ const schema = z.object({
    * (http://localhost). Ignored for any other address, and the server refuses to start with it in production.
    */
   DEV_AUTO_LOGIN: z.string().trim().default(''),
+  /** Local development only: no two-factor step when signing in on this computer (http://localhost). Refused in production. */
+  DEV_SKIP_MFA: z.preprocess((v) => v === 'true' || v === '1', z.boolean()).default(false),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -44,7 +46,7 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 export const isProd = env.NODE_ENV === 'production';
-if (isProd && env.DEV_AUTO_LOGIN) {
-  console.error('DEV_AUTO_LOGIN is for local development only: remove it from the production .env');
+if (isProd && (env.DEV_AUTO_LOGIN || env.DEV_SKIP_MFA)) {
+  console.error('DEV_AUTO_LOGIN / DEV_SKIP_MFA are for local development only: remove them from the production .env');
   process.exit(1);
 }

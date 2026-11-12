@@ -11,6 +11,7 @@ import { RequestCtx } from '../../common/context/request-context';
 import { env } from '../../config/env';
 import { newRecoveryCodes, newTotpSecret, normalizeRecoveryCode, otpauthUrl, verifyTotp } from '../../common/crypto/totp';
 import { mfaRequiredFor } from '../../common/access/mfa-policy';
+import { devMfaSkipped } from '../../common/context/local-dev';
 
 /** password accepted, second factor still needed */
 export interface MfaChallenge {
@@ -88,6 +89,11 @@ export class AuthService {
   private async afterPassword(user: { id: string; username: string; passwordHash: string; mfaEnabledAt: Date | null; mfaSecret: string | null }, password: string): Promise<(IssuedTokens & { userId: string }) | MfaChallenge> {
     if (this.crypto.needsRehash(user.passwordHash)) await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: await this.crypto.hashPassword(password) } });
     // second factor: the session is only created after the code (failed codes count towards the lockout)
+    if (user.mfaEnabledAt && user.mfaSecret && devMfaSkipped()) {
+      // local development (DEV_SKIP_MFA, localhost only): recorded so it is never silent
+      this.audit.activity('auth.login.mfa_skipped_local_dev', {}, { userId: user.id, username: user.username });
+      return this.completeLogin(user.id, user.username);
+    }
     if (user.mfaEnabledAt && user.mfaSecret) {
       await this.access.profile(user.id); // validates the account has company access before telling it a code is needed
       const mfaToken = await this.jwt.signAsync({ sub: user.id, typ: 'mfa', jti: randomUUID() }, { expiresIn: '5m' as any });

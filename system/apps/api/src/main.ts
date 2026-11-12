@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import compression from 'compression';
+import { isLocalDevRequest } from './common/context/local-dev';
 import cookieParser from 'cookie-parser';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -64,7 +65,7 @@ async function bootstrap() {
   app.use((req: any, res: any, next: () => void) => {
     const requestId = randomUUID();
     res.setHeader('X-Request-Id', requestId);
-    RequestCtx.run({ requestId, ip: req.ip, userAgent: req.headers['user-agent'] }, next);
+    RequestCtx.run({ requestId, ip: req.ip, userAgent: req.headers['user-agent'], localDev: isLocalDevRequest(req) }, next);
   });
 
   // A missing bundle (old page after an update) must 404 instead of falling back to index.html,
