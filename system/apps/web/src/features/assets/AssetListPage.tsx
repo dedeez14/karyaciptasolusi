@@ -48,6 +48,7 @@ export default function AssetListPage() {
       key: 'code',
       header: 'Asset',
       sortable: true,
+      className: 'max-w-64',
       render: (r) => (
         <div className="min-w-0">
           <span className="font-medium text-brand-700">{r.code}</span>

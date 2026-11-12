@@ -48,10 +48,11 @@ export default function CashListPage() {
         </Badge>
       ),
     },
-    { key: 'description', header: 'Description' },
+    { key: 'description', header: 'Description', className: 'min-w-40 max-w-72 !whitespace-normal' },
     {
       key: 'account',
       header: 'Account',
+      className: 'min-w-36 max-w-60 !whitespace-normal',
       render: (r) => (
         <span className="text-sm">
           {r.type === 'TRANSFER' ? `${r.bankAccountName} → ${r.toBankAccountName}` : r.bankAccountName}
@@ -59,7 +60,7 @@ export default function CashListPage() {
         </span>
       ),
     },
-    { key: 'partyName', header: 'Party', render: (r) => r.partyName ?? <span className="text-slate-300">—</span> },
+    { key: 'partyName', header: 'Party', className: 'min-w-28 max-w-48 !whitespace-normal', render: (r) => r.partyName ?? <span className="text-slate-300">—</span> },
     {
       key: 'amount',
       header: 'Amount',

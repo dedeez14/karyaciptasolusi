@@ -60,6 +60,7 @@ export default function DocumentListPage() {
           {
             key: 'partnerName',
             header: def.partner === 'customer' ? 'Customer' : 'Supplier',
+            className: 'min-w-40 max-w-64 !whitespace-normal',
             render: (r: TradeDoc) => r.partnerName ?? <span className="text-slate-300">—</span>,
           },
         ]
@@ -82,7 +83,7 @@ export default function DocumentListPage() {
           },
         ]
       : []),
-    { key: 'reference', header: 'Reference', render: (r) => r.reference ?? '' },
+    { key: 'reference', header: 'Reference', className: 'max-w-48 !whitespace-normal', render: (r) => r.reference ?? '' },
     ...(def.priced
       ? [
           {

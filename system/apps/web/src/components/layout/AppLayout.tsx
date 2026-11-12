@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
+import { BottomNav } from './BottomNav';
 import { AnnouncementBar } from './AnnouncementBar';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -317,7 +318,7 @@ export function AppLayout() {
         </header>
         <AnnouncementBar />
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1600px] p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-[1600px] p-4 pb-6 sm:p-6 lg:p-8 lg:pb-[max(2rem,env(safe-area-inset-bottom))]">
             <Suspense
               fallback={
                 <div className="flex justify-center py-24">
@@ -331,6 +332,7 @@ export function AppLayout() {
             </Suspense>
           </div>
         </main>
+        <BottomNav onMenu={() => setMobileOpen(true)} />
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} menus={me.menus} />
       <PwaPrompt />

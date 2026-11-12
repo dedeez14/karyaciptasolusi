@@ -75,7 +75,7 @@ export function PwaPrompt() {
   };
 
   return (
-    <div className="fixed right-4 bottom-4 z-50 flex items-center gap-3 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-xl" role="status">
+    <div className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 lg:bottom-4 flex items-center gap-3 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-xl" role="status">
       <span>A new version is available.</span>
       <Button size="sm" onClick={update} loading={updating}>
         Update now

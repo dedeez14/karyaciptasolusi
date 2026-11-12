@@ -61,7 +61,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, onRowClick, sort,
                 </th>
               )}
               {columns.map((c) => (
-                <th key={c.key} className={cn('px-4 py-3 whitespace-nowrap', c.align === 'right' && 'text-right', c.align === 'center' && 'text-center', c.className)}>
+                <th key={c.key} className={cn('px-3 py-3 whitespace-nowrap first:pl-4 last:pr-4', c.align === 'right' && 'text-right', c.align === 'center' && 'text-center', c.className)}>
                   {c.sortable && onSort ? (
                     <button type="button" className="inline-flex items-center gap-1 hover:text-slate-900" onClick={() => onSort(c.key)}>
                       {c.header}
@@ -88,7 +88,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, onRowClick, sort,
                   </td>
                 )}
                 {columns.map((c) => (
-                  <td key={c.key} className={cn('px-4 py-3 align-middle text-slate-700 first:font-medium first:text-slate-900', isLong((r as any)[c.key]) ? 'min-w-64 whitespace-normal' : 'whitespace-nowrap', c.align === 'right' && 'text-right tabular-nums', c.align === 'center' && 'text-center', c.className)}>
+                  <td key={c.key} className={cn('px-3 py-3 align-middle first:pl-4 last:pr-4 text-slate-700 first:font-medium first:text-slate-900', isLong((r as any)[c.key]) ? 'min-w-48 whitespace-normal' : 'whitespace-nowrap', c.align === 'right' && 'text-right tabular-nums', c.align === 'center' && 'text-center', c.className)}>
                     {cell(c, r)}
                   </td>
                 ))}

@@ -25,9 +25,9 @@ export default function PaymentListPage() {
   const columns: Column<PaymentRow>[] = [
     { key: 'number', header: 'Number', render: (r) => <span className="font-medium text-brand-700">{r.number}</span> },
     { key: 'date', header: 'Date', render: (r) => fmtDate(r.date) },
-    { key: 'partnerName', header: m.partner, render: (r) => r.partnerName ?? '' },
-    { key: 'bankAccountName', header: m.dir === 'in' ? 'Deposited to' : 'Paid from', render: (r) => r.bankAccountName ?? '' },
-    { key: 'reference', header: 'Reference', render: (r) => r.reference ?? '' },
+    { key: 'partnerName', header: m.partner, className: 'min-w-40 max-w-64 !whitespace-normal', render: (r) => r.partnerName ?? '' },
+    { key: 'bankAccountName', className: 'min-w-36 max-w-56 !whitespace-normal', header: m.dir === 'in' ? 'Deposited to' : 'Paid from', render: (r) => r.bankAccountName ?? '' },
+    { key: 'reference', header: 'Reference', className: 'max-w-48 !whitespace-normal', render: (r) => r.reference ?? '' },
     { key: 'amount', header: 'Amount', align: 'right', render: (r) => fmtMoney(r.amount) },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
   ];

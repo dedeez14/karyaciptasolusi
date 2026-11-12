@@ -346,24 +346,25 @@ export default function DocumentFormPage() {
       </div>
 
       <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-white/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="flex flex-wrap items-center gap-2">
+        {/* phone: total on its own line, the two save buttons side by side (back arrow at the top cancels) */}
+        <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap">
           {def.priced && (
-            <div className="mr-auto text-sm">
+            <div className="col-span-2 text-sm sm:mr-auto">
               <span className="text-slate-500">Total </span>
               <span className="font-semibold text-slate-900 tabular-nums">
                 {h.currencyCode} {fmtMoney(totals.total)}
               </span>
             </div>
           )}
-          {!def.priced && <span className="mr-auto text-xs text-slate-400">{dirty ? 'Unsaved changes' : ''}</span>}
-          <Button variant="ghost" onClick={cancel}>
+          {!def.priced && <span className="col-span-2 text-xs text-slate-400 sm:mr-auto">{dirty ? 'Unsaved changes' : ''}</span>}
+          <Button variant="ghost" onClick={cancel} className="hidden sm:inline-flex">
             Cancel
           </Button>
-          <Button type="submit" variant={def.can.confirm ? 'outline' : 'primary'} icon="save" loading={save.isPending && !confirmAfterSave.current}>
+          <Button type="submit" variant={def.can.confirm ? 'outline' : 'primary'} icon="save" loading={save.isPending && !confirmAfterSave.current} className={def.can.confirm ? undefined : 'col-span-2'}>
             Save draft
           </Button>
           {def.can.confirm && (
-            <Button icon="circle-check" loading={save.isPending && confirmAfterSave.current} onClick={(e) => submit(e, true)} title="Save and confirm in one step">
+            <Button icon="circle-check" loading={save.isPending && confirmAfterSave.current} onClick={(e) => submit(e, true)} title="Save and confirm in one step" className="whitespace-nowrap">
               Save &amp; confirm
             </Button>
           )}

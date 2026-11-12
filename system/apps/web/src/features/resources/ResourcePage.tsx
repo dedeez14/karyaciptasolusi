@@ -141,6 +141,8 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
           header: f.label,
           sortable: f.sortable || f.type === 'date',
           align: ['money', 'number', 'integer', 'percent'].includes(f.type) ? 'right' : undefined,
+          // names, related records and lookup labels may wrap, so amounts and status stay on screen
+          className: ['text', 'email', 'relation', 'lookup', 'url', 'textarea'].includes(f.type) && f.name !== 'code' ? 'min-w-28 max-w-60 !whitespace-normal break-words' : undefined,
           render: (r: Row) => renderValue(f, r),
         })),
     // eslint-disable-next-line react-hooks/exhaustive-deps

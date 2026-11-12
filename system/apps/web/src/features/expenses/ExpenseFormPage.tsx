@@ -164,8 +164,8 @@ export default function ExpenseFormPage() {
         <Textarea rows={3} value={head.notes} maxLength={4000} onChange={(e) => setHead({ ...head, notes: e.target.value })} placeholder="Anything the approver should know (optional)" />
       </Card>
 
-      <div className="sticky bottom-0 z-10 -mx-4 flex justify-end gap-2 border-t border-line bg-white/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <Button variant="outline" onClick={() => navigate(id ? `/expenses/${id}` : '/expenses')}>
+      <div className="sticky bottom-0 z-10 -mx-4 grid grid-cols-2 gap-2 border-t border-line bg-white/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:flex sm:justify-end sm:px-6 lg:-mx-8 lg:px-8">
+        <Button variant="outline" className="hidden sm:inline-flex" onClick={() => navigate(id ? `/expenses/${id}` : '/expenses')}>
           Cancel
         </Button>
         <Button variant="outline" icon="save" loading={busy === 'save'} disabled={!!busy} onClick={() => save(false)}>
