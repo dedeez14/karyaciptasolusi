@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -32,8 +32,9 @@ const LABEL: Record<string, string> = { URGENT: 'Urgent', WARNING: 'Attention', 
 
 /**
  * Running text under the top bar with the company's active announcements (managed in System > Announcements).
- * Pauses on hover / focus, stands still for people who prefer reduced motion, and can be hidden until the
- * announcements change.
+ * Each loop is at least as wide as the bar, so a short message also travels across it. Pauses on hover / focus
+ * and with its pause button (WCAG 2.2.2), runs slower when the device asks for reduced motion, and can be hidden
+ * until the announcements change.
  */
 export function AnnouncementBar() {
   const q = useQuery({
@@ -51,11 +52,27 @@ export function AnnouncementBar() {
       return '';
     }
   });
-  if (!items.length || hidden === signature) return null;
+  const [paused, setPaused] = useState(false);
+  const viewport = useRef<HTMLDivElement>(null);
+  const group = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ view: 0, loop: 0 });
+  const show = items.length > 0 && hidden !== signature;
+
+  // width of the bar and of one loop (never narrower than the bar): speed stays the same for any text length
+  useLayoutEffect(() => {
+    if (!show || !viewport.current) return;
+    const measure = () => setSize({ view: viewport.current?.clientWidth ?? 0, loop: group.current?.scrollWidth ?? 0 });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(viewport.current);
+    return () => ro.disconnect();
+  }, [show, signature]);
+  if (!show) return null;
 
   const tone = items.reduce((t, i) => ((RANK[i.tone] ?? 0) > (RANK[t] ?? 0) ? i.tone : t), 'INFO');
-  // about 7 characters per second, never faster than 18 s per loop
-  const duration = Math.max(18, Math.round(items.reduce((n, i) => n + i.message.length + 8, 0) / 7));
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // ~70 px per second (45 with reduced motion), at least 12 s per loop
+  const duration = Math.max(12, Math.round(Math.max(size.loop, size.view) / (reduced ? 45 : 70)));
 
   const entry = (a: Announcement, copy: boolean) => {
     const body = (
@@ -87,12 +104,25 @@ export function AnnouncementBar() {
         <Icon name="megaphone" className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">{LABEL[tone] ?? LABEL.INFO}</span>
       </span>
-      <div className="announcement-viewport min-w-0 flex-1 overflow-hidden">
-        <div className="announcement-track" style={{ '--announcement-duration': `${duration}s` } as CSSProperties}>
-          <div className="flex shrink-0 items-center">{items.map((a) => entry(a, false))}</div>
-          <div className="announcement-copy flex shrink-0 items-center">{items.map((a) => entry(a, true))}</div>
+      <div ref={viewport} className="announcement-viewport min-w-0 flex-1 overflow-hidden">
+        <div className={cn('announcement-track', paused && 'is-paused')} style={{ '--announcement-duration': `${duration}s` } as CSSProperties}>
+          <div ref={group} className="flex shrink-0 items-center" style={{ minWidth: size.view || undefined }}>
+            {items.map((a) => entry(a, false))}
+          </div>
+          <div aria-hidden className="flex shrink-0 items-center" style={{ minWidth: size.view || undefined }}>
+            {items.map((a) => entry(a, true))}
+          </div>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={() => setPaused((p) => !p)}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md opacity-80 hover:opacity-100"
+        aria-label={paused ? 'Play announcements' : 'Pause announcements'}
+        title={paused ? 'Play' : 'Pause'}
+      >
+        <Icon name={paused ? 'play' : 'pause'} className="h-3.5 w-3.5" />
+      </button>
       <button
         type="button"
         onClick={() => {

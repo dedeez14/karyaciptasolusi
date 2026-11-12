@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useSession } from '@/stores/session';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
@@ -44,6 +45,8 @@ const emptyHeader = (): Header => ({
 });
 
 export default function DocumentFormPage() {
+  // non-PKP companies issue no Faktur Pajak (a purchase invoice can still record the supplier's)
+  const vatPayer = useSession((st) => st.me?.prefs.vatPayer ?? true);
   const { type = '', id } = useParams();
   const { def, isLoading } = useDocType(type);
   const navigate = useNavigate();
@@ -279,7 +282,7 @@ export default function DocumentFormPage() {
             <Field label="Reference" help={def.module === 'sales' ? 'e.g. customer PO number' : undefined}>
               <Input value={h.reference} maxLength={100} onChange={(e) => set('reference', e.target.value)} />
             </Field>
-            {(def.code === 'SI' || def.code === 'PI') && (
+            {((def.code === 'SI' && vatPayer) || def.code === 'PI') && (
               <Field label="Tax invoice no." help="Nomor Faktur Pajak - can also be added after confirming">
                 <Input value={h.taxInvoiceNumber} maxLength={40} placeholder="010.000-26.00000001" onChange={(e) => set('taxInvoiceNumber', e.target.value)} />
               </Field>

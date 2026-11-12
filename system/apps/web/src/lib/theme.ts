@@ -31,3 +31,9 @@ export function restoreTheme() {
     /* ignore */
   }
 }
+
+/** Current brand colour as a hex string, for charts and canvas that cannot use CSS classes */
+export function themeColor(which: 'brand' | 'accent'): string {
+  const v = typeof document === 'undefined' ? '' : getComputedStyle(document.documentElement).getPropertyValue(`--${which}`).trim();
+  return HEX.test(v) ? v : which === 'brand' ? '#1d4f7a' : '#f8b810';
+}

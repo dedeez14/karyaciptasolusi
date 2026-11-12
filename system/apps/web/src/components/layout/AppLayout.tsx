@@ -251,6 +251,10 @@ export function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="no-print relative z-30 flex h-16 shrink-0 items-center gap-3 border-b border-line bg-white/80 px-3 backdrop-blur sm:px-6">
           <Button variant="ghost" size="icon" icon="menu" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu" />
+          <Link to="/" className="flex min-w-0 items-center gap-2 md:hidden" aria-label="Dashboard">
+            <img src="/logo.png" alt="" className="h-8 w-8 shrink-0 rounded-lg" />
+            <span className="truncate text-sm font-semibold text-slate-900">{me.prefs.appName}</span>
+          </Link>
           <nav className="hidden min-w-0 flex-1 items-center gap-1.5 text-sm md:flex" aria-label="Breadcrumb">
             <Link to="/" className="text-slate-400 hover:text-slate-700" aria-label="Dashboard">
               <Icon name="house" className="h-4 w-4" />

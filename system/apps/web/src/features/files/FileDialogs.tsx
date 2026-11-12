@@ -9,10 +9,10 @@ import { useLookupLabel } from '@/hooks/useLookups';
 type Opt = { value: string; label: string };
 
 export function FolderDialog({ open, onClose, folder, folders, parentId, onSaved }: { open: boolean; onClose: () => void; folder: Folder | null; folders: Folder[]; parentId: string | null; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: '', parentId: '', color: '#2563eb', description: '' });
+  const [form, setForm] = useState({ name: '', parentId: '', color: '#1d4f7a', description: '' });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (open) setForm({ name: folder?.name ?? '', parentId: folder?.parentId ?? parentId ?? '', color: folder?.color ?? '#2563eb', description: folder?.description ?? '' });
+    if (open) setForm({ name: folder?.name ?? '', parentId: folder?.parentId ?? parentId ?? '', color: folder?.color ?? '#1d4f7a', description: folder?.description ?? '' });
   }, [open, folder, parentId]);
   const save = async () => {
     setBusy(true);
@@ -54,7 +54,7 @@ export function FolderDialog({ open, onClose, folder, folders, parentId, onSaved
         </Field>
         <Field label="Color">
           <div className="flex gap-2">
-            {['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#64748b'].map((c) => (
+            {['#1d4f7a', '#f8b810', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#64748b'].map((c) => (
               <button key={c} type="button" onClick={() => setForm({ ...form, color: c })} className="h-7 w-7 rounded-full ring-offset-2" style={{ background: c, boxShadow: form.color === c ? `0 0 0 2px white, 0 0 0 4px ${c}` : undefined }} aria-label={c} />
             ))}
           </div>

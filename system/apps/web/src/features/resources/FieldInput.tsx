@@ -86,7 +86,7 @@ export function FieldInput({ field, value, onChange, invalid, disabled, initialL
     case 'color':
       return (
         <div className="flex gap-2">
-          <input type="color" className="h-9 w-12 rounded border border-slate-300" value={/^#[0-9a-f]{6}$/i.test(value ?? '') ? value : '#1e40af'} onChange={(e) => onChange(e.target.value)} disabled={disabled} />
+          <input type="color" className="h-9 w-12 rounded border border-slate-300" value={/^#[0-9a-f]{6}$/i.test(value ?? '') ? value : '#1d4f7a'} onChange={(e) => onChange(e.target.value)} disabled={disabled} />
           <Input {...common} value={value ?? ''} onChange={(e) => onChange(e.target.value)} maxLength={20} />
         </div>
       );

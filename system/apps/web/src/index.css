@@ -141,20 +141,15 @@
 .announcement-viewport:focus-within .announcement-track {
   animation-play-state: paused;
 }
+.announcement-track.is-paused {
+  animation-play-state: paused;
+}
 @keyframes announcement-scroll {
   from {
     transform: translateX(0);
   }
   to {
     transform: translateX(-50%);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .announcement-track {
-    animation: none;
-  }
-  .announcement-copy {
-    display: none;
   }
 }
 

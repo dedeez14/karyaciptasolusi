@@ -65,18 +65,18 @@ export function MyAttendanceCard() {
         <p className="text-sm text-slate-500">Your account is not linked to an employee record.</p>
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-xl bg-slate-50 p-3">
+          <div className="grid grid-cols-3 gap-2 text-center sm:gap-3">
+            <div className="rounded-xl bg-slate-50 px-2 py-3 sm:p-3">
               <p className="text-xs text-slate-500">Check in</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">{hhmm(t?.checkIn ?? null)}</p>
+              <p className="mt-1 text-base font-semibold whitespace-nowrap tabular-nums text-slate-900 sm:text-lg">{hhmm(t?.checkIn ?? null)}</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3">
+            <div className="rounded-xl bg-slate-50 px-2 py-3 sm:p-3">
               <p className="text-xs text-slate-500">Check out</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">{hhmm(t?.checkOut ?? null)}</p>
+              <p className="mt-1 text-base font-semibold whitespace-nowrap tabular-nums text-slate-900 sm:text-lg">{hhmm(t?.checkOut ?? null)}</p>
             </div>
-            <div className="rounded-xl bg-brand-50 p-3">
+            <div className="rounded-xl bg-brand-50 px-2 py-3 sm:p-3">
               <p className="text-xs text-brand-700">Worked</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-brand-800">{t?.checkIn ? duration(worked) : '—'}</p>
+              <p className="mt-1 text-base font-semibold whitespace-nowrap tabular-nums text-brand-800 sm:text-lg">{t?.checkIn ? duration(worked) : '—'}</p>
             </div>
           </div>
           {!t?.checkIn ? (

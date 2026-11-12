@@ -62,11 +62,11 @@ export default function DashboardPage() {
           </Button>
         </div>
         {quick.length > 0 && (
-          <div className="relative mt-6 flex flex-wrap gap-2">
+          <div className="relative mt-6 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {quick.map((a) => (
-              <Link key={a.to + a.label} to={a.to} className="flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-[13px] font-medium text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white hover:text-brand-700">
-                <Icon name={a.icon} />
-                {a.label}
+              <Link key={a.to + a.label} to={a.to} className="flex min-w-0 items-center gap-2 rounded-lg bg-white/15 px-3 py-2.5 text-[13px] font-medium text-white ring-1 ring-white/20 transition hover:bg-white hover:text-brand-700 sm:py-2">
+                <Icon name={a.icon} className="h-4 w-4 shrink-0" />
+                <span className="leading-tight">{a.label}</span>
               </Link>
             ))}
           </div>

@@ -213,7 +213,7 @@ function ReportChart({ result }: { result: ReportResult }) {
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} />
               <YAxis tickFormatter={(v) => fmtCompact(v)} tick={{ fontSize: 11, fill: '#94a3b8' }} width={60} />
               <Tooltip formatter={(v) => fmt(Number(v))} />
-              <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} />
+              <Line type="monotone" dataKey="value" stroke="#1d4f7a" strokeWidth={2} />
             </LineChart>
           ) : (
             <BarChart data={data}>

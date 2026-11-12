@@ -90,12 +90,25 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
   const lookups = useLookups(meta.fields.filter((f) => f.type === 'lookup').map((f) => f.lookup!));
   const idField = meta.idField;
 
-  const params = activeView ? { ...ls.params, page: 1, pageSize: activeView.pageSize ?? 200 } : ls.params;
+  const params = activeView ? { ...ls.params, page: 1, pageSize: Math.min(200, activeView.pageSize ?? 200) } : ls.params;
   const list = useQuery({
     queryKey: ['resource', meta.key, 'list', params],
     queryFn: () => api.get<Paged<Row>>(`/resources/${meta.key}`, params),
     placeholderData: keepPreviousData,
   });
+  // a failed load is never shown as "no records yet"
+  const loadError = (
+    <EmptyState
+      icon="alert-triangle"
+      title="Could not load the list"
+      description={(list.error as Error | null)?.message ?? 'Please try again.'}
+      action={
+        <Button variant="outline" icon="refresh-cw" onClick={() => list.refetch()}>
+          Try again
+        </Button>
+      }
+    />
+  );
 
   const renderValue = (f: FieldDef, r: Row) => {
     const v = r[f.name];
@@ -336,7 +349,9 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
         )}
         {activeView ? (
           <div className="p-3 sm:p-4">
-            {!activeView.selfLoading && !list.isLoading && !viewProps.rows.length ? (
+            {list.isError ? (
+              loadError
+            ) : !activeView.selfLoading && !list.isLoading && !viewProps.rows.length ? (
               <EmptyState title={`No ${meta.label.toLowerCase()} yet`} description={ls.search || Object.keys(ls.filters).length ? 'Nothing matches your search or filters.' : undefined} />
             ) : (
               <activeView.component {...viewProps} />
@@ -390,6 +405,9 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
               />
             )}
             empty={
+              list.isError ? (
+                loadError
+              ) : (
               <EmptyState
                 title={`No ${meta.label.toLowerCase()} yet`}
                 description={ls.search || Object.keys(ls.filters).length ? 'Nothing matches your search or filters.' : undefined}
@@ -401,6 +419,7 @@ export function ResourceList({ meta, embedded }: { meta: ResourceMeta; embedded?
                   )
                 }
               />
+              )
             }
           />
         )}
