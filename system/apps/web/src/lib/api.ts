@@ -112,6 +112,14 @@ export const api = {
     const name = /filename="([^"]+)"/.exec(cd)?.[1] ?? 'download';
     return { blob: await r.blob(), name };
   },
+  /** POSTs JSON and returns the binary answer (e.g. a PDF preview of unsaved data) */
+  blobPost: async (path: string, body: unknown) => {
+    const r = await raw(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
+    if (!r.ok) await parse(r);
+    const cd = r.headers.get('content-disposition') ?? '';
+    const name = /filename="([^"]+)"/.exec(cd)?.[1] ?? 'download';
+    return { blob: await r.blob(), name };
+  },
 };
 
 export function qs(params?: Record<string, unknown>): string {

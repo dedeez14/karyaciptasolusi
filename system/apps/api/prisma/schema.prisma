@@ -2345,3 +2345,24 @@ model CompanyLetter {
   @@unique([companyId, number])
   @@map("company_letters")
 }
+
+/// A document text the director saved for reuse in the Document Center
+model LetterTemplate {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  name        String    @db.VarChar(150)
+  letterType  String    @db.VarChar(30)
+  layout      String    @default("PERSON") @db.VarChar(10)
+  subject     String    @db.VarChar(200)
+  recipient   String?
+  body        String
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@index([companyId, letterType])
+  @@map("letter_templates")
+}

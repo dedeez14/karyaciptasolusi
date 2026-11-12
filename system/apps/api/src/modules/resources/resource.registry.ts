@@ -606,6 +606,28 @@ export const RESOURCES: ResourceDef[] = [
     defaultSort: { field: 'letterDate', order: 'desc' },
   },
 
+  {
+    key: 'letter-templates',
+    model: 'letterTemplate',
+    module: 'hris',
+    label: 'My Document Templates',
+    singular: 'Template',
+    permission: 'hris.letter',
+    scope: 'company',
+    fields: [
+      text('name', 'Name', { required: true, max: 150, list: true, sortable: true }),
+      lookup('letterType', 'Type', 'LETTER_TYPE', { required: true, list: true, filter: true }),
+      select('layout', 'Layout', ['PERSON', 'PLAIN'], { default: 'PERSON' }),
+      text('subject', 'Subject (Perihal)', { required: true, max: 200, wide: true }),
+      area('recipient', 'To (Kepada Yth.)', { max: 500 }),
+      area('body', 'Text', { required: true, max: 6000 }),
+      active(),
+    ],
+    searchFields: ['name', 'subject'],
+    labelFields: ['name'],
+    defaultSort: { field: 'name', order: 'asc' },
+  },
+
   // ----- Website (karyaciptasolusi.com) ------------------------------------------------------
   {
     key: 'web-contents',

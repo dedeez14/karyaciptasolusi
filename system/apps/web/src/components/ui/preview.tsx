@@ -13,6 +13,8 @@ interface PreviewReq {
   path: string;
   title: string;
   params?: Record<string, unknown>;
+  /** POST this JSON instead of a GET (previews of unsaved data) */
+  body?: unknown;
 }
 const usePreview = create<{ req: PreviewReq | null }>(() => ({ req: null }));
 
@@ -62,8 +64,7 @@ export function PreviewHost() {
     if (!req) return;
     let gone = false;
     let url = '';
-    api
-      .blob(req.path, req.params)
+    (req.body !== undefined ? api.blobPost(req.path, req.body) : api.blob(req.path, req.params))
       .then(async ({ blob, name }) => {
         if (gone) return;
         url = URL.createObjectURL(blob);
@@ -106,7 +107,7 @@ export function PreviewHost() {
       footer={
         req && (
           <div className="flex w-full flex-wrap items-center justify-end gap-2">
-            {!touch && (
+            {!touch && req.body === undefined && (
               <Button variant="ghost" icon="external-link" className="mr-auto" onClick={() => openInNewTab(req.path, req.params).catch(toast.error)}>
                 New tab
               </Button>

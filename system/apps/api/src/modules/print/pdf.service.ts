@@ -69,6 +69,8 @@ export interface LetterContent {
   layout?: string;
   /** LETTER_TYPE code, picks the opening sentence */
   type?: string;
+  /** preview before saving: not signed, not registered, marked PRATINJAU */
+  draft?: boolean;
   personName: string | null;
   personIdNumber: string | null;
   personAddress: string | null;
@@ -535,8 +537,8 @@ export class PdfService {
    */
   async renderLetter(companyId: string, l: LetterContent): Promise<Buffer> {
     const b = await this.brand(companyId);
-    const token = await this.signing.sign(companyId, { k: 'LETTER', id: l.id, n: l.number, d: l.date, a: null, cur: null, ...(l.personName ? { p: l.personName.slice(0, 150) } : {}) });
-    const code = tokenHash(token).slice(0, 20);
+    const token = l.draft ? '' : await this.signing.sign(companyId, { k: 'LETTER', id: l.id, n: l.number, d: l.date, a: null, cur: null, ...(l.personName ? { p: l.personName.slice(0, 150) } : {}) });
+    const code = l.draft ? 'PRATINJAU' : tokenHash(token).slice(0, 20);
     const publicUrl = (await this.settings.str('general.publicUrl', companyId, 'http://localhost:3000')).replace(/\/$/, '');
     const verifyUrl = `${publicUrl}/verify?c=${code}`;
     const host = publicUrl.replace(/^https?:\/\//, '');
@@ -546,7 +548,7 @@ export class PdfService {
       size: b.paper,
       margins: { top: 40, bottom: 50, left: 64, right: 60 },
       bufferPages: true,
-      info: { Title: `${l.subject} ${l.number}`, Author: b.name, Creator: 'KCS ERP', Subject: 'Digitally signed (Ed25519)', Keywords: `kcs-signature:${token}` },
+      info: { Title: `${l.subject} ${l.number}`, Author: b.name, Creator: 'KCS ERP', ...(token ? { Subject: 'Digitally signed (Ed25519)', Keywords: `kcs-signature:${token}` } : { Subject: 'Preview' }) },
     });
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
@@ -748,15 +750,23 @@ export class PdfService {
       const fy = doc.page.height - 36;
       doc.moveTo(L, fy - 6).lineTo(L + W, fy - 6).lineWidth(0.5).strokeColor(LINE).stroke();
       doc.font('Helvetica').fontSize(6.8).fillColor(GREY);
+      if (l.draft) {
+        // preview: big diagonal mark so it is never mistaken for an issued document
+        doc.save().rotate(-35, { origin: [doc.page.width / 2, doc.page.height / 2] });
+        doc.font('Helvetica-Bold').fontSize(86).fillColor('#e2e8f0').fillOpacity(0.55).text('PRATINJAU', 0, doc.page.height / 2 - 50, { width: doc.page.width, align: 'center', lineBreak: false });
+        doc.restore().fillOpacity(1);
+        doc.font('Helvetica').fontSize(6.8).fillColor(GREY);
+      }
       const pageNo = range.count > 1 ? `  ·  Halaman ${i - range.start + 1} dari ${range.count}` : '';
       doc.text(`Dokumen ini ditandatangani secara elektronik oleh sistem ${b.name}${publicHost ? `. Verifikasi keaslian: ${publicHost}/verify` : ''}  ·  ${l.number}${pageNo}`, L, fy, { width: W, lineBreak: false, height: 10, ellipsis: true });
     }
     doc.end();
     const pdf = await done;
-    // fingerprint of the exact bytes issued: the verify page detects edited copies
-    await this.prisma.signedFile.create({
-      data: { companyId, tokenHash: tokenHash(token), code, token, sha256: createHash('sha256').update(pdf).digest('hex'), size: pdf.length, docKind: 'LETTER', docNumber: l.number.slice(0, 60) },
-    });
+    // fingerprint of the exact bytes issued: the verify page detects edited copies (never for a preview)
+    if (!l.draft)
+      await this.prisma.signedFile.create({
+        data: { companyId, tokenHash: tokenHash(token), code, token, sha256: createHash('sha256').update(pdf).digest('hex'), size: pdf.length, docKind: 'LETTER', docNumber: l.number.slice(0, 60) },
+      });
     return pdf;
   }
 }

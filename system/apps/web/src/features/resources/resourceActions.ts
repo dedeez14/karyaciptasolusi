@@ -23,6 +23,25 @@ export const RESOURCE_ACTIONS: Record<string, RowAction[]> = {
       run: (r) => previewFile({ path: `/letters/${r.id}/pdf`, title: `${r.subject ?? 'Letter'} ${r.number ?? ''}`.trim() }),
       success: 'Letter opened',
     },
+    {
+      label: 'Use again (new document from this one)',
+      icon: 'copy',
+      permission: 'hris.letter.create',
+      run: async (r) => window.location.assign(`/document-center?from=${encodeURIComponent(String(r.id))}`),
+      success: 'Opening the Document Center',
+    },
+    {
+      label: 'Send by e-mail',
+      icon: 'send',
+      permission: 'hris.letter.read',
+      run: async (r) => {
+        const to = window.prompt(`Send ${r.number ?? 'this document'} (signed PDF) to which e-mail address?`)?.trim();
+        if (!to) throw new Error('Not sent');
+        if (!/^\S+@\S+\.\S+$/.test(to)) throw new Error('That is not a valid e-mail address');
+        return api.post(`/letters/${r.id}/email`, { to });
+      },
+      success: 'E-mail sent',
+    },
   ],
   leads: [
     {
