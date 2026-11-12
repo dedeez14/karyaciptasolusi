@@ -53,7 +53,8 @@ export class FileOutputService {
         meta: [{ label: 'Generated', value: new Date().toLocaleString('en-GB') }, ...(table.subtitle ? [{ label: 'Period', value: table.subtitle }] : [])],
         columns: table.columns.map((c) => ({ key: c.key, label: c.label, align: ['money', 'number', 'integer', 'percent', 'qty'].includes(c.type ?? '') ? 'right' : 'left' })),
         rows: table.rows.map((r) => Object.fromEntries(table.columns.map((c) => [c.key, this.fmt(r[c.key], c.type)]))),
-        totals: table.totals ? table.columns.filter((c) => table.totals![c.key] !== undefined).map((c) => ({ label: c.label, value: this.fmt(table.totals![c.key], c.type) })) : undefined,
+        // totals sit under their own columns, the first column says what the row is
+        footer: table.totals ? Object.fromEntries(table.columns.map((c, i) => [c.key, table.totals![c.key] !== undefined ? this.fmt(table.totals![c.key], c.type) : i === 0 ? 'Total' : ''])) : undefined,
         landscape: table.columns.length > 6,
       });
       ext = 'pdf';

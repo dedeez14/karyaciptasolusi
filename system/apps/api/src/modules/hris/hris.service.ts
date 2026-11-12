@@ -285,7 +285,8 @@ export class HrisService {
       emp.departmentId ? this.prisma.department.findUnique({ where: { id: emp.departmentId } }) : null,
       emp.positionId ? this.prisma.position.findUnique({ where: { id: emp.positionId } }) : null,
     ]);
-    const m = (v: unknown) => this.pdf.money(v);
+    const locale = await this.settings.str('general.locale', RequestCtx.companyId(), 'id-ID');
+    const m = (v: unknown) => this.pdf.money(v, locale);
     const lines = slip.lines as unknown as SlipLine[];
     const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
     return {
