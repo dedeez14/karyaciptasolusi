@@ -223,7 +223,7 @@ export default function SubscriptionViewPage() {
           </Card>
         </div>
         <div className="space-y-5">
-          <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 p-5 text-white shadow-pop">
+          <div className="rounded-2xl bg-brand-600 p-5 text-white shadow-pop">
             <p className="text-sm text-white/80">Per invoice</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">
               {s.currencyCode} {fmtMoney(s.amounts.total)}

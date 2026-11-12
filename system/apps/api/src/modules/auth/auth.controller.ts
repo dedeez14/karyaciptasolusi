@@ -156,6 +156,9 @@ export class AuthController {
         idleTimeoutMinutes: await this.settings.num('security.idleTimeoutMinutes', u.companyId, 30),
         appName: await this.settings.str('general.appName', u.companyId, 'KCS ERP'),
         vatPayer: await this.settings.bool('sales.vatPayer', u.companyId, true),
+        // app theme follows the company's brand colours (also used on documents)
+        brandColor: await this.settings.str('document.primaryColor', u.companyId, '#1d4f7a'),
+        accentColor: await this.settings.str('document.secondaryColor', u.companyId, '#f8b810'),
         timezone: await this.settings.str('general.timezone', u.companyId, 'Asia/Jakarta'),
       },
       clock: {

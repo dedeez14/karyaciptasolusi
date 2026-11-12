@@ -59,9 +59,10 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+      <div className="relative hidden overflow-hidden bg-brand-700 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-1.5 bg-accent-400" />
         <div className="flex items-center gap-3">
-          <img src="/favicon.svg" alt="" className="h-10 w-10" />
+          <img src="/logo.png" alt="" className="h-11 w-11 rounded-xl bg-white p-1 shadow-sm" />
           <span className="text-lg font-semibold text-white">{brand.data?.appName ?? 'KCS ERP'}</span>
         </div>
         <div>
@@ -70,7 +71,7 @@ export default function LoginPage() {
           <ul className="mt-8 grid max-w-md grid-cols-2 gap-3 text-sm text-brand-100">
             {['CRM & Marketing', 'Sales & Invoicing', 'Purchasing', 'Inventory', 'Accounting', 'HRIS & Payroll', 'File Manager', 'Reports'].map((f) => (
               <li key={f} className="flex items-center gap-2">
-                <Icon name="check-circle-2" className="h-4 w-4 text-emerald-300" />
+                <Icon name="check-circle-2" className="h-4 w-4 text-accent-400" />
                 {f}
               </li>
             ))}
@@ -81,7 +82,7 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-6">
         <form onSubmit={submit} className="w-full max-w-sm space-y-5" autoComplete="on">
           <div className="lg:hidden">
-            <img src="/favicon.svg" alt="" className="mb-3 h-12 w-12" />
+            <img src="/logo.png" alt="" className="mb-3 h-12 w-12" />
           </div>
           <div>
             <h2 className="text-2xl font-semibold">{mfaToken ? 'Two-factor sign-in' : 'Sign in'}</h2>

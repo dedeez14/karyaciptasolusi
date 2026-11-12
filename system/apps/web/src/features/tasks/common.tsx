@@ -78,7 +78,7 @@ export function initials(name?: string | null) {
 export function Avatar({ name, size = 'sm' }: { name: string | null | undefined; size?: 'sm' | 'md' }) {
   if (!name) return <span className={cn('inline-flex items-center justify-center rounded-full border border-dashed border-slate-300 text-slate-400', size === 'sm' ? 'h-6 w-6 text-[10px]' : 'h-8 w-8 text-xs')}>?</span>;
   return (
-    <span title={name} className={cn('inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 font-semibold text-white', size === 'sm' ? 'h-6 w-6 text-[10px]' : 'h-8 w-8 text-xs')}>
+    <span title={name} className={cn('inline-flex shrink-0 items-center justify-center rounded-full bg-brand-600 font-semibold text-white', size === 'sm' ? 'h-6 w-6 text-[10px]' : 'h-8 w-8 text-xs')}>
       {initials(name)}
     </span>
   );

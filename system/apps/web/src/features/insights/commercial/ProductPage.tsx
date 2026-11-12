@@ -30,7 +30,7 @@ export default function ProductPage() {
       id={id}
       backTo="/r/products"
       avatar={(r) => (
-        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-50 to-violet-100 text-xl font-semibold text-brand-700">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-xl font-semibold text-brand-700">
           {String(r.name ?? '?')
             .slice(0, 1)
             .toUpperCase()}

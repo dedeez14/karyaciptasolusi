@@ -51,7 +51,7 @@ export default function UnsubscribePage() {
     <div className="flex min-h-dvh items-start justify-center bg-canvas p-4 sm:items-center">
       <div className="w-full max-w-md overflow-hidden rounded-3xl border border-line bg-white shadow-pop">
         <div className="flex items-center gap-3 border-b border-line px-6 py-4">
-          <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl" />
+          <img src="/logo.png" alt="" className="h-9 w-9 rounded-xl" />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-900">{info?.company || 'E-mail preferences'}</p>
             <p className="text-xs text-slate-500">Marketing e-mail subscription</p>

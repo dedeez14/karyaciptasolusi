@@ -32,6 +32,8 @@ const GROUPS: Record<string, { label: string; icon: string }> = {
   helpdesk: { label: 'Helpdesk', icon: 'life-buoy' },
   files: { label: 'Files', icon: 'folder' },
   mail: { label: 'E-mail', icon: 'mail' },
+  website: { label: 'Website', icon: 'globe' },
+  marketing: { label: 'Marketing', icon: 'megaphone' },
   integration: { label: 'Integrations', icon: 'plug' },
 };
 
@@ -230,7 +232,7 @@ export default function SettingsPage() {
                           <input
                             type="color"
                             className="h-10 w-12 cursor-pointer rounded-lg border border-line"
-                            value={/^#[0-9a-f]{6}$/i.test(values[s.key] ?? '') ? values[s.key] : '#1e40af'}
+                            value={/^#[0-9a-f]{6}$/i.test(values[s.key] ?? '') ? values[s.key] : '#1d4f7a'}
                             disabled={!editable}
                             onChange={(e) => change(s.key, e.target.value)}
                           />

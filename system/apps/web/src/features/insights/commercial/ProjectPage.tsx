@@ -60,7 +60,7 @@ export default function ProjectPage() {
       id={id}
       backTo="/r/projects"
       avatar={() => (
-        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-sm">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-sm">
           <Icon name="folder-kanban" className="h-7 w-7" />
         </span>
       )}

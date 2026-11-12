@@ -5,6 +5,9 @@ import { ApiError } from '@/lib/api';
 import App from './App';
 import { reloadForNewVersion } from '@/components/layout/stale-chunk';
 import './index.css';
+import { restoreTheme } from '@/lib/theme';
+
+restoreTheme();
 
 // A page bundle of an older build could not be loaded (the app was updated while this tab was open):
 // reload once into the new version. Icons are skipped - a missing icon must never interrupt the user's work.

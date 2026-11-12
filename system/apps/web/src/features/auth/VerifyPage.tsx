@@ -60,13 +60,13 @@ export default function VerifyPage() {
   }, [token, code]);
 
   const ok = r?.valid && !(r.warnings?.length ?? 0);
-  const tone = !r ? '' : ok ? 'from-emerald-500 to-emerald-600' : r.valid ? 'from-amber-400 to-amber-500' : 'from-rose-500 to-rose-600';
+  const tone = !r ? '' : ok ? 'bg-emerald-500' : r.valid ? 'bg-amber-400' : 'bg-rose-500';
 
   return (
     <div className="flex min-h-dvh items-start justify-center bg-canvas p-4 sm:items-center">
       <div className="w-full max-w-md overflow-hidden rounded-3xl border border-line bg-white shadow-pop">
         <div className="flex items-center gap-3 border-b border-line px-6 py-4">
-          <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl" />
+          <img src="/logo.png" alt="" className="h-9 w-9 rounded-xl" />
           <div>
             <p className="text-sm font-semibold text-slate-900">Document verification</p>
             <p className="text-xs text-slate-500">Digital signature & file integrity check</p>
@@ -80,7 +80,7 @@ export default function VerifyPage() {
         {error && <p className="px-6 py-10 text-center text-sm text-red-600">{error}</p>}
         {r && (
           <>
-            <div className={`bg-gradient-to-br ${tone} px-6 py-5 text-white`}>
+            <div className={`${tone} px-6 py-5 text-white`}>
               <div className="flex items-center gap-3">
                 <Icon name={ok ? 'shield-check' : r.valid ? 'shield-alert' : 'shield-x'} className="h-8 w-8 shrink-0" />
                 <p className="text-lg font-semibold text-white">{ok ? 'Signature valid' : r.valid ? 'Signature valid, with warnings' : 'Not verified'}</p>

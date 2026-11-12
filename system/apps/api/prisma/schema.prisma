@@ -2260,3 +2260,52 @@ model EmailSuppression {
   @@unique([companyId, email])
   @@map("email_suppressions")
 }
+
+/// One block of the public website (karyaciptasolusi.com): a service, portfolio item, testimonial, FAQ, ...
+/// The site reads the published blocks of one company through GET /public/website.
+model WebContent {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  /// SERVICE | PORTFOLIO | TESTIMONIAL | FAQ | CLIENT | STAT | REASON | STEP | JOB
+  section     String    @db.VarChar(20)
+  title       String    @db.VarChar(200)
+  subtitle    String?   @db.VarChar(200)
+  body        String?
+  icon        String?   @db.VarChar(50)
+  imageUrl    String?   @db.VarChar(500)
+  linkUrl     String?   @db.VarChar(500)
+  tags        String?   @db.VarChar(500)
+  value       String?   @db.VarChar(50)
+  sortOrder   Int       @default(0)
+  isPublished Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@index([companyId, section, sortOrder])
+  @@map("web_contents")
+}
+
+/// Running announcement shown under the top bar of the application for everyone in the company
+model Announcement {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  message     String    @db.VarChar(500)
+  /// INFO | SUCCESS | WARNING | URGENT
+  tone        String    @default("INFO") @db.VarChar(20)
+  linkUrl     String?   @db.VarChar(500)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@index([companyId, isActive])
+  @@map("announcements")
+}

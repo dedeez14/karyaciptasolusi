@@ -82,7 +82,7 @@ export function ProductCatalogView({ rows, open }: ResourceViewProps) {
             onClick={() => open(r)}
             className={cn('card group flex flex-col overflow-hidden text-left transition-all hover:-translate-y-0.5 hover:shadow-pop', r.isActive === false && 'opacity-60')}
           >
-            <div className="relative flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-slate-50 to-brand-50">
+            <div className="relative flex aspect-[4/3] items-center justify-center bg-slate-50">
               <span className="text-3xl font-semibold text-brand-300">
                 {String(r.name ?? '?')
                   .slice(0, 1)

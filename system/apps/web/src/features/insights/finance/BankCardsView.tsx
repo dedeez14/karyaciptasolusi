@@ -24,7 +24,7 @@ export function BankCardsView({ rows, open }: ResourceViewProps) {
   return (
     <div>
       {q.data?.balances && (
-        <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl bg-gradient-to-r from-brand-600 to-violet-600 px-5 py-4 text-white shadow-card">
+        <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl bg-brand-600 px-5 py-4 text-white shadow-card">
           <div>
             <p className="text-xs font-medium text-white/80">Total cash & bank</p>
             <p className="text-2xl font-semibold tabular-nums">{money(total)}</p>

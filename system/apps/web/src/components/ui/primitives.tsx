@@ -7,7 +7,7 @@ export const cn = clsx;
 // ---------------------------------------------------------------- Button
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline';
 const variants: Record<Variant, string> = {
-  primary: 'bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-[0_1px_2px_rgb(16_24_40/0.1),inset_0_1px_0_rgb(255_255_255/0.15)] hover:from-brand-600 hover:to-brand-700',
+  primary: 'bg-brand-600 text-white shadow-[0_1px_2px_rgb(16_24_40/0.1)] hover:bg-brand-700',
   secondary: 'bg-brand-50 text-brand-700 hover:bg-brand-100',
   outline: 'border border-line bg-white text-slate-700 shadow-[0_1px_2px_rgb(16_24_40/0.05)] hover:bg-slate-50 hover:text-slate-900',
   ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
@@ -216,12 +216,12 @@ export function PageHeader({ title, subtitle, actions, back }: { title: ReactNod
 }
 
 const statTone: Record<Tone, string> = {
-  blue: 'from-brand-500 to-brand-600',
-  green: 'from-emerald-500 to-emerald-600',
-  amber: 'from-amber-400 to-amber-500',
-  red: 'from-rose-500 to-rose-600',
-  violet: 'from-violet-500 to-violet-600',
-  gray: 'from-slate-500 to-slate-600',
+  blue: 'bg-brand-600',
+  green: 'bg-emerald-500',
+  amber: 'bg-amber-400',
+  red: 'bg-rose-500',
+  violet: 'bg-violet-500',
+  gray: 'bg-slate-500',
 };
 export function StatCard({ label, value, hint, icon, tone = 'blue' }: { label: string; value: ReactNode; hint?: ReactNode; icon?: string; tone?: Tone }) {
   return (
@@ -232,7 +232,7 @@ export function StatCard({ label, value, hint, icon, tone = 'blue' }: { label: s
           <p className="mt-2 truncate text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
         </div>
         {icon && (
-          <div className={cn('rounded-xl bg-gradient-to-br p-2.5 text-white shadow-sm', statTone[tone])}>
+          <div className={cn('rounded-xl p-2.5 text-white shadow-sm', statTone[tone])}>
             <Icon name={icon} className="h-5 w-5" />
           </div>
         )}

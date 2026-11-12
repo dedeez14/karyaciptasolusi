@@ -103,9 +103,9 @@ export default function PipelineBoardPage() {
         }
       />
       <div className="mb-4 grid gap-4 sm:grid-cols-3">
-        <Summary label="Open pipeline" value={totals.open} icon="target" tone="from-brand-500 to-brand-600" />
-        <Summary label="Weighted forecast" value={totals.weighted} icon="trending-up" tone="from-violet-500 to-violet-600" />
-        <Summary label="Won" value={totals.won} icon="trophy" tone="from-emerald-500 to-emerald-600" />
+        <Summary label="Open pipeline" value={totals.open} icon="target" tone="bg-brand-500" />
+        <Summary label="Weighted forecast" value={totals.weighted} icon="trending-up" tone="bg-violet-500" />
+        <Summary label="Won" value={totals.won} icon="trophy" tone="bg-emerald-500" />
       </div>
       <div className="card mb-4 grid gap-2 p-3 sm:grid-cols-[1fr_1fr_auto]">
         <div className="relative">
@@ -221,7 +221,7 @@ export default function PipelineBoardPage() {
 function Summary({ label, value, icon, tone }: { label: string; value: number; icon: string; tone: string }) {
   return (
     <div className="card flex items-center gap-4 p-4">
-      <span className={`rounded-xl bg-gradient-to-br ${tone} p-2.5 text-white shadow-sm`}>
+      <span className={`rounded-xl ${tone} p-2.5 text-white shadow-sm`}>
         <Icon name={icon} className="h-5 w-5" />
       </span>
       <div>

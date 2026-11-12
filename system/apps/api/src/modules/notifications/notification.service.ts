@@ -75,6 +75,10 @@ export class NotificationService {
       });
       if (n) items.push({ key: 'bills', title: 'Supplier bills due', message: `${n} bill${n > 1 ? 's' : ''} due within ${days} days or overdue`, count: n, severity: 'warning', icon: 'banknote', link: '/documents/PI?unpaid=1' });
     }
+    if (can(u, 'crm.lead.read') && (await on('websiteEnquiries'))) {
+      const n = await this.prisma.lead.count({ where: { companyId: c, sourceCode: 'WEBSITE', statusCode: 'NEW', deletedAt: null } });
+      if (n) items.push({ key: 'website', title: 'New website enquiries', message: `${n} message${n > 1 ? 's' : ''} from the website contact form`, count: n, severity: 'info', icon: 'inbox', link: '/r/leads?f.sourceCode=WEBSITE&f.statusCode=NEW' });
+    }
     if (can(u, 'crm.emailcampaign.read') && (await on('emailReplies'))) {
       const n = await this.prisma.emailReply.count({ where: { companyId: c, kindCode: 'REPLY', handledAt: null } });
       if (n) items.push({ key: 'email-replies', title: 'Replies to e-mail campaigns', message: `${n} repl${n > 1 ? 'ies are' : 'y is'} waiting for an answer`, count: n, severity: 'info', icon: 'mail-check', link: '/crm/email-campaigns?tab=replies' });

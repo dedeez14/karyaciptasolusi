@@ -28,7 +28,7 @@ export function Avatar({ name, size = 'md', className }: { name?: string | null;
   return (
     <span
       className={cn('inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white shadow-sm', s, className)}
-      style={{ background: `linear-gradient(135deg, ${colorFor(name ?? '')}, ${colorFor((name ?? '') + 'x')})` }}
+      style={{ background: colorFor(name ?? '') }}
       aria-hidden
     >
       {initials(name)}

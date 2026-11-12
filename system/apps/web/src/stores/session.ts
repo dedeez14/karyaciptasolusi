@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { applyTheme } from '@/lib/theme';
 import { api, refreshToken, session } from '@/lib/api';
 import { setLocale } from '@/lib/format';
 
@@ -20,7 +21,7 @@ export interface Me {
   companies: { id: string; code: string; name: string }[];
   branches: { id: string; code: string; name: string }[];
   menus: MenuNode[];
-  prefs: { locale: string; idleTimeoutMinutes: number; appName: string; timezone: string; vatPayer?: boolean };
+  prefs: { locale: string; idleTimeoutMinutes: number; appName: string; timezone: string; vatPayer?: boolean; brandColor?: string; accentColor?: string };
   clock: { enabled: boolean; timezone: string; format24h: boolean; showSeconds: boolean; showDate: boolean; label: string };
   /** employee record linked to this user (self-service attendance) */
   employeeId: string | null;
@@ -64,6 +65,7 @@ export const useSession = create<SessionState>((set, get) => ({
     saveCtx(me.company.id, me.branchId);
     setLocale(me.prefs.locale);
     document.title = me.prefs.appName;
+    applyTheme(me.prefs.brandColor, me.prefs.accentColor);
     set({ me, perms: new Set(me.permissions), status: 'authenticated' });
   },
 

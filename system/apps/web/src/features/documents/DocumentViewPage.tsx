@@ -398,7 +398,7 @@ export default function DocumentViewPage() {
                 <Row label="Subtotal" value={fmtMoney(d.subtotal)} />
                 {Number(d.discountTotal) > 0 && <Row label="Discount" value={`-${fmtMoney(d.discountTotal)}`} />}
                 <Row label="Tax" value={fmtMoney(d.taxTotal)} />
-                <div className="!mt-4 rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 px-4 py-3 text-white">
+                <div className="!mt-4 rounded-xl bg-brand-600 px-4 py-3 text-white">
                   <dt className="text-xs text-brand-100">Total</dt>
                   <dd className="mt-0.5 text-xl font-semibold tabular-nums">
                     {d.currencyCode} {fmtMoney(d.grandTotal)}

@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
+import { AnnouncementBar } from './AnnouncementBar';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSession, type MenuNode } from '@/stores/session';
@@ -42,7 +43,7 @@ function NavItem({ node, depth, collapsed, open, toggle, onNavigate, activeCode 
     const isOpen = open.has(node.code) && !collapsed;
     const containsActive = !!activeCode && flattenMenus(node.children).some((l) => l.node.code === activeCode);
     const chip = (
-      <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', containsActive ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-brand-600')}>
+      <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', containsActive ? 'bg-accent-400 text-brand-950 shadow-sm' : 'bg-white/8 text-white/70 group-hover:bg-white/15 group-hover:text-white')}>
         <Icon name={node.icon} className="h-4 w-4" />
       </span>
     );
@@ -58,7 +59,7 @@ function NavItem({ node, depth, collapsed, open, toggle, onNavigate, activeCode 
                 aria-haspopup="menu"
                 aria-expanded={flyoutOpen}
                 onClick={toggleFlyout}
-                className={cn('group flex w-full items-center justify-center rounded-lg px-2.5 py-2 transition-colors', flyoutOpen ? 'bg-slate-100' : 'hover:bg-slate-100')}
+                className={cn('group flex w-full items-center justify-center rounded-lg px-2.5 py-2 transition-colors', flyoutOpen ? 'bg-white/12' : 'hover:bg-white/8')}
               >
                 {chip}
               </button>
@@ -72,15 +73,15 @@ function NavItem({ node, depth, collapsed, open, toggle, onNavigate, activeCode 
         <button
           type="button"
           onClick={() => toggle(node.code)}
-          className={cn('group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors', containsActive ? 'text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')}
+          className={cn('group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors', containsActive ? 'text-white' : 'text-white/75 hover:bg-white/8 hover:text-white')}
           aria-expanded={isOpen}
         >
           {chip}
           <span className="flex-1 truncate text-left">{node.label}</span>
-          <Icon name="chevron-right" className={cn('h-4 w-4 text-slate-400 transition-transform', isOpen && 'rotate-90')} />
+          <Icon name="chevron-right" className={cn('h-4 w-4 text-white/40 transition-transform', isOpen && 'rotate-90')} />
         </button>
         {isOpen && (
-          <ul className="relative mt-1 mb-2 ml-[22px] space-y-0.5 border-l border-line pl-3">
+          <ul className="relative mt-1 mb-2 ml-[22px] space-y-0.5 border-l border-white/12 pl-3">
             {node.children.map((c) => (
               <NavItem key={c.id} node={c} depth={depth + 1} collapsed={collapsed} open={open} toggle={toggle} onNavigate={onNavigate} activeCode={activeCode} />
             ))}
@@ -98,13 +99,13 @@ function NavItem({ node, depth, collapsed, open, toggle, onNavigate, activeCode 
       className={cn(
         'relative flex items-center gap-3 rounded-lg text-[13.5px] transition-colors',
         depth === 0 ? 'px-2.5 py-2 font-medium' : 'px-2.5 py-1.5',
-        active ? 'bg-brand-50 font-semibold text-brand-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+        active ? 'bg-white/12 font-semibold text-white' : 'text-white/70 hover:bg-white/8 hover:text-white',
         collapsed && 'justify-center',
       )}
     >
-      {depth > 0 && active && <span className="absolute top-1.5 bottom-1.5 -left-[13.5px] w-[3px] rounded-full bg-brand-600" />}
+      {depth > 0 && active && <span className="absolute top-1.5 bottom-1.5 -left-[13.5px] w-[3px] rounded-full bg-accent-400" />}
       {depth === 0 && (
-        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', active ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500')}>
+        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', active ? 'bg-accent-400 text-brand-950 shadow-sm' : 'bg-white/8 text-white/70')}>
           <Icon name={node.icon} className="h-4 w-4" />
         </span>
       )}
@@ -180,13 +181,13 @@ export function AppLayout() {
   const sidebar = (isMobile: boolean) => {
     const c = collapsed && !isMobile;
     return (
-      <div className="flex h-full flex-col border-r border-line bg-white">
+      <div className="flex h-full flex-col bg-brand-900 text-white">
         <div className={cn('flex h-16 shrink-0 items-center gap-3 px-4', c && 'justify-center px-2')}>
-          <img src="/favicon.svg" alt="" className="h-9 w-9 shrink-0 rounded-xl shadow-sm" />
+          <img src="/logo.png" alt="" className="h-9 w-9 shrink-0 rounded-xl bg-white p-1 shadow-sm" />
           {!c && (
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold text-slate-900">{me.prefs.appName}</p>
-              <p className="truncate text-xs text-slate-500">{me.company.name}</p>
+              <p className="truncate text-[15px] font-semibold text-white">{me.prefs.appName}</p>
+              <p className="truncate text-xs text-white/60">{me.company.name}</p>
             </div>
           )}
         </div>
@@ -198,34 +199,34 @@ export function AppLayout() {
                 setMobileOpen(false);
                 setPaletteOpen(true);
               }}
-              className="flex h-9 w-full items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 text-sm text-slate-400 hover:border-slate-300 hover:bg-white"
+              className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/10 bg-white/8 px-3 text-sm text-white/60 transition-colors hover:bg-white/12 hover:text-white"
             >
               <Icon name="search" className="h-4 w-4" />
               <span className="flex-1 text-left">Search menu...</span>
-              <kbd className="rounded border border-line bg-white px-1.5 text-[10px] font-medium text-slate-500">Ctrl K</kbd>
+              <kbd className="rounded border border-white/15 bg-white/10 px-1.5 text-[10px] font-medium text-white/70">Ctrl K</kbd>
             </button>
           </div>
         )}
         {c && (
           <div className="px-2 pb-3">
             <Tooltip content="Search menu (Ctrl K)">
-              <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search menu" className="flex h-9 w-full items-center justify-center rounded-lg border border-line bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-white hover:text-slate-800">
+              <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search menu" className="flex h-9 w-full items-center justify-center rounded-lg border border-white/10 bg-white/8 text-white/60 hover:bg-white/12 hover:text-white">
                 <Icon name="search" className="h-4 w-4" />
               </button>
             </Tooltip>
           </div>
         )}
-        <nav className={cn('flex-1 overflow-y-auto pb-4', c ? 'px-2' : 'px-3')}>
+        <nav className={cn('sidebar-scroll flex-1 overflow-y-auto pb-4', c ? 'px-2' : 'px-3')}>
           <ul className="space-y-0.5">
             {me.menus.map((m) => (
               <NavItem key={m.id} node={m} depth={0} collapsed={c} open={open} toggle={toggle} onNavigate={() => setMobileOpen(false)} activeCode={active?.node.code} />
             ))}
           </ul>
         </nav>
-        <div className={cn('shrink-0 border-t border-line p-3', c && 'px-2')}>
+        <div className={cn('shrink-0 border-t border-white/10 p-3', c && 'px-2')}>
           {!isMobile && (
             <Tooltip content="Expand sidebar" disabled={!c}>
-              <button type="button" onClick={() => setCollapsed((v) => !v)} aria-label={c ? 'Expand sidebar' : 'Collapse sidebar'} className={cn('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-800', c && 'justify-center')}>
+              <button type="button" onClick={() => setCollapsed((v) => !v)} aria-label={c ? 'Expand sidebar' : 'Collapse sidebar'} className={cn('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-white/60 hover:bg-white/8 hover:text-white', c && 'justify-center')}>
                 <Icon name={c ? 'panel-left-open' : 'panel-left-close'} className="h-4 w-4" />
                 {!c && 'Collapse sidebar'}
               </button>
@@ -294,7 +295,7 @@ export function AppLayout() {
           <Dropdown
             trigger={
               <button type="button" className="flex items-center gap-2.5 rounded-xl py-1 pr-2 pl-1 hover:bg-slate-100">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-xs font-semibold text-white shadow-sm">{initials(me.user.fullName)}</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white shadow-sm">{initials(me.user.fullName)}</span>
                 <span className="hidden text-left lg:block">
                   <span className="block max-w-36 truncate text-sm leading-tight font-semibold text-slate-800">{me.user.fullName}</span>
                   <span className="block text-xs leading-tight text-slate-500">@{me.user.username}</span>
@@ -310,6 +311,7 @@ export function AppLayout() {
             ]}
           />
         </header>
+        <AnnouncementBar />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1600px] p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
             <Suspense

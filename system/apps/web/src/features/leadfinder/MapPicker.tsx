@@ -69,7 +69,7 @@ export function MapPicker({ centre, radiusKm, onCentre, onRadius }: { centre: Ce
     const m = L.map(el.current, { zoomControl: true, attributionControl: true }).setView([centre.lat, centre.lng], zoomForRadius(radiusKm) - 1);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(m);
     marker.current = L.marker([centre.lat, centre.lng], { draggable: true, icon: pin, keyboard: true, title: 'Search centre - drag to move' }).addTo(m);
-    circle.current = L.circle([centre.lat, centre.lng], { radius: radiusKm * 1000, color: '#2563eb', weight: 2, fillColor: '#3b82f6', fillOpacity: 0.12 }).addTo(m);
+    circle.current = L.circle([centre.lat, centre.lng], { radius: radiusKm * 1000, color: getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#1d4f7a', weight: 2, fillColor: getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#1d4f7a', fillOpacity: 0.12 }).addTo(m);
     // a pin moved by hand is no longer the searched place: clear the place text
     marker.current.on('dragend', () => {
       const p = marker.current!.getLatLng();

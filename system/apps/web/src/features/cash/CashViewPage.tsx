@@ -124,7 +124,7 @@ export default function CashViewPage() {
           </dl>
         </Card>
         <div className="space-y-5">
-          <div className={`rounded-2xl bg-gradient-to-br p-5 text-white shadow-pop ${t.type === 'RECEIPT' ? 'from-emerald-500 to-emerald-600' : t.type === 'PAYMENT' ? 'from-rose-500 to-rose-600' : 'from-brand-500 to-brand-700'}`}>
+          <div className={`rounded-2xl p-5 text-white shadow-pop ${t.type === 'RECEIPT' ? 'bg-emerald-500' : t.type === 'PAYMENT' ? 'bg-rose-500' : 'bg-brand-500'}`}>
             <p className="text-sm text-white/80">Amount</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">{fmtMoney(t.amount)}</p>
           </div>

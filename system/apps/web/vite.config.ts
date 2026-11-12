@@ -51,12 +51,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: null,
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.png', 'logo.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'KCS ERP - Karya Cipta Solusi',
         short_name: 'KCS ERP',
         description: 'Business management suite: marketing, sales, purchase, inventory, accounting, HR and reports',
-        theme_color: '#1e40af',
+        theme_color: '#1d4f7a',
         background_color: '#f8fafc',
         display: 'standalone',
         orientation: 'any',
