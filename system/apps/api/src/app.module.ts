@@ -62,6 +62,7 @@ import { APPROVALS_CONTROLLERS, APPROVALS_PROVIDERS } from './modules/approvals'
 import { EXPENSES_CONTROLLERS, EXPENSES_PROVIDERS } from './modules/expenses';
 import { HELPDESK_CONTROLLERS, HELPDESK_PROVIDERS } from './modules/helpdesk';
 import { PRIVACY_CONTROLLERS, PRIVACY_PROVIDERS } from './modules/privacy';
+import { INVENTORY_CONTROLLERS, INVENTORY_PROVIDERS } from './modules/inventory';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
@@ -137,6 +138,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...BUDGET_CONTROLLERS,
     ...APPROVALS_CONTROLLERS,
     ...PRIVACY_CONTROLLERS,
+    ...INVENTORY_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
     ...INSIGHTS_CONTROLLERS,
@@ -192,6 +194,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...BUDGET_PROVIDERS,
     ...APPROVALS_PROVIDERS,
     ...PRIVACY_PROVIDERS,
+    ...INVENTORY_PROVIDERS,
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,
     ...INSIGHTS_PROVIDERS,

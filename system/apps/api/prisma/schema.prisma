@@ -520,31 +520,36 @@ model Tax {
 }
 
 model Product {
-  id               String      @id @default(uuid()) @db.Uuid
-  companyId        String      @db.Uuid
-  code             String      @db.VarChar(40)
-  name             String      @db.VarChar(200)
-  type             ProductType @default(STOCK)
-  categoryId       String?     @db.Uuid
-  brandId          String?     @db.Uuid
-  uomId            String?     @db.Uuid
-  barcode          String?     @db.VarChar(60)
-  description      String?
-  salePrice        Decimal     @default(0) @db.Decimal(18, 2)
-  purchasePrice    Decimal     @default(0) @db.Decimal(18, 2)
-  minStock         Decimal     @default(0) @db.Decimal(18, 4)
-  saleTaxId        String?     @db.Uuid
-  purchaseTaxId    String?     @db.Uuid
-  incomeAccountId  String?     @db.Uuid
-  expenseAccountId String?     @db.Uuid
-  isSellable       Boolean     @default(true)
-  isPurchasable    Boolean     @default(true)
-  isActive         Boolean     @default(true)
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  createdById      String?     @db.Uuid
-  updatedById      String?     @db.Uuid
-  deletedAt        DateTime?
+  id                  String      @id @default(uuid()) @db.Uuid
+  companyId           String      @db.Uuid
+  code                String      @db.VarChar(40)
+  name                String      @db.VarChar(200)
+  type                ProductType @default(STOCK)
+  categoryId          String?     @db.Uuid
+  brandId             String?     @db.Uuid
+  uomId               String?     @db.Uuid
+  barcode             String?     @db.VarChar(60)
+  description         String?
+  salePrice           Decimal     @default(0) @db.Decimal(18, 2)
+  purchasePrice       Decimal     @default(0) @db.Decimal(18, 2)
+  minStock            Decimal     @default(0) @db.Decimal(18, 4)
+  /// reorder planning: order up to this level (0 = order the reorder quantity), quantity per order, usual supplier
+  maxStock            Decimal     @default(0) @db.Decimal(18, 4)
+  reorderQty          Decimal     @default(0) @db.Decimal(18, 4)
+  preferredSupplierId String?     @db.Uuid
+  leadTimeDays        Int         @default(0)
+  saleTaxId           String?     @db.Uuid
+  purchaseTaxId       String?     @db.Uuid
+  incomeAccountId     String?     @db.Uuid
+  expenseAccountId    String?     @db.Uuid
+  isSellable          Boolean     @default(true)
+  isPurchasable       Boolean     @default(true)
+  isActive            Boolean     @default(true)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  createdById         String?     @db.Uuid
+  updatedById         String?     @db.Uuid
+  deletedAt           DateTime?
 
   category ProductCategory? @relation(fields: [categoryId], references: [id])
   brand    Brand?           @relation(fields: [brandId], references: [id])
@@ -2498,4 +2503,51 @@ model DataBreach {
 
   @@unique([companyId, number])
   @@map("data_breaches")
+}
+
+/// Physical stock count (stock opname) of one warehouse; posting creates a confirmed stock adjustment for the differences
+model StockCount {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  branchId     String?   @db.Uuid
+  number       String    @db.VarChar(40)
+  warehouseId  String    @db.Uuid
+  countDate    DateTime  @db.Date
+  /// COUNTING | POSTED | CANCELLED
+  status       String    @default("COUNTING") @db.VarChar(20)
+  /// people who counted and witnessed (printed on the berita acara)
+  countedBy    String?   @db.VarChar(200)
+  witnessedBy  String?   @db.VarChar(200)
+  notes        String?
+  adjustmentId String?   @db.Uuid
+  postedAt     DateTime?
+  postedById   String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdById  String?   @db.Uuid
+  updatedById  String?   @db.Uuid
+  deletedAt    DateTime?
+
+  lines StockCountLine[]
+
+  @@unique([companyId, number])
+  @@map("stock_counts")
+}
+
+model StockCountLine {
+  id         String    @id @default(uuid()) @db.Uuid
+  countId    String    @db.Uuid
+  productId  String    @db.Uuid
+  /// book quantity when the count started, and when it was posted
+  systemQty  Decimal   @db.Decimal(18, 4)
+  countedQty Decimal?  @db.Decimal(18, 4)
+  /// average cost at posting (values the difference)
+  unitCost   Decimal   @default(0) @db.Decimal(18, 4)
+  note       String?   @db.VarChar(300)
+  countedAt  DateTime?
+
+  count StockCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+
+  @@unique([countId, productId])
+  @@map("stock_count_lines")
 }
