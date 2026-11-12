@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -251,6 +251,7 @@ export default function SettingsPage() {
               </div>
             </Card>
             {tab === 'mail' && !term && editable && <TestMail disabled={dirty.size > 0} />}
+            {tab === 'document' && !term && <CompanyLogo editable={editable} />}
             {dirty.size > 0 && editable && (
               <div className="sticky bottom-0 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-3 text-sm shadow-pop backdrop-blur">
                 <Icon name="circle-alert" className="h-4 w-4 text-amber-600" />
@@ -301,6 +302,90 @@ function TestMail({ disabled }: { disabled: boolean }) {
           Send test e-mail
         </Button>
       </form>
+    </Card>
+  );
+}
+
+interface CompanyLogoData {
+  logo: { fileId: string; name: string; size: number; dataUrl: string } | null;
+}
+
+/** Logo on the letterhead of every document PDF (PNG or JPG; without one the company initials are shown) */
+function CompanyLogo({ editable }: { editable: boolean }) {
+  const qc = useQueryClient();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<'upload' | 'remove' | null>(null);
+  const q = useQuery({ queryKey: ['company-logo'], queryFn: () => api.get<CompanyLogoData>('/system/settings/company-logo') });
+  const logo = q.data?.logo ?? null;
+
+  const upload = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    if (!/^image\/(png|jpeg)$/.test(file.type)) {
+      toast.error('Use a PNG or JPG image. Documents cannot show SVG, WebP or other formats.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('The image is larger than 2 MB');
+      return;
+    }
+    setBusy('upload');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      qc.setQueryData(['company-logo'], await api.post<CompanyLogoData>('/system/settings/company-logo', fd));
+      toast.success('Logo saved. New PDFs use it right away.');
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setBusy(null);
+      if (input.current) input.current.value = '';
+    }
+  };
+  const remove = async () => {
+    setBusy('remove');
+    try {
+      qc.setQueryData(['company-logo'], await api.delete<CompanyLogoData>('/system/settings/company-logo'));
+      toast.success('Logo removed. Documents show the company initials.');
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Card title="Company logo" subtitle="Shown next to the company name on every document PDF">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-[repeating-conic-gradient(#f1f5f9_0_25%,#ffffff_0_50%)] bg-[length:16px_16px]">
+          {q.isLoading ? <Spinner className="h-5 w-5 text-slate-400" /> : logo ? <img src={logo.dataUrl} alt="Company logo" className="max-h-20 max-w-20 object-contain" /> : <Icon name="image" className="h-8 w-8 text-slate-300" />}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="text-sm text-slate-600">
+            {logo ? (
+              <>
+                <span className="font-medium text-slate-800">{logo.name}</span> · {Math.max(1, Math.round(logo.size / 1024))} KB
+              </>
+            ) : (
+              'No logo yet: documents show the company initials.'
+            )}
+          </p>
+          <p className="text-xs text-slate-500">PNG (transparent background works best) or JPG, at most 2 MB. A square image of about 256 × 256 pixels looks sharp.</p>
+          {editable && (
+            <div className="flex flex-wrap gap-2">
+              <input ref={input} type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => upload(e.target.files)} aria-label="Choose a logo image" />
+              <Button size="sm" icon="upload" loading={busy === 'upload'} disabled={!!busy} onClick={() => input.current?.click()}>
+                {logo ? 'Change logo' : 'Upload logo'}
+              </Button>
+              {logo && (
+                <Button size="sm" variant="ghost" icon="trash-2" loading={busy === 'remove'} disabled={!!busy} onClick={remove}>
+                  Remove
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </Card>
   );
 }

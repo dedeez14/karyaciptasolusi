@@ -1,4 +1,5 @@
-import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { Permission } from '../../common/decorators';
@@ -11,6 +12,9 @@ import { RequestCtx } from '../../common/context/request-context';
 import { paged } from '../../common/utils/query';
 import { MenuService } from './menu.service';
 import { MailService } from '../integrations/mail.service';
+import { FilesService } from '../files/files.service';
+import { StorageService } from '../files/storage.service';
+import { sniffMime } from '../files/mime';
 
 // ============================================================================ Roles & permissions
 const roleSchema = z.object({
@@ -188,7 +192,55 @@ export class SettingsController {
     private readonly audit: AuditService,
     private readonly mail: MailService,
     private readonly prisma: PrismaService,
+    private readonly files: FilesService,
+    private readonly storage: StorageService,
   ) {}
+
+  // ------------------------------------------------------------------ company logo (letterhead of every PDF)
+
+  /** The current logo as a data URL (small image), so the settings page can show it without a file link */
+  @Get('company-logo')
+  @Permission('system.setting.read')
+  async companyLogo() {
+    const companyId = RequestCtx.companyId();
+    const c = await this.prisma.company.findUnique({ where: { id: companyId }, select: { logoFileId: true } });
+    if (!c?.logoFileId) return { logo: null };
+    const f = await this.prisma.storedFile.findFirst({ where: { id: c.logoFileId, companyId, deletedAt: null } });
+    if (!f || !['image/png', 'image/jpeg'].includes(f.mimeType)) return { logo: null };
+    const data = await this.storage.get(f.storageKey, f.isEncrypted).catch(() => null);
+    if (!data) return { logo: null };
+    return { logo: { fileId: f.id, name: f.originalName, size: f.size, dataUrl: `data:${f.mimeType};base64,${data.toString('base64')}` } };
+  }
+
+  /** PNG or JPG only: the PDF engine cannot draw SVG or WebP */
+  @Post('company-logo')
+  @Permission('system.setting.update')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024, files: 1 } }))
+  async uploadCompanyLogo(@UploadedFile() file: Express.Multer.File | undefined) {
+    if (!file?.buffer?.length) throw new BadRequestException('Choose an image file');
+    const ext = (file.originalname.split('.').pop() ?? '').toLowerCase();
+    const type = sniffMime(file.buffer, ext);
+    if (type !== 'image/png' && type !== 'image/jpeg') throw new BadRequestException('Use a PNG or JPG image. Documents cannot show SVG, WebP or other formats.');
+    const companyId = RequestCtx.companyId();
+    const before = await this.prisma.company.findUnique({ where: { id: companyId }, select: { logoFileId: true } });
+    const stored = await this.files.store({ buffer: file.buffer, originalName: file.originalname || `logo.${type === 'image/png' ? 'png' : 'jpg'}`, mimeType: type, categoryCode: 'MARKETING', description: 'Company logo, used on documents', source: 'UPLOAD' });
+    await this.prisma.company.update({ where: { id: companyId }, data: { logoFileId: stored.id } });
+    await this.audit.record('Company', companyId, 'UPDATE', { logoFileId: before?.logoFileId ?? null }, { logoFileId: stored.id });
+    return this.companyLogo();
+  }
+
+  /** Documents fall back to the company initials */
+  @Delete('company-logo')
+  @Permission('system.setting.update')
+  async removeCompanyLogo() {
+    const companyId = RequestCtx.companyId();
+    const before = await this.prisma.company.findUnique({ where: { id: companyId }, select: { logoFileId: true } });
+    if (before?.logoFileId) {
+      await this.prisma.company.update({ where: { id: companyId }, data: { logoFileId: null } });
+      await this.audit.record('Company', companyId, 'UPDATE', { logoFileId: before.logoFileId }, { logoFileId: null });
+    }
+    return { logo: null };
+  }
 
   /** Sends a short test message with the saved SMTP settings, so an administrator can check them */
   @Post('test-mail')
