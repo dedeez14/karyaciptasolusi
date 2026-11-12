@@ -11,6 +11,7 @@ import { TransportService } from './transport.service';
 import { WatermarkService } from './watermark.service';
 
 const DOC_TITLES: Record<string, string> = {
+  LETTER: 'Company letter',
   SQ: 'Quotation',
   SO: 'Sales Order',
   DO: 'Delivery Order',

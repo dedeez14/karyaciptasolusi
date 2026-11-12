@@ -68,6 +68,7 @@ import { TIMEBILLING_CONTROLLERS, TIMEBILLING_PROVIDERS } from './modules/timebi
 import { LEADFINDER_CONTROLLERS, LEADFINDER_PROVIDERS } from './modules/leadfinder';
 import { WEBSITE_CONTROLLERS, WEBSITE_PROVIDERS } from './modules/website';
 import { AnnouncementController } from './modules/announcements/announcement.controller';
+import { LetterController } from './modules/letters/letter.controller';
 import { EMAILCAMPAIGN_CONTROLLERS, EMAILCAMPAIGN_PROVIDERS } from './modules/emailcampaign';
 import { AttendanceController } from './modules/hris/attendance.controller';
 import { AttendanceService } from './modules/hris/attendance.service';
@@ -137,6 +138,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...LEADFINDER_CONTROLLERS,
     ...WEBSITE_CONTROLLERS,
     AnnouncementController,
+    LetterController,
     ...EMAILCAMPAIGN_CONTROLLERS,
     AttendanceController,
   ],

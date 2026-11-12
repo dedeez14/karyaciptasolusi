@@ -20,6 +20,28 @@ export class ResourceHooks {
     private readonly settings: SettingsService,
   ) {}
 
+  /** "001/SR/KCS/XI/2026": running number per year / type code / company code / month in roman numerals / year */
+  private async letterNumber(type: string, date: Date) {
+    const companyId = RequestCtx.companyId();
+    const year = date.getUTCFullYear();
+    const ABBR: Record<string, string> = { RECOMMENDATION: 'SR', STATEMENT: 'SK', EMPLOYMENT: 'SKK', ASSIGNMENT: 'ST', OTHER: 'SU' };
+    const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+    const company = await this.prisma.company.findUnique({ where: { id: companyId }, select: { code: true } });
+    const seq = await this.prisma.numberSequence.upsert({
+      where: { companyId_code: { companyId, code: 'LETTER' } },
+      create: { companyId, code: 'LETTER', name: 'Company letters', prefix: '', padding: 3, resetPeriod: 'YEARLY' },
+      update: {},
+    });
+    const period = String(year);
+    const row = await this.prisma.numberSequencePeriod.upsert({
+      where: { sequenceId_period: { sequenceId: seq.id, period } },
+      create: { sequenceId: seq.id, period, nextNumber: 2 },
+      update: { nextNumber: { increment: 1 } },
+    });
+    const n = row.nextNumber - 1;
+    return `${String(n).padStart(seq.padding, '0')}/${ABBR[type] ?? 'SU'}/${company?.code ?? 'CO'}/${ROMAN[date.getUTCMonth()]}/${year}`;
+  }
+
   /** Working days between two dates (inclusive): work days from settings, public holidays excluded */
   private async leaveDays(companyId: string, startDate: unknown, endDate: unknown) {
     const start = new Date(startDate as string);
@@ -57,6 +79,9 @@ export class ResourceHooks {
 
   async beforeCreate(def: ResourceDef, data: Row) {
     switch (def.key) {
+      case 'letters':
+        data.number = await this.letterNumber(String(data.letterType ?? 'OTHER'), data.letterDate ? new Date(String(data.letterDate)) : new Date());
+        break;
       case 'companies':
         if (!RequestCtx.user().isSuperAdmin) throw new BadRequestException('Only a super administrator can create companies');
         if (data.code) data.code = String(data.code).toUpperCase();

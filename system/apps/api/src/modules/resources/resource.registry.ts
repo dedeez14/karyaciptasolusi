@@ -576,6 +576,35 @@ export const RESOURCES: ResourceDef[] = [
     defaultSort: { field: 'sortOrder', order: 'asc' },
   },
 
+  // ----- Company letters (printed on the letterhead, signed electronically by the system) -----------
+  {
+    key: 'letters',
+    model: 'companyLetter',
+    module: 'hris',
+    label: 'Company Letters',
+    singular: 'Letter',
+    permission: 'hris.letter',
+    scope: 'company',
+    fields: [
+      text('number', 'Letter No.', { readOnly: true, list: true, sortable: true, max: 60, help: 'Given automatically when the letter is saved, e.g. 001/SR/KCS/XI/2026' }),
+      lookup('letterType', 'Type', 'LETTER_TYPE', { required: true, list: true, filter: true, default: 'RECOMMENDATION' }),
+      date('letterDate', 'Date', { required: true, list: true, sortable: true }),
+      text('subject', 'Subject (Perihal)', { required: true, max: 200, list: true, wide: true, placeholder: 'e.g. Surat Rekomendasi Permohonan Paspor' }),
+      area('recipient', 'To (Kepada Yth.)', { max: 500, placeholder: 'Kepala Kantor Imigrasi\ndi Tempat', help: 'One line per row' }),
+      text('personName', 'Person', { required: true, list: true, help: 'The employee or team member the letter is about' }),
+      secret('personIdNumber', 'NIK / ID number', { max: 40 }),
+      area('personAddress', 'Address', { encrypted: true, max: 500 }),
+      text('personPosition', 'Position', { max: 150 }),
+      area('body', 'Letter text', { required: true, max: 6000, default: 'Bahwa yang bersangkutan adalah benar karyawan perusahaan kami.\n\nSehubungan dengan [keperluan], kami memberikan rekomendasi kepada yang bersangkutan untuk [tujuan]. Perusahaan menyatakan bahwa kegiatan tersebut untuk keperluan perusahaan.\n\nDemikian surat ini kami buat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.', help: 'Paragraphs separated by an empty line. The opening, the person details and the signature are added automatically.' }),
+      text('place', 'Place', { required: true, max: 80, default: 'Depok' }),
+      text('signerName', 'Signed by', { required: true, max: 150, default: 'Dede Febriansyah' }),
+      text('signerTitle', 'Signer title', { required: true, max: 100, default: 'Direktur' }),
+    ],
+    searchFields: ['number', 'subject', 'personName'],
+    labelFields: ['number', 'subject'],
+    defaultSort: { field: 'letterDate', order: 'desc' },
+  },
+
   // ----- Website (karyaciptasolusi.com) ------------------------------------------------------
   {
     key: 'web-contents',
@@ -754,6 +783,6 @@ export const RESOURCES: ResourceDef[] = [
 ];
 
 /** Lists whose codes drive application logic: values can be renamed, recoloured and re-ordered, not added or deleted */
-export const SYSTEM_LOOKUPS = new Set(['PRODUCT_TYPE', 'ACCOUNT_TYPE', 'SALARY_KIND', 'SALARY_CALC', 'SEQUENCE_RESET', 'REQUEST_STATUS', 'DOC_STATUS', 'JOURNAL_STATUS', 'DATA_SCOPE', 'CASH_TYPE', 'FILE_SOURCE', 'FILE_TYPE', 'PAPER_SIZE', 'LANGUAGE', 'JOURNAL_SOURCE', 'DUE_FILTER', 'TASK_STATE', 'YES_NO', 'RECORD_STATUS', 'FILE_GROUP_BY', 'BILLING_INTERVAL', 'DEPRECIATION_METHOD', 'ASSET_STATUS', 'BUDGET_STATUS', 'APPROVAL_DOC_TYPE', 'APPROVAL_STATUS', 'EXPENSE_STATUS', 'TICKET_STATUS', 'TICKET_PRIORITY', 'BANK_STATEMENT_STATUS', 'SCRAPE_STATUS', 'MAP_PLACE_STATUS', 'EMAIL_CAMPAIGN_STATUS', 'EMAIL_RECIPIENT_STATUS', 'EMAIL_AUDIENCE', 'EMAIL_SUPPRESSION_REASON']);
+export const SYSTEM_LOOKUPS = new Set(['PRODUCT_TYPE', 'ACCOUNT_TYPE', 'SALARY_KIND', 'SALARY_CALC', 'SEQUENCE_RESET', 'REQUEST_STATUS', 'DOC_STATUS', 'JOURNAL_STATUS', 'DATA_SCOPE', 'CASH_TYPE', 'FILE_SOURCE', 'FILE_TYPE', 'PAPER_SIZE', 'LANGUAGE', 'JOURNAL_SOURCE', 'DUE_FILTER', 'TASK_STATE', 'YES_NO', 'RECORD_STATUS', 'FILE_GROUP_BY', 'BILLING_INTERVAL', 'DEPRECIATION_METHOD', 'ASSET_STATUS', 'BUDGET_STATUS', 'APPROVAL_DOC_TYPE', 'APPROVAL_STATUS', 'EXPENSE_STATUS', 'TICKET_STATUS', 'TICKET_PRIORITY', 'BANK_STATEMENT_STATUS', 'SCRAPE_STATUS', 'MAP_PLACE_STATUS', 'EMAIL_CAMPAIGN_STATUS', 'EMAIL_RECIPIENT_STATUS', 'EMAIL_AUDIENCE', 'EMAIL_SUPPRESSION_REASON', 'LETTER_TYPE']);
 
 export const RESOURCE_MAP = new Map(RESOURCES.map((r) => [r.key, r]));

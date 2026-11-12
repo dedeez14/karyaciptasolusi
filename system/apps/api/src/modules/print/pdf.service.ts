@@ -53,6 +53,24 @@ interface Brand {
   locale: string;
 }
 
+/** content of an official company letter (see renderLetter) */
+export interface LetterContent {
+  id: string;
+  number: string;
+  /** YYYY-MM-DD */
+  date: string;
+  subject: string;
+  recipient: string | null;
+  personName: string;
+  personIdNumber: string | null;
+  personAddress: string | null;
+  personPosition: string | null;
+  body: string;
+  place: string;
+  signerName: string;
+  signerTitle: string;
+}
+
 const GREY = '#6b7280';
 const LINE = '#e5e7eb';
 
@@ -450,6 +468,135 @@ export class PdfService {
     }
     if (s.footer && rows.length) drawRow(s.footer, true);
     return y;
+  }
+
+  /**
+   * Official letter on the company letterhead (Indonesian layout): number / attachment / subject, addressee,
+   * signer and person details, the text, and an electronic signature by the system - a QR code that opens the
+   * public verification page - instead of a hand-drawn signature.
+   */
+  async renderLetter(companyId: string, l: LetterContent): Promise<Buffer> {
+    const b = await this.brand(companyId);
+    const token = await this.signing.sign(companyId, { k: 'LETTER', id: l.id, n: l.number, d: l.date, a: null, cur: null, p: l.personName.slice(0, 150) });
+    const code = tokenHash(token).slice(0, 20);
+    const publicUrl = (await this.settings.str('general.publicUrl', companyId, 'http://localhost:3000')).replace(/\/$/, '');
+    const verifyUrl = `${publicUrl}/verify?c=${code}`;
+    const host = publicUrl.replace(/^https?:\/\//, '');
+    // a local address means nobody outside this computer can open the check page: do not print it
+    const publicHost = /^(localhost|127\.|0\.0\.0\.0|\[::1\]|192\.168\.|10\.)/.test(host) ? null : host;
+    const doc = new PDFDocument({
+      size: b.paper,
+      margins: { top: 40, bottom: 50, left: 64, right: 60 },
+      bufferPages: true,
+      info: { Title: `${l.subject} ${l.number}`, Author: b.name, Creator: 'KCS ERP', Subject: 'Digitally signed (Ed25519)', Keywords: `kcs-signature:${token}` },
+    });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    const done = new Promise<Buffer>((res) => doc.on('end', () => res(Buffer.concat(chunks))));
+    const L = doc.page.margins.left;
+    const W = doc.page.width - L - doc.page.margins.right;
+    const ink = '#111827';
+    const accent = b.color;
+    const size = 10.5;
+    const gap = 4;
+
+    // ---------- letterhead
+    let y = doc.page.margins.top;
+    let textX = L;
+    if (b.logo) {
+      try {
+        doc.image(b.logo, L, y, { fit: [56, 56], align: 'center', valign: 'center' });
+        textX = L + 68;
+      } catch {
+        /* no logo */
+      }
+    }
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(accent).text(b.name.toUpperCase(), textX, y + 2, { width: W - (textX - L) });
+    doc.font('Helvetica').fontSize(8).fillColor(GREY);
+    for (const line of b.lines) doc.text(line, textX, doc.y + 1.5, { width: W - (textX - L) });
+    y = Math.max(doc.y, y + 56) + 8;
+    doc.moveTo(L, y).lineTo(L + W, y).lineWidth(2.2).strokeColor(accent).stroke();
+    if (b.color2) doc.moveTo(L, y + 3).lineTo(L + W, y + 3).lineWidth(0.8).strokeColor(b.color2).stroke();
+    y += 18;
+
+    // ---------- number / attachment / subject
+    const kv = (rows: [string, string, boolean?][], x: number, labelW: number, top: number) => {
+      let yy = top;
+      for (const [k, v, bold] of rows) {
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text(k, x, yy, { width: labelW });
+        doc.text(':', x + labelW, yy, { width: 8 });
+        doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').text(v || '-', x + labelW + 10, yy, { width: W - (x - L) - labelW - 10 });
+        yy = Math.max(doc.y, yy + size + 2) + 2;
+      }
+      return yy;
+    };
+    y = kv([['Nomor', l.number], ['Lampiran', '-'], ['Perihal', l.subject, true]], L, 62, y) + 10;
+
+    // ---------- addressee
+    if (l.recipient?.trim()) {
+      doc.font('Helvetica').fontSize(size).fillColor(ink).text('Kepada Yth.', L, y);
+      const lines = l.recipient.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      lines.forEach((line, i) => doc.font(i === 0 ? 'Helvetica-Bold' : 'Helvetica').text(line, L, doc.y + 1, { width: W }));
+      y = doc.y + 12;
+    }
+    doc.font('Helvetica').fontSize(size).text('Dengan hormat,', L, y);
+    y = doc.y + 8;
+    doc.text('Yang bertanda tangan di bawah ini:', L, y);
+    y = kv([['Nama', l.signerName, true], ['Jabatan', l.signerTitle], ['Perusahaan', b.name]], L + 8, 110, doc.y + gap) + 6;
+    doc.font('Helvetica').fontSize(size).text('dengan ini menerangkan bahwa:', L, y);
+    const person: [string, string, boolean?][] = [['Nama', l.personName, true]];
+    if (l.personIdNumber) person.push(['NIK', l.personIdNumber]);
+    if (l.personAddress) person.push(['Alamat', l.personAddress.replace(/\s*\r?\n\s*/g, ', ')]);
+    if (l.personPosition) person.push(['Jabatan', l.personPosition]);
+    y = kv(person, L + 8, 110, doc.y + gap) + 8;
+
+    // ---------- text
+    for (const para of l.body.split(/\r?\n\s*\r?\n/).map((s) => s.replace(/\s*\r?\n\s*/g, ' ').trim()).filter(Boolean)) {
+      doc.font('Helvetica').fontSize(size).fillColor(ink).text(para, L, y, { width: W, align: 'justify', lineGap: 1.5 });
+      y = doc.y + 7;
+    }
+
+    // ---------- signature: place & date, company, electronic signature (QR) and the signer
+    const blockH = 150;
+    if (y + blockH > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      y = doc.page.margins.top;
+    }
+    const sx = L + W * 0.52;
+    const sw = W * 0.48;
+    const dateText = new Date(`${l.date}T00:00:00Z`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+    doc.font('Helvetica').fontSize(size).fillColor(ink).text(`${l.place}, ${dateText}`, sx, y + 4, { width: sw });
+    doc.text('Hormat kami,', sx, doc.y + 1, { width: sw });
+    doc.font('Helvetica-Bold').text(b.name, sx, doc.y + 1, { width: sw });
+    const qy = doc.y + 6;
+    const QR = 64;
+    const qr = await QRCode.toBuffer(verifyUrl, { margin: 0, width: 240, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
+    doc.image(qr, sx, qy, { width: QR, height: QR });
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(accent).text('DITANDATANGANI SECARA ELEKTRONIK', sx + QR + 8, qy + 4, { width: sw - QR - 8, characterSpacing: 0.3 });
+    doc.font('Helvetica').fontSize(7).fillColor(GREY).text(`oleh sistem ${b.name}.${publicHost ? ' Pindai kode QR untuk memeriksa keaslian surat ini.' : ''}`, sx + QR + 8, doc.y + 2, { width: sw - QR - 8 });
+    doc.font('Helvetica').fontSize(6.5).fillColor(GREY).text(`Kode: ${code}`, sx + QR + 8, doc.y + 3, { width: sw - QR - 8 });
+    const ny = qy + QR + 8;
+    doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(l.signerName, sx, ny, { width: sw, underline: true });
+    doc.font('Helvetica').text(l.signerTitle, sx, doc.y + 1, { width: sw });
+
+    // ---------- footer on every page
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      doc.rect(0, 0, doc.page.width, 4).fill(accent);
+      if (b.color2) doc.rect(doc.page.width * 0.78, 0, doc.page.width * 0.22, 4).fill(b.color2);
+      const fy = doc.page.height - 36;
+      doc.moveTo(L, fy - 6).lineTo(L + W, fy - 6).lineWidth(0.5).strokeColor(LINE).stroke();
+      doc.font('Helvetica').fontSize(6.8).fillColor(GREY);
+      doc.text(`Dokumen ini ditandatangani secara elektronik oleh sistem ${b.name}${publicHost ? `. Verifikasi keaslian: ${publicHost}/verify` : ''}  ·  ${l.number}`, L, fy, { width: W, lineBreak: false, height: 10, ellipsis: true });
+    }
+    doc.end();
+    const pdf = await done;
+    // fingerprint of the exact bytes issued: the verify page detects edited copies
+    await this.prisma.signedFile.create({
+      data: { companyId, tokenHash: tokenHash(token), code, token, sha256: createHash('sha256').update(pdf).digest('hex'), size: pdf.length, docKind: 'LETTER', docNumber: l.number.slice(0, 60) },
+    });
+    return pdf;
   }
 }
 

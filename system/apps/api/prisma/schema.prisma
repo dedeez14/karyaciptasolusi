@@ -2309,3 +2309,33 @@ model Announcement {
   @@index([companyId, isActive])
   @@map("announcements")
 }
+
+/// Official company letter (recommendation, statement, assignment...) printed on the letterhead and signed
+/// electronically by the system (QR verification)
+model CompanyLetter {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  number         String    @db.VarChar(60)
+  letterType     String    @db.VarChar(30)
+  letterDate     DateTime  @db.Date
+  subject        String    @db.VarChar(200)
+  recipient      String?
+  personName     String    @db.VarChar(150)
+  /// encrypted
+  personIdNumber String?   @db.VarChar(255)
+  /// encrypted
+  personAddress  String?
+  personPosition String?   @db.VarChar(150)
+  body           String
+  place          String    @db.VarChar(80)
+  signerName     String    @db.VarChar(150)
+  signerTitle    String    @db.VarChar(100)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  deletedAt      DateTime?
+
+  @@unique([companyId, number])
+  @@map("company_letters")
+}

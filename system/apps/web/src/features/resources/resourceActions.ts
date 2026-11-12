@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { previewFile } from '@/components/ui';
 import type { Row } from './types';
 
 export interface RowAction {
@@ -14,6 +15,15 @@ export interface RowAction {
 
 /** Extra, resource-specific row actions plugged into the generic resource page. */
 export const RESOURCE_ACTIONS: Record<string, RowAction[]> = {
+  letters: [
+    {
+      label: 'Preview & print (signed PDF)',
+      icon: 'printer',
+      permission: 'hris.letter.read',
+      run: (r) => previewFile({ path: `/letters/${r.id}/pdf`, title: `${r.subject ?? 'Letter'} ${r.number ?? ''}`.trim() }),
+      success: 'Letter opened',
+    },
+  ],
   leads: [
     {
       label: 'Convert to customer',
