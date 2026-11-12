@@ -14,6 +14,10 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   HOST: z.string().default('127.0.0.1'),
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
+  /** sites allowed to read /public/website and post its contact form (no cookies) */
+  WEBSITE_ORIGINS: z.string().default('https://karyaciptasolusi.com,https://www.karyaciptasolusi.com'),
+  /** company whose content the public website shows (code); empty = the oldest active company */
+  WEBSITE_COMPANY_CODE: z.string().default(''),
   DATABASE_URL: z.string().url(),
   JWT_ACCESS_SECRET: base64Key(32),
   ENCRYPTION_KEY: base64Key(32),

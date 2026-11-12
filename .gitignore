@@ -4,3 +4,8 @@ dist
 
 # company legal documents (NPWP, NIB, deeds): never in git
 company-docs/
+
+# local env (.env.example tetap di-commit)
+.env
+.env.local
+.env.*.local

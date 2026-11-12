@@ -4,9 +4,10 @@ import { defineConfig } from "vite"
 import { inspectAttr } from 'plugin-inspect-react-code'
 
 // https://vite.dev/config/
+// inspectAttr adds source paths to every element: only when asked (INSPECT=1 npm run dev), never in production
 export default defineConfig({
   base: '/',
-  plugins: [inspectAttr(), react()],
+  plugins: [...(process.env.INSPECT === '1' ? [inspectAttr()] : []), react()],
   server: {
     port: 3000,
   },

@@ -34,12 +34,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex" style={{ background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #DBEAFE 100%)' }}>
+    <div className="min-h-[100dvh] flex" style={{ background: 'linear-gradient(135deg, #F8FAFC 0%, rgb(var(--brand-tint)) 50%, rgb(var(--brand-tint-strong)) 100%)' }}>
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url(/images/banner-light.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
 
       {/* Left panel — decorative */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #0F4C81 0%, #1E6BAF 40%, #2563EB 100%)' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, rgb(var(--brand-darker)) 0%, rgb(var(--brand-light)) 40%, rgb(var(--brand)) 100%)' }} />
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, rgba(255,255,255,0.4) 0%, transparent 60%)' }} />
 
         <div className="relative z-10 flex flex-col justify-center px-16 py-16 text-white">
@@ -106,7 +106,7 @@ export default function LoginPage() {
               <img src="/images/logo-main.png?v=2" alt="KCS" className="w-10 h-10 object-contain rounded-lg" />
               <div>
                 <p className="text-[#0F172A] font-bold text-base leading-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Karya Cipta</p>
-                <p className="text-[#1D4ED8] text-xs font-bold tracking-[0.15em]">SOLUSI</p>
+                <p className="text-brand text-xs font-bold tracking-[0.15em]">SOLUSI</p>
               </div>
             </div>
           </div>
@@ -150,7 +150,7 @@ export default function LoginPage() {
               />
 
               <div className="flex items-center justify-end">
-                <button type="button" className="text-xs text-[#2563EB] hover:text-[#1D4ED8] font-medium transition-colors">
+                <button type="button" className="text-xs text-brand hover:text-brand font-medium transition-colors">
                   Lupa password?
                 </button>
               </div>
@@ -172,7 +172,7 @@ export default function LoginPage() {
             <div className="mt-6 pt-5 border-t border-[#E2E8F0] text-center">
               <p className="text-[#475569] text-sm">
                 Belum punya akun?{' '}
-                <Link to="/register" className="text-[#2563EB] hover:text-[#1D4ED8] font-semibold transition-colors">
+                <Link to="/register" className="text-brand hover:text-brand font-semibold transition-colors">
                   Daftar Sekarang
                 </Link>
               </p>

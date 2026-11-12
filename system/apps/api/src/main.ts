@@ -94,6 +94,25 @@ async function bootstrap() {
     next();
   });
 
+  // The public website reads its content and posts its contact form here. Separate, cookie-less CORS:
+  // a page on that site can never act with someone's ERP session.
+  const siteOrigins = new Set(env.WEBSITE_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean));
+  const siteAllowed = (o: string) => siteOrigins.has(o) || (!isProd && /^http:\/\/localhost:\d{2,5}$/.test(o));
+  app.use('/api/v1/public/website', (req: any, res: any, next: () => void) => {
+    const o = String(req.headers.origin ?? '');
+    if (o && siteAllowed(o)) {
+      res.setHeader('Access-Control-Allow-Origin', o);
+      res.setHeader('Vary', 'Origin');
+      if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Access-Control-Max-Age', '600');
+        return res.status(204).end();
+      }
+    }
+    next();
+  });
+
   app.enableCors({ origin: (o, cb) => cb(null, !o || origins.includes(o)), credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization', 'X-Company-Id', 'X-Branch-Id', 'X-Requested-With'] });
   app.setGlobalPrefix('api/v1');
   app.enableShutdownHooks();

@@ -1,7 +1,35 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "kcs-api", "runtimeExecutable": "node", "runtimeArgs": ["system/apps/api/dist/main.js"], "port": 3000 },
-    { "name": "kcs-web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "system/apps/web"], "port": 5173 }
+    {
+      "name": "kcs-api",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "system/apps/api/dist/main.js"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "kcs-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "system/apps/web"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "kcs-landing",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
+    }
   ]
 }

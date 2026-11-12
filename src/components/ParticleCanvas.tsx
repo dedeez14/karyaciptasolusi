@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { BRAND } from '../lib/brand';
 
 interface Particle {
   x: number;
@@ -21,7 +22,7 @@ export default function ParticleCanvas() {
     let animationId: number;
     let particles: Particle[] = [];
 
-    const colors = ['#0F4C81', '#1E6BAF', '#2563EB', '#0F4C8150', '#2563EB50'];
+    const colors = [BRAND.navyDarker, BRAND.navyLight, BRAND.navy, `${BRAND.navyDarker}50`, `${BRAND.gold}80`];
 
     const resize = () => {
       canvas.width = canvas.offsetWidth;
@@ -72,7 +73,7 @@ export default function ParticleCanvas() {
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(15, 76, 129, ${0.1 * (1 - dist / maxDist)})`;
+            ctx.strokeStyle = `rgba(22, 61, 95, ${0.1 * (1 - dist / maxDist)})`; // BRAND.navyDark
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }

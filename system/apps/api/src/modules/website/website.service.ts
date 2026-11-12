@@ -6,6 +6,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { SequenceService } from '../../common/sequence/sequence.service';
 import { NotificationBus } from '../../common/events/notification-bus';
 import { runAsSystem } from '../billing/job-context';
+import { env } from '../../config/env';
 
 /** Sections a block can belong to (see the web-contents resource) */
 const SECTIONS = ['SERVICE', 'PORTFOLIO', 'TESTIMONIAL', 'FAQ', 'CLIENT', 'STAT', 'REASON', 'STEP', 'JOB'] as const;
@@ -61,7 +62,7 @@ export class WebsiteService {
 
   /** The company that owns the website: WEBSITE_COMPANY_CODE, else the oldest active company */
   private async companyId(): Promise<string> {
-    const code = (process.env.WEBSITE_COMPANY_CODE ?? '').trim();
+    const code = env.WEBSITE_COMPANY_CODE.trim();
     const c = await this.prisma.company.findFirst({
       where: { isActive: true, deletedAt: null, ...(code ? { code } : {}) },
       orderBy: { createdAt: 'asc' },
