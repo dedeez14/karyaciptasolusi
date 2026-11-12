@@ -35,6 +35,8 @@ interface SessionState {
   /** returns a challenge when the account uses two-factor sign-in */
   login: (username: string, password: string) => Promise<{ mfaToken?: string }>;
   verifyMfa: (mfaToken: string, code: string) => Promise<void>;
+  /** local development only: the API signs in its DEV_AUTO_LOGIN user when opened on localhost */
+  devLogin: () => Promise<void>;
   logout: () => Promise<void>;
   verifiedLogin: (accessToken: string) => Promise<void>;
   reload: () => Promise<void>;
@@ -94,6 +96,11 @@ export const useSession = create<SessionState>((set, get) => ({
     if (r.mfaRequired && r.mfaToken) return { mfaToken: r.mfaToken };
     await get().verifiedLogin(r.accessToken!);
     return {};
+  },
+
+  async devLogin() {
+    const r = await api.post<{ accessToken: string }>('/auth/dev-login');
+    await get().verifiedLogin(r.accessToken);
   },
 
   async verifyMfa(mfaToken, code) {

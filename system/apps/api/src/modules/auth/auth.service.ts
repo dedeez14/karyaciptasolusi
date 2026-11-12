@@ -62,6 +62,14 @@ export class AuthService {
     return this.afterPassword(user, password);
   }
 
+  /** local development: sign in as DEV_AUTO_LOGIN without a password (the controller checks it is really this computer) */
+  async devLogin(username: string): Promise<IssuedTokens & { userId: string }> {
+    const user = await this.prisma.user.findFirst({ where: { deletedAt: null, isActive: true, username: username.toLowerCase() } });
+    if (!user) throw new UnauthorizedException(`DEV_AUTO_LOGIN user "${username}" does not exist or is inactive`);
+    this.audit.activity('auth.login.dev', { local: true }, { userId: user.id, username: user.username });
+    return this.completeLogin(user.id, user.username);
+  }
+
   /** wrong password or wrong second factor: counts towards the temporary lock (not awaited, see timing note) */
   private async countFailure(user: { id: string; failedLoginCount: number }) {
     const max = await this.settings.num('security.maxLoginAttempts', null, 5);

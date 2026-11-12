@@ -1,7 +1,8 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, NotFoundException, Post, Req, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import { env, isProd } from '../../config/env';
 import { Public } from '../../common/decorators';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { RequestCtx } from '../../common/context/request-context';
@@ -55,6 +56,26 @@ export class AuthController {
     const t = await this.auth.login(body.username, body.password);
     // second factor needed: no session yet, only a 5 minute challenge for POST /auth/mfa/verify
     if ('mfaRequired' in t) return { mfaRequired: true, mfaToken: t.mfaToken };
+    this.setCookie(req, res, t.refreshToken, t.refreshExpires);
+    return { accessToken: t.accessToken };
+  }
+
+  /**
+   * Local development convenience: signs in DEV_AUTO_LOGIN when the app is opened on this computer.
+   * Refused (404, as if it did not exist) in production, when the setting is empty, for any address other than
+   * localhost, and for requests that came through a proxy - so it can never be used from the internet.
+   */
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('dev-login')
+  @HttpCode(200)
+  async devLogin(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const loopback = (ip: string | undefined) => !!ip && /^(127\.\d+\.\d+\.\d+|::1|::ffff:127\.\d+\.\d+\.\d+)$/.test(ip);
+    const host = String(req.headers.host ?? '').replace(/:\d+$/, '').toLowerCase();
+    const proxied = !!(req.headers['x-forwarded-for'] || req.headers['x-forwarded-host'] || req.headers['x-real-ip'] || req.headers.forwarded);
+    if (isProd || !env.DEV_AUTO_LOGIN || proxied || !loopback(req.socket.remoteAddress) || !['localhost', '127.0.0.1', '[::1]'].includes(host)) throw new NotFoundException();
+    this.assertCsrf(req);
+    const t = await this.auth.devLogin(env.DEV_AUTO_LOGIN);
     this.setCookie(req, res, t.refreshToken, t.refreshExpires);
     return { accessToken: t.accessToken };
   }

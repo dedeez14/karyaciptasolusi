@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
@@ -6,7 +6,7 @@ import { useSession } from '@/stores/session';
 import { Button, Field, Icon, Input } from '@/components/ui';
 
 export default function LoginPage() {
-  const { status, login, verifyMfa } = useSession();
+  const { status, login, verifyMfa, devLogin } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
   const [username, setUsername] = useState('');
@@ -20,7 +20,25 @@ export default function LoginPage() {
   const [recovery, setRecovery] = useState(false);
   const brand = useQuery({ queryKey: ['branding'], queryFn: () => api.get<{ appName: string; tagline: string }>('/public/branding'), staleTime: Infinity });
 
+  // on this computer (localhost) the API may sign in its development user: no password needed while developing
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+  const [autoTried, setAutoTried] = useState(!local);
+  useEffect(() => {
+    if (autoTried || status === 'authenticated') return;
+    devLogin()
+      .then(() => navigate((location.state as { from?: string })?.from ?? '/', { replace: true }))
+      .catch(() => undefined) // not enabled: the normal sign-in form
+      .finally(() => setAutoTried(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (status === 'authenticated') return <Navigate to="/" replace />;
+  if (!autoTried)
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-canvas text-sm text-slate-500">
+        <Icon name="loader-circle" className="mr-2 h-4 w-4 animate-spin" /> Signing in (local development)...
+      </div>
+    );
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

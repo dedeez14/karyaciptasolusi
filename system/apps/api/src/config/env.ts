@@ -27,6 +27,11 @@ const schema = z.object({
   REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
   STORAGE_DIR: z.string().default('./storage'),
   MAX_UPLOAD_MB: z.coerce.number().positive().default(25),
+  /**
+   * Local development only: username that is signed in automatically when the app is opened on this computer
+   * (http://localhost). Ignored for any other address, and the server refuses to start with it in production.
+   */
+  DEV_AUTO_LOGIN: z.string().trim().default(''),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -39,3 +44,7 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 export const isProd = env.NODE_ENV === 'production';
+if (isProd && env.DEV_AUTO_LOGIN) {
+  console.error('DEV_AUTO_LOGIN is for local development only: remove it from the production .env');
+  process.exit(1);
+}

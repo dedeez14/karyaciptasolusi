@@ -90,8 +90,8 @@ const Empty = ({ icon, text }: { icon: string; text: string }) => (
 /** tiny trend line for the last months */
 function Sparkline({ values, color }: { values: number[]; color: string }) {
   if (values.length < 2 || values.every((v) => v === 0)) return null;
-  const w = 84;
-  const h = 28;
+  const w = 64;
+  const h = 22;
   const max = Math.max(...values);
   const min = Math.min(0, ...values);
   const pts = values.map((v, i) => [(i / (values.length - 1)) * w, h - 2 - ((v - min) / (max - min || 1)) * (h - 4)]);
@@ -131,15 +131,14 @@ export function KpiTile({ k, currency }: { k: KpiItem; currency: string }) {
           <Icon name={st.icon} className="h-4 w-4" />
         </span>
       </div>
-      <div className="mt-2 flex items-end justify-between gap-2">
-        <div className="min-w-0">
-          <p className={cn('truncate text-xl font-semibold tracking-tight tabular-nums sm:text-2xl', negative ? 'text-red-600' : 'text-slate-900')} title={k.type === 'money' ? fmtMoney(k.value, 0) : undefined}>
-            {k.type === 'money' ? money(k.value, currency) : fmtNumber(k.value)}
-          </p>
-          <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1.5">
-            {k.prev !== undefined && <Delta value={k.value} prev={k.prev} goodWhenUp={k.goodWhenUp} />}
-            {k.hint && <span className="truncate text-[11.5px] text-slate-500">{k.hint}</span>}
-          </div>
+      <p className={cn('mt-2 truncate text-xl font-semibold tracking-tight tabular-nums sm:text-2xl', negative ? 'text-red-600' : 'text-slate-900')} title={k.type === 'money' ? fmtMoney(k.value, 0) : undefined}>
+        {k.type === 'money' ? money(k.value, currency) : fmtNumber(k.value)}
+      </p>
+      {/* change, hint and the trend line share the bottom row so the amount always has the full width */}
+      <div className="mt-1 flex min-h-6 items-end justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {k.prev !== undefined && <Delta value={k.value} prev={k.prev} goodWhenUp={k.goodWhenUp} />}
+          {k.hint && <span className="truncate text-[11.5px] text-slate-500">{k.hint}</span>}
         </div>
         {k.spark && <Sparkline values={k.spark} color={SPARK[st.tone]} />}
       </div>
