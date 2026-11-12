@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { fmtBytes, fmtDateTime } from '@/lib/format';
 import { download, fileUrl } from '@/lib/download';
-import { Badge, Button, Field, Icon, Input, LookupSelect, Modal, Select, Spinner, Textarea, toast } from '@/components/ui';
+import { Badge, Button, Field, Icon, Input, LookupSelect, Modal, previewFile, Select, Spinner, Textarea, toast } from '@/components/ui';
 import { folderOptions, type FileRow, type Folder } from './fileTypes';
 import { useLookupLabel } from '@/hooks/useLookups';
 
@@ -153,6 +153,12 @@ export function PreviewDialog({ file, onClose }: { file: FileRow | null; onClose
   const [error, setError] = useState('');
   useEffect(() => {
     if (!file) return;
+    // PDFs open in the in-app PDF viewer (works in the installed app on phones, which cannot show a PDF in a frame)
+    if (file.fileType === 'pdf') {
+      void previewFile({ path: `/files/${file.id}/download`, title: file.name });
+      onClose();
+      return;
+    }
     let objectUrl: string | null = null;
     setUrl(null);
     setError('');

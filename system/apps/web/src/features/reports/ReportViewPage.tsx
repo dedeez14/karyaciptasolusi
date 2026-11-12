@@ -4,11 +4,14 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '@/lib/api';
 import { download } from '@/lib/download';
-import { fmtByType, fmtCompact, plural } from '@/lib/format';
-import { AsyncSelect, Button, Card, cn, DatePicker, Dropdown, EmptyState, Field, PageHeader, Select, Spinner, toast } from '@/components/ui';
+import { fmtByType, fmtCompact, fmtDate, plural } from '@/lib/format';
+import { AsyncSelect, Button, Card, cn, DatePicker, Dropdown, EmptyState, Field, PageHeader, previewFile, Select, Spinner, toast } from '@/components/ui';
 import { CHART_COLORS, defaultValue, type ReportMeta, type ReportResult } from './reportTypes';
 
 const NUMERIC = new Set(['money', 'number', 'qty', 'integer', 'percent']);
+
+/** "2026-11-01 to 2026-11-12" -> "1 Nov 2026 to 12 Nov 2026" */
+const prettyPeriod = (t: string) => t.replace(/(\d{4}-\d{2}-\d{2})/g, (d) => fmtDate(d));
 
 export default function ReportViewPage() {
   const { key = '' } = useParams();
@@ -69,11 +72,17 @@ export default function ReportViewPage() {
     <div>
       <PageHeader
         title={def.label}
-        subtitle={data?.subtitle ?? def.description}
+        subtitle={data?.subtitle ? prettyPeriod(data.subtitle) : def.description}
         back={() => navigate('/reports')}
         actions={
           <div className="no-print flex gap-2">
-            <Button variant="outline" icon="printer" onClick={() => window.print()} disabled={!data}>
+            <Button
+              variant="outline"
+              icon="printer"
+              disabled={!data}
+              title="Print-ready PDF with the company letterhead"
+              onClick={() => previewFile({ path: `/reports/${key}/export`, params: { ...applied, format: 'pdf' }, title: def.label }).catch((e) => toast.error(e))}
+            >
               Print
             </Button>
             <Dropdown

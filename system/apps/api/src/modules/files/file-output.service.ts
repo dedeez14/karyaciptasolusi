@@ -39,32 +39,53 @@ export class FileOutputService {
     return this.files.store({ buffer: data, originalName: this.safeName(filename), mimeType: mime, source, categoryCode: category, entityType: entity?.type, entityId: entity?.id, skipPolicy: true, tags: [source.toLowerCase()] });
   }
 
-  async sendTable(res: Response, table: ExportTable, format: string, save = false) {
+  /** inline = open in the browser's viewer (Print button) instead of downloading */
+  async sendTable(res: Response, table: ExportTable, format: string, save = false, inline = false) {
     const stamp = new Date().toISOString().slice(0, 10);
     const companyId = RequestCtx.companyId();
     let data: Buffer;
     let ext: keyof typeof MIME;
+    const brand = format === 'csv' ? null : await this.pdf.brand(companyId);
+    const locale = brand?.locale || 'id-ID';
     if (format === 'csv') {
       data = this.exporter.csv(table);
       ext = 'csv';
     } else if (format === 'pdf') {
       data = await this.pdf.render(companyId, {
         title: table.title,
-        meta: [{ label: 'Generated', value: new Date().toLocaleString('en-GB') }, ...(table.subtitle ? [{ label: 'Period', value: table.subtitle }] : [])],
+        meta: [
+          ...(table.subtitle ? [{ label: 'Period', value: this.prettyDates(table.subtitle, locale) }] : []),
+          { label: 'Printed', value: new Date().toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) },
+          { label: 'Rows', value: String(table.rows.length) },
+        ],
         columns: table.columns.map((c) => ({ key: c.key, label: c.label, align: ['money', 'number', 'integer', 'percent', 'qty'].includes(c.type ?? '') ? 'right' : 'left' })),
-        rows: table.rows.map((r) => Object.fromEntries(table.columns.map((c) => [c.key, this.fmt(r[c.key], c.type)]))),
+        rows: table.rows.map((r) => Object.fromEntries(table.columns.map((c) => [c.key, this.statusText(c.key, this.fmt(r[c.key], c.type, locale))]))),
         // totals sit under their own columns, the first column says what the row is
-        footer: table.totals ? Object.fromEntries(table.columns.map((c, i) => [c.key, table.totals![c.key] !== undefined ? this.fmt(table.totals![c.key], c.type) : i === 0 ? 'Total' : ''])) : undefined,
+        footer: table.totals ? Object.fromEntries(table.columns.map((c, i) => [c.key, table.totals![c.key] !== undefined ? this.fmt(table.totals![c.key], c.type, locale) : i === 0 ? 'Total' : ''])) : undefined,
         landscape: table.columns.length > 6,
       });
       ext = 'pdf';
     } else if (format === 'xlsx') {
-      data = await this.exporter.xlsx(table);
+      data = await this.exporter.xlsx({ ...table, rows: table.rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'string' ? this.statusText(k, v) : v]))), subtitle: table.subtitle ? this.prettyDates(table.subtitle, locale) : undefined }, { name: brand?.name, color: brand?.color, color2: brand?.color2, logo: brand?.logo, locale });
       ext = 'xlsx';
     } else throw new BadRequestException('Unsupported format');
     const filename = `${table.title}_${stamp}.${ext}`;
     if (save) await this.archive(data, filename, MIME[ext], 'EXPORT', undefined, 'EXPORT');
-    this.send(res, data, filename, MIME[ext]);
+    this.send(res, data, filename, MIME[ext], inline && ext === 'pdf');
+  }
+
+  /** "2026-11-01 to 2026-11-12" -> "1 Nov 2026 to 12 Nov 2026" */
+  private prettyDates(text: string, locale = 'id-ID') {
+    return text.replace(/(\d{4})-(\d{2})-(\d{2})/g, (_m, y, mo, d) => this.date(new Date(Date.UTC(+y, +mo - 1, +d)), locale));
+  }
+
+  /** "PARTIALLY_PAID" -> "Partially paid" in status columns */
+  private statusText(key: string, v: string) {
+    return /status/i.test(key) && /^[A-Z][A-Z_]+$/.test(v) ? v.charAt(0) + v.slice(1).toLowerCase().replace(/_/g, ' ') : v;
+  }
+
+  private date(d: Date, locale: string) {
+    return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
   }
 
   async sendPdf(res: Response, doc: PrintableDocument, filename: string, opts: { save?: boolean; inline?: boolean; entity?: { type: string; id: string } } = {}) {
@@ -73,14 +94,18 @@ export class FileOutputService {
     this.send(res, data, filename, MIME.pdf, opts.inline);
   }
 
-  fmt(v: unknown, type?: string): string {
+  /** a value as printed in PDF tables, in the company's number and date format */
+  fmt(v: unknown, type?: string, locale = 'id-ID'): string {
     if (v === null || v === undefined || v === '') return '';
-    if (v instanceof Date) return v.toISOString().slice(0, 10);
-    if (type === 'money') return this.pdf.money(v);
-    if (type === 'qty' || type === 'number') return new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 }).format(Number(v));
-    if (type === 'percent') return `${Number(v)}%`;
+    if (typeof v === 'object' && v !== null && 'toNumber' in v) v = (v as { toNumber: () => number }).toNumber();
+    if (v instanceof Date) return type === 'datetime' ? v.toLocaleString(locale, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : this.date(v, locale);
+    if (type === 'money') return this.pdf.money(v, locale);
+    if (type === 'qty' || type === 'number') return new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(Number(v));
+    if (type === 'integer') return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Number(v));
+    if (type === 'percent') return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(Number(v))}%`;
     if (type === 'boolean' || typeof v === 'boolean') return v ? 'Yes' : 'No';
-    if (type === 'date' && typeof v === 'string') return v.slice(0, 10);
+    if ((type === 'date' || type === 'datetime') && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return this.fmt(new Date(v.length === 10 ? `${v}T00:00:00Z` : v), type, locale);
     return String(v);
   }
+
 }

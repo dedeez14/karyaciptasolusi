@@ -206,7 +206,7 @@ export function PageHeader({ title, subtitle, actions, back }: { title: ReactNod
       <div className="flex min-w-0 items-start gap-3">
         {back && <Button variant="outline" size="icon" icon="arrow-left" onClick={back} aria-label="Back" className="mt-0.5" />}
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold sm:text-2xl">{title}</h1>
+          <h1 className="text-xl font-semibold break-words sm:truncate sm:text-2xl">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
         </div>
       </div>

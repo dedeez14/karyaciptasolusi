@@ -68,6 +68,8 @@ function EmailModal({ open, onClose, doc, title }: { open: boolean; onClose: () 
 }
 
 export default function DocumentViewPage() {
+  // non-PKP companies issue no Faktur Pajak on sales
+  const vatPayer = useSession((st) => st.me?.prefs.vatPayer ?? true);
   const { type = '', id = '' } = useParams();
   const { def, isLoading } = useDocType(type);
   const types = useDocTypes().data ?? [];
@@ -320,7 +322,7 @@ export default function DocumentViewPage() {
               {d.warehouseName && <Info label={def.warehouse === 'transfer' ? 'From warehouse' : 'Warehouse'} value={d.warehouseName} />}
               {d.toWarehouseName && <Info label="To warehouse" value={d.toWarehouseName} />}
               <Info label="Reference" value={d.reference} />
-              {(def.code === 'SI' || def.code === 'PI') && <TaxInvoiceInfo type={def.code} id={d.id} value={d.taxInvoiceNumber ?? null} editable={def.can.update && d.status !== 'CANCELLED'} />}
+              {((def.code === 'SI' && (vatPayer || !!d.taxInvoiceNumber)) || def.code === 'PI') && <TaxInvoiceInfo type={def.code} id={d.id} value={d.taxInvoiceNumber ?? null} editable={def.can.update && d.status !== 'CANCELLED'} />}
               {d.isOpening && <Info label="Origin" value="Opening balance (go-live)" />}
               {def.priced && <Info label="Currency" value={`${d.currencyCode}${Number(d.exchangeRate) !== 1 ? ` @ ${fmtNumber(d.exchangeRate, 6)}` : ''}`} />}
               {d.confirmedAt && <Info label="Confirmed at" value={fmtDateTime(d.confirmedAt)} />}

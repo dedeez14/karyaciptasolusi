@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -39,6 +39,30 @@ function keepPreviousAssets(): Plugin {
   };
 }
 
+/**
+ * PDF.js needs the standard PDF fonts (Helvetica, Times...) that server PDFs use without embedding them.
+ * Served at /pdfjs/standard_fonts/ in dev and emitted into the build.
+ */
+function pdfjsStandardFonts(): Plugin {
+  const dir = fileURLToPath(new URL('../../node_modules/pdfjs-dist/standard_fonts', import.meta.url));
+  const prefix = '/pdfjs/standard_fonts/';
+  return {
+    name: 'kcs-pdfjs-standard-fonts',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith(prefix)) return next();
+        const f = join(dir, req.url.slice(prefix.length).split('?')[0].replace(/[^\w.-]/g, ''));
+        if (!existsSync(f)) return next();
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.end(readFileSync(f));
+      });
+    },
+    generateBundle() {
+      for (const name of readdirSync(dir)) this.emitFile({ type: 'asset', fileName: `pdfjs/standard_fonts/${name}`, source: readFileSync(join(dir, name)) });
+    },
+  };
+}
+
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   // Tailwind v4 runs as a Vite plugin; an inline (empty) PostCSS config stops Vite from picking up
@@ -46,6 +70,7 @@ export default defineConfig({
   css: { postcss: {} },
   plugins: [
     keepPreviousAssets(),
+    pdfjsStandardFonts(),
     react(),
     tailwindcss(),
     VitePWA({

@@ -72,6 +72,6 @@ export class ReportController {
     const def = this.def(key);
     const r = await def.run(this.ctx(def, q));
     this.audit.activity('report.export', { report: key, format: q.format });
-    await this.output.sendTable(res, { title: def.label, subtitle: r.subtitle, columns: r.columns, rows: r.rows, totals: r.totals }, String(q.format ?? 'xlsx'), q.save === '1');
+    await this.output.sendTable(res, { title: def.label, subtitle: r.subtitle, columns: r.columns, rows: r.rows, totals: r.totals }, String(q.format ?? 'xlsx'), q.save === '1', q.inline === '1');
   }
 }
