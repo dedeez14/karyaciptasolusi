@@ -12,6 +12,7 @@ import { InventoryService } from '../documents/inventory.service';
 import { LotService } from '../documents/lot.service';
 import { QualityService } from '../quality/quality.service';
 import { DocumentService } from '../documents/document.service';
+import { ComplianceService } from '../compliance/compliance.service';
 
 const n = (v: unknown) => Number(v ?? 0);
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -135,6 +136,7 @@ export class ManufacturingService {
     private readonly lots: LotService,
     private readonly quality: QualityService,
     private readonly documents: DocumentService,
+    private readonly compliance: ComplianceService,
   ) {}
 
   // ------------------------------------------------------------------ bills of materials
@@ -274,6 +276,8 @@ export class ManufacturingService {
         updatedById: u.id,
       };
       let bom;
+      // ingredients before the change (this bill, or the product's current default one) for the halal review
+      const prior = id ? await tx.bomLine.findMany({ where: { bomId: id }, select: { productId: true } }) : await tx.bomLine.findMany({ where: { bom: { companyId: u.companyId, productId: input.productId, isDefault: true, deletedAt: null } }, select: { productId: true } });
       if (id) {
         const before = await this.ownBom(id);
         bom = await tx.bom.update({ where: { id }, data });
@@ -290,6 +294,7 @@ export class ManufacturingService {
       if (input.isDefault) await tx.bom.updateMany({ where: { companyId: u.companyId, productId: input.productId, id: { not: bom.id } }, data: { isDefault: false } });
       await tx.bomLine.createMany({ data: lines.map((l, i) => ({ bomId: bom.id, lineNo: i + 1, productId: l.productId, qty: D(l.qty).toDecimalPlaces(4), pct: l.pct === null || l.pct === undefined ? null : D(l.pct), scrapPct: D(l.scrapPct), phantom: l.phantom, operationSeq: l.operationSeq ?? null, notes: l.notes ?? null })) });
       if (input.operations.length) await tx.bomOperation.createMany({ data: input.operations.map((o) => ({ bomId: bom.id, seq: o.seq, name: o.name, kind: o.kind, workCenterId: o.kind === 'INTERNAL' ? o.workCenterId! : null, supplierId: o.kind === 'SUBCONTRACT' ? o.supplierId! : null, servicePrice: D(o.kind === 'SUBCONTRACT' ? o.servicePrice : 0), setupMinutes: D(o.setupMinutes), runMinutes: D(o.runMinutes), instructions: o.instructions ?? null })) });
+      if (id || prior.length) await this.compliance.onRecipeChanged(tx, u.companyId, input.productId, prior.map((l) => l.productId), lines.map((l) => l.productId), bom.code);
       if (input.outputs.length) await tx.bomOutput.createMany({ data: input.outputs.map((o) => ({ bomId: bom.id, productId: o.productId, kind: o.kind, qty: D(o.qty), costSharePct: D(o.kind === 'CO' ? o.costSharePct : 0), nrvPerUnit: D(o.kind === 'BY' ? o.nrvPerUnit : 0) })) });
       return bom;
     });

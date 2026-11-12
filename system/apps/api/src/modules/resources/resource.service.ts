@@ -104,10 +104,11 @@ export class ResourceService {
     accounts: ['accounting.', 'hris.expense', 'hris.payroll', 'sales.payment', 'purchase.payment'],
     'work-centers': ['manufacturing.', 'maintenance.'],
     equipment: ['maintenance.', 'manufacturing.'],
+    'waste-types': ['compliance.'],
     'pos-outlets': 'company', 'pos-tables': 'company', 'price-lists': 'company',
     'bank-accounts': ['accounting.', 'pos.', 'sales.payment', 'purchase.payment', 'hris.expense.pay', 'hris.payroll.pay', 'hris.payroll.create'],
     customers: ['sales.', 'pos.', 'crm.', 'support.ticket', 'task.', 'master.project', 'report.'],
-    suppliers: ['purchase.', 'accounting.asset', 'accounting.cash', 'report.'],
+    suppliers: ['purchase.', 'accounting.asset', 'accounting.cash', 'report.', 'manufacturing.', 'compliance.'],
     employees: ['hris.', 'accounting.asset', 'task.', 'report.employee-directory'],
   };
 

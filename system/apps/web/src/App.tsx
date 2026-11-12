@@ -53,6 +53,14 @@ const MaintenanceOrdersPage = lazy(() => mntPages().then((m) => ({ default: m.Ma
 const MaintenancePlansPage = lazy(() => mntPages().then((m) => ({ default: m.MaintenancePlansPage })));
 const OeePage = lazy(() => mntPages().then((m) => ({ default: m.OeePage })));
 const qualityPages = () => import('@/features/quality/QualityPages');
+const compliancePages = () => import('@/features/compliance/CompliancePages');
+const ComplianceOverviewPage = lazy(() => compliancePages().then((m) => ({ default: m.ComplianceOverviewPage })));
+const CertificatesPage = lazy(() => compliancePages().then((m) => ({ default: m.CertificatesPage })));
+const TkdnListPage = lazy(() => compliancePages().then((m) => ({ default: m.TkdnListPage })));
+const TkdnEditorPage = lazy(() => compliancePages().then((m) => ({ default: m.TkdnEditorPage })));
+const wastePages = () => import('@/features/compliance/WastePages');
+const WastePage = lazy(() => wastePages().then((m) => ({ default: m.WastePage })));
+const SiinasPage = lazy(() => wastePages().then((m) => ({ default: m.SiinasPage })));
 const InspectionsPage = lazy(() => qualityPages().then((m) => ({ default: m.InspectionsPage })));
 const InspectionPage = lazy(() => qualityPages().then((m) => ({ default: m.InspectionPage })));
 const QcPlansPage = lazy(() => qualityPages().then((m) => ({ default: m.PlansPage })));
@@ -166,6 +174,12 @@ export default function App() {
             <Route path="maintenance/orders" element={<MaintenanceOrdersPage />} />
             <Route path="maintenance/plans" element={<MaintenancePlansPage />} />
             <Route path="maintenance/oee" element={<OeePage />} />
+            <Route path="compliance" element={<ComplianceOverviewPage />} />
+            <Route path="compliance/certificates" element={<CertificatesPage />} />
+            <Route path="compliance/tkdn" element={<TkdnListPage />} />
+            <Route path="compliance/tkdn/:id" element={<TkdnEditorPage />} />
+            <Route path="compliance/waste" element={<WastePage />} />
+            <Route path="compliance/siinas" element={<SiinasPage />} />
             <Route path="quality/inspections" element={<InspectionsPage />} />
             <Route path="quality/inspections/:id" element={<InspectionPage />} />
             <Route path="quality/plans" element={<QcPlansPage />} />

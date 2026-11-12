@@ -162,6 +162,8 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['QC_INSPECTION', 'Quality Inspection', 'QC/{YYYY}/', 'YEARLY'],
   ['QC_NCR', 'Non-conformance Report', 'NCR/{YYYY}/', 'YEARLY'],
   ['MAINT_ORDER', 'Maintenance Order', 'MNT/{YYYY}/', 'YEARLY'],
+  ['TKDN_ASSESS', 'TKDN Self-assessment', 'TKDN/{YYYY}/', 'YEARLY'],
+  ['B3_HANDOVER', 'B3 Waste Hand-over', 'B3/{YYYY}/', 'YEARLY'],
   ['POS', 'POS Receipt', 'POS/{YYYY}/{MM}/', 'MONTHLY'],
   ['POS_SESSION', 'POS Shift', 'SHIFT/{YYYY}/', 'YEARLY'],
   ['POS_MEMBER', 'Member Number', 'MBR-', 'NEVER'],

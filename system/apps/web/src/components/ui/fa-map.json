@@ -336,5 +336,7 @@
  "hard-hat": "helmet-safety",
  "cog": "gear",
  "package-minus": "box-open",
- "wrench": "wrench"
+ "wrench": "wrench",
+ "lightbulb": "lightbulb",
+ "biohazard": "biohazard"
 }

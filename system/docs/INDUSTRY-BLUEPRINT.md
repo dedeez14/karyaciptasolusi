@@ -160,7 +160,11 @@ The goal is to avoid building one separate app per industry. Most lines share th
 - **Licensing:** PP 28/2025 replaced PP 5/2021 (risk-based licensing). Keep the NIB and the KBLI per product line.
 - **SIINas:** Permenperin 13/2025 makes reporting **quarterly**, due by the 10th of April, July, October and January. New fields include capacity per quarter, material origin, and machine data (operators, capacity/hour, fuel/hour).
 - **TKDN:** Permenperin 35/2025, in force 11 Dec 2025.
-  - Based on production cost; reported weights are material 75%, labour 10%, overhead 15% **[formula to be checked against the PDF]**.
+  - Verified against the official text (Art. 4-12, Annex I-II): material 75%, labour 10%, overhead 15%.
+  - Material factor = sum of each component's cost share x credited domestic share. Certified components count 100 / 80 / 60 / 40 / 25% by TKDN band; uncertified components count 100% (domestic, all-domestic materials), 25% (made by a domestic industry) or 0% (imported).
+  - Labour and overhead count 100 / 60 / 30% by production setup; labour counts 0% when under 50% of workers are Indonesian.
+  - Brainware adds up to 20%; the total is capped at 100%.
+  - Annex I form 1.4 prints 3.36% x 75% as 2.25% (should be 2.52%).
   - Supply chain traced to tier 2; certificate valid 5 years.
   - EV (KBLBB): 40% until 2026, then 60% for 2027–2029 (Perpres 79/2023).
 - **Mandatory SNI:**
@@ -173,7 +177,10 @@ The goal is to avoid building one separate app per industry. Most lines share th
   - type testing: PM 33/2018 jo PM 30/2020 / 23/2021;
   - PPnBM: PP 74/2021, PMK 141/2021 jo 42/2022.
 - **Halal / BPOM:** PP 42/2024; Peraturan BPOM 27/2017 jo 7/2021 (registration) and 31/2018 jo 6/2024 (labelling).
-- **B3 waste:** PP 22/2021 and Permen LHK 6/2021. Storage limit 90 / 180 days; Festronik manifests; waste balance (neraca limbah).
+- **B3 waste:** PP 22/2021 and Permen LHK 6/2021, verified against the official text.
+  - Storage limits (Art. 79): 90 days at 50 kg/day or more, 180 days for category 1, 365 days for category 2.
+  - Festronik manifest for transport (Art. 99).
+  - Logbook and waste balance (neraca) in the Annex IX formats, reported at least every 6 months at plb3.menlhk.go.id (Art. 80).
 - **K3:** SMK3 under PP 50/2012 for firms with 100+ workers or high hazard.
 - **Customs:** Kawasan Berikat PMK 131/2018; KITE PMK 160/2018 jo 149/2022.
 - **Accounting:** SAK EP Ch. 13 / PSAK 202.

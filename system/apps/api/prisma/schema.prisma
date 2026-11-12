@@ -546,6 +546,14 @@ model Product {
   posStation          String?     @db.VarChar(30)
   /// warn this many days before a lot expires
   expiryAlertDays     Int         @default(60)
+  /// compliance: HS code, country of origin (empty = the supplier's), auxiliary material (bahan penolong, SIINas),
+  /// certificates the product must have (halal for food & drink, BPOM, SNI)
+  hsCode              String?     @db.VarChar(12)
+  originCountry       String?     @db.VarChar(3)
+  auxiliaryMaterial   Boolean     @default(false)
+  halalRequired       Boolean     @default(false)
+  bpomRequired        Boolean     @default(false)
+  sniRequired         Boolean     @default(false)
   saleTaxId           String?     @db.Uuid
   purchaseTaxId       String?     @db.Uuid
   incomeAccountId     String?     @db.Uuid
@@ -1144,6 +1152,10 @@ model Employee {
   maritalCode    String?   @db.VarChar(50)
   educationCode  String?   @db.VarChar(50)
   employmentCode String?   @db.VarChar(50)
+  /// citizenship (ISO 3166 alpha-2): TKDN direct labour share, SIINas foreign workers
+  nationality    String    @default("ID") @db.VarChar(3)
+  /// works directly in production (operator, welder, QC, foreman): TKDN direct labour
+  directLabour   Boolean   @default(false)
   birthPlace     String?   @db.VarChar(100)
   birthDate      DateTime? @db.Date
   address        String?
@@ -3536,4 +3548,232 @@ model DowntimeEvent {
 
   @@index([companyId, startAt])
   @@map("downtime_events")
+}
+
+// ----------------------------------------------------------------------------
+// Compliance: certificates, TKDN, B3 waste, SIINas
+// ----------------------------------------------------------------------------
+
+/// Licence / certificate held by the company or by a supplier: halal (UU 33/2014 jo UU 6/2023, PP 42/2024),
+/// BPOM MD / ML, PIRT, SPPT-SNI, TKDN (Permenperin 35/2025, 5 years), ISO, HACCP, NKV...
+model ComplianceCertificate {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  /// HALAL | BPOM_MD | BPOM_ML | PIRT | SNI | TKDN | ISO | HACCP | NKV | ISPO | OTHER
+  type         String    @db.VarChar(10)
+  number       String    @db.VarChar(100)
+  title        String    @db.VarChar(200)
+  issuer       String?   @db.VarChar(150)
+  /// OWN (ours) | SUPPLIER (a supplier's certificate for the materials it sells us)
+  holder       String    @default("OWN") @db.VarChar(10)
+  supplierId   String?   @db.Uuid
+  issuedAt     DateTime? @db.Date
+  /// empty = no fixed expiry (halal: valid while ingredients and process stay the same)
+  expiresAt    DateTime? @db.Date
+  /// TKDN certificates: the TKDN and BMP values (%)
+  tkdnValue    Decimal?  @db.Decimal(6, 2)
+  bmpValue     Decimal?  @db.Decimal(6, 2)
+  scope        String?
+  /// set when something covered by the certificate changed (e.g. the recipe of a halal product)
+  reviewNeeded Boolean   @default(false)
+  reviewReason String?
+  notes        String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdById  String?   @db.Uuid
+  updatedById  String?   @db.Uuid
+  deletedAt    DateTime?
+
+  products ComplianceCertificateProduct[]
+
+  @@index([companyId, type])
+  @@map("compliance_certificates")
+}
+
+model ComplianceCertificateProduct {
+  certificateId String @db.Uuid
+  productId     String @db.Uuid
+
+  certificate ComplianceCertificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+
+  @@id([certificateId, productId])
+  @@index([productId])
+  @@map("compliance_certificate_products")
+}
+
+/// TKDN self-assessment of a product (Permenperin 35/2025 Art. 4-12, Annex I forms 1.1-1.4 and Annex II brainware)
+model TkdnAssessment {
+  id                  String    @id @default(uuid()) @db.Uuid
+  companyId           String    @db.Uuid
+  number              String    @db.VarChar(40)
+  productId           String    @db.Uuid
+  bomId               String?   @db.Uuid
+  date                DateTime  @db.Date
+  productType         String?   @db.VarChar(150)
+  specification       String?   @db.VarChar(300)
+  standard            String?   @db.VarChar(100)
+  /// OWN (own / rented factory) | OTHER_FACTORY (own staff in another firm's factory) | OUTSOURCED (made by another firm)
+  productionMode      String    @default("OWN") @db.VarChar(15)
+  investedInIndonesia Boolean   @default(true)
+  directLabourTotal   Int       @default(0)
+  directLabourWni     Int       @default(0)
+  /// brainware criteria scores 0-100 (Annex II): R&D investment 30%, R&D unit 20%, R&D programme 20%, implementation 30%
+  bwInvestment        Decimal   @default(0) @db.Decimal(6, 2)
+  bwUnit              Decimal   @default(0) @db.Decimal(6, 2)
+  bwProgram           Decimal   @default(0) @db.Decimal(6, 2)
+  bwImplementation    Decimal   @default(0) @db.Decimal(6, 2)
+  materialFactor      Decimal   @default(0) @db.Decimal(9, 4)
+  labourFactor        Decimal   @default(0) @db.Decimal(9, 4)
+  overheadFactor      Decimal   @default(0) @db.Decimal(9, 4)
+  brainware           Decimal   @default(0) @db.Decimal(9, 4)
+  tkdn                Decimal   @default(0) @db.Decimal(9, 4)
+  /// DRAFT | FINAL
+  status              String    @default("DRAFT") @db.VarChar(8)
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  createdById         String?   @db.Uuid
+  updatedById         String?   @db.Uuid
+  deletedAt           DateTime?
+
+  lines TkdnAssessmentLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, productId])
+  @@map("tkdn_assessments")
+}
+
+model TkdnAssessmentLine {
+  id                   String   @id @default(uuid()) @db.Uuid
+  assessmentId         String   @db.Uuid
+  seq                  Int
+  productId            String?  @db.Uuid
+  description          String   @db.VarChar(200)
+  specification        String?  @db.VarChar(200)
+  uom                  String?  @db.VarChar(20)
+  originCountry        String   @default("ID") @db.VarChar(3)
+  qty                  Decimal  @db.Decimal(18, 4)
+  unitPrice            Decimal  @db.Decimal(18, 2)
+  /// component has a TKDN certificate and its value (%)
+  hasCertificate       Boolean  @default(false)
+  certTkdn             Decimal? @db.Decimal(6, 2)
+  /// no certificate: made in Indonesia by an industrial company; and all of its own materials domestic / natural resource
+  domesticProducer     Boolean  @default(false)
+  allDomesticMaterials Boolean  @default(false)
+  /// credited domestic share (Art. 5 (2)) and its contribution to the material factor
+  creditPct            Decimal  @default(0) @db.Decimal(6, 2)
+  share                Decimal  @default(0) @db.Decimal(9, 4)
+
+  assessment TkdnAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@map("tkdn_assessment_lines")
+}
+
+/// B3 (hazardous) waste type per PP 22/2021 Annex IX (e.g. B105d used lubricating oil, category 2)
+model WasteType {
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @db.Uuid
+  code              String    @db.VarChar(20)
+  name              String    @db.VarChar(200)
+  /// hazard category 1 | 2
+  category          Int       @default(2)
+  /// NON_SPECIFIC | EXPIRED | SPECIFIC_GENERAL | SPECIFIC_SPECIAL
+  sourceType        String    @default("NON_SPECIFIC") @db.VarChar(20)
+  /// explosive, flammable, reactive, infectious, corrosive, toxic
+  characteristics   String?   @db.VarChar(200)
+  /// generated at 50 kg a day or more: storage at most 90 days (Permen LHK 6/2021 Art. 79)
+  atLeast50KgPerDay Boolean   @default(false)
+  storageLocation   String?   @db.VarChar(150)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdById       String?   @db.Uuid
+  updatedById       String?   @db.Uuid
+  deletedAt         DateTime?
+
+  @@unique([companyId, code])
+  @@map("waste_types")
+}
+
+/// B3 waste put into the temporary store (logbook "in", Permen LHK 6/2021 Annex IX form A)
+model WasteEntry {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid
+  wasteTypeId    String   @db.Uuid
+  date           DateTime @db.Date
+  source         String?  @db.VarChar(200)
+  /// kilograms
+  qty            Decimal  @db.Decimal(18, 3)
+  remainingQty   Decimal  @db.Decimal(18, 3)
+  storageDays    Int
+  maxStorageDate DateTime @db.Date
+  notes          String?  @db.VarChar(500)
+  /// POSTED | CANCELLED
+  status         String   @default("POSTED") @db.VarChar(10)
+  createdAt      DateTime @default(now())
+  createdById    String?  @db.Uuid
+
+  @@index([companyId, wasteTypeId, date])
+  @@map("waste_entries")
+}
+
+/// B3 waste leaving the store: handed to a licensed transporter / receiver with the Festronik manifest, or
+/// utilised / treated / landfilled by the company itself
+model WasteHandover {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  number        String   @db.VarChar(40)
+  date          DateTime @db.Date
+  /// HANDED_OVER | UTILISED | TREATED | LANDFILLED | EXPORTED | OTHER
+  treatment     String   @db.VarChar(12)
+  transporterId String?  @db.Uuid
+  receiverId    String?  @db.Uuid
+  manifestNo    String?  @db.VarChar(60)
+  vehicleNo     String?  @db.VarChar(30)
+  licenceNo     String?  @db.VarChar(100)
+  notes         String?  @db.VarChar(500)
+  /// POSTED | CANCELLED
+  status        String   @default("POSTED") @db.VarChar(10)
+  createdAt     DateTime @default(now())
+  createdById   String?  @db.Uuid
+
+  lines WasteHandoverLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@map("waste_handovers")
+}
+
+model WasteHandoverLine {
+  id          String  @id @default(uuid()) @db.Uuid
+  handoverId  String  @db.Uuid
+  wasteTypeId String  @db.Uuid
+  qty         Decimal @db.Decimal(18, 3)
+  /// entries taken (first in, first out): [{ entryId, qty }]
+  allocations Json    @default("[]")
+
+  handover WasteHandover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+
+  @@map("waste_handover_lines")
+}
+
+/// Quarterly SIINas report (Permenperin 13/2025): figures the ERP derives plus what is entered by hand
+model SiinasReport {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  year        Int
+  quarter     Int
+  /// figures entered by hand (capacity, energy, water, investment...)
+  inputs      Json      @default("{}")
+  /// DRAFT | SUBMITTED
+  status      String    @default("DRAFT") @db.VarChar(10)
+  submittedAt DateTime?
+  receiptNo   String?   @db.VarChar(100)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  updatedById String?   @db.Uuid
+
+  @@unique([companyId, year, quarter])
+  @@map("siinas_reports")
 }
