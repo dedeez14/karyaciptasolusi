@@ -349,8 +349,8 @@ export class PdfService {
       y += 82;
     }
 
-    // ---------- Digital signature: QR + how to verify
-    if (verifyUrl) {
+    // ---------- Digital signature: QR + how to verify (only once the system has a public address)
+    if (verifyUrl && !/^(localhost|127\.|0\.0\.0\.0|\[::1\]|192\.168\.|10\.)/.test(publicUrl.replace(/^https?:\/\//, ''))) {
       const qr = await QRCode.toBuffer(verifyUrl, { margin: 0, width: 180, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
       const QR = 42;
       const boxH = QR + 12;
@@ -359,7 +359,7 @@ export class PdfService {
       doc.image(qr, L + 6, y + 6, { width: QR, height: QR });
       const host = publicUrl.replace(/^https?:\/\//, '');
       doc.font('Helvetica-Bold').fontSize(8.5).fillColor(ink).text('Digitally signed document', L + QR + 18, y + 11, { width: W - QR - 30 });
-      doc.font('Helvetica').fontSize(7.6).fillColor(GREY).text(`Issued by ${b.name}. Scan the code (or open ${host}/verify) to check that this document is authentic and has not been changed.`, L + QR + 18, doc.y + 3, { width: W - QR - 30 });
+      doc.font('Helvetica').fontSize(7.6).fillColor(GREY).text(`Issued by ${b.name}.${/^(localhost|127\.|0\.0\.0\.0|\[::1\]|192\.168\.|10\.)/.test(host) ? '' : ` Scan the code (or open ${host}/verify) to check that this document is authentic and has not been changed.`}`, L + QR + 18, doc.y + 3, { width: W - QR - 30 });
       y += boxH;
     }
 
@@ -636,7 +636,17 @@ export class PdfService {
     // the signer's own signature (My Profile) when they are the configured document signer
     const sig = b.signer && b.signer.name.trim().toLowerCase() === l.signerName.trim().toLowerCase() ? b.signer.image : null;
     let ny: number;
-    if (sig) {
+    if (!publicHost) {
+      // no public address yet: nobody could open the QR, so it is left out (the file itself stays signed)
+      if (sig) {
+        try {
+          doc.image(sig, sx, qy, { fit: [Math.min(sw, 190), 64], valign: 'bottom' });
+        } catch {
+          /* unreadable image */
+        }
+      }
+      ny = qy + 70;
+    } else if (sig) {
       const QR = 50;
       try {
         doc.image(sig, sx, qy, { fit: [sw - QR - 16, 62], valign: 'bottom' });
