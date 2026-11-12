@@ -625,12 +625,13 @@ export class PdfService {
       doc.addPage();
       y = doc.page.margins.top;
     }
-    const sx = L + W * 0.52;
-    const sw = W * 0.48;
+    // signature block sits against the right margin
+    const sw = Math.min(W * 0.36, 175);
+    const sx = L + W - sw;
     const dateText = new Date(`${l.date}T00:00:00Z`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-    doc.font('Helvetica').fontSize(size).fillColor(ink).text(`${l.place}, ${dateText}`, sx, y + 4, { width: sw });
-    doc.text('Hormat kami,', sx, doc.y + 1, { width: sw });
-    doc.font('Helvetica-Bold').text(b.name, sx, doc.y + 1, { width: sw });
+    doc.font('Helvetica').fontSize(size).fillColor(ink).text(`${l.place}, ${dateText}`, sx, y + 4, { width: sw, align: 'center' });
+    doc.text('Hormat kami,', sx, doc.y + 1, { width: sw, align: 'center' });
+    doc.font('Helvetica-Bold').text(b.name, sx, doc.y + 1, { width: sw, align: 'center' });
     const qy = doc.y + 6;
     const qr = await QRCode.toBuffer(verifyUrl, { margin: 0, width: 240, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
     // the signer's own signature (My Profile) when they are the configured document signer
@@ -640,7 +641,7 @@ export class PdfService {
       // no public address yet: nobody could open the QR, so it is left out (the file itself stays signed)
       if (sig) {
         try {
-          doc.image(sig, sx, qy, { fit: [Math.min(sw, 190), 64], valign: 'bottom' });
+          doc.image(sig, sx, qy, { fit: [sw, 64], align: 'center', valign: 'bottom' });
         } catch {
           /* unreadable image */
         }
@@ -664,8 +665,8 @@ export class PdfService {
       doc.font('Helvetica').fontSize(6.5).fillColor(GREY).text(`Kode: ${code}`, sx + QR + 8, doc.y + 3, { width: sw - QR - 8 });
       ny = qy + QR + 8;
     }
-    doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(l.signerName, sx, ny, { width: sw, underline: true });
-    doc.font('Helvetica').text(l.signerTitle, sx, doc.y + 1, { width: sw });
+    doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(l.signerName, sx, ny, { width: sw, underline: true, align: 'center' });
+    doc.font('Helvetica').text(l.signerTitle, sx, doc.y + 1, { width: sw, align: 'center' });
 
     // ---------- footer on every page
     const range = doc.bufferedPageRange();
