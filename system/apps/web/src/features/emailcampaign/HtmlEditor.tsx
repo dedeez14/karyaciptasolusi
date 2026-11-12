@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Icon, Textarea } from '@/components/ui';
 import { MERGE_TAGS } from './common';
+import { Select } from '@/components/ui';
 
 /** Snippets inserted at the cursor (no rich-text library: the HTML stays visible and is sanitised on save) */
 const SNIPPETS: { label: string; icon: string; wrap?: [string, string]; insert?: string }[] = [
@@ -39,22 +40,18 @@ export function HtmlEditor({ value, onChange, rows = 16, invalid, disabled, labe
           </button>
         ))}
         <span className="mx-1 h-5 w-px bg-line" />
-        <select
+        <Select
           aria-label="Insert merge tag"
-          className="rounded-md border-0 bg-transparent py-1 text-xs text-slate-600 focus:ring-0"
+          className="h-7 w-auto border-0 bg-transparent px-2 text-xs text-slate-600 shadow-none"
           value=""
           disabled={disabled}
+          placeholder="Insert field…"
+          menuWidth={240}
           onChange={(e) => {
             if (e.target.value) apply({ insert: `{{${e.target.value}}}` });
           }}
-        >
-          <option value="">Insert field…</option>
-          {MERGE_TAGS.map((m) => (
-            <option key={m.tag} value={m.tag}>
-              {m.label} {`{{${m.tag}}}`}
-            </option>
-          ))}
-        </select>
+          options={MERGE_TAGS.map((m) => ({ value: m.tag, label: m.label, hint: `{{${m.tag}}}` }))}
+        />
       </div>
       <Textarea ref={ref} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} aria-label={label} className="rounded-none border-0 font-mono text-xs focus:ring-0" invalid={invalid} />
     </div>

@@ -5,7 +5,7 @@ import { api, type Paged } from '@/lib/api';
 import { download } from '@/lib/download';
 import { fmtDateTime, getLocale } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { Badge, Button, Card, confirm, DataTable, DatePicker, Dropdown, EmptyState, Field, Icon, Input, LookupSelect, Modal, Pagination, PageHeader, Spinner, StatCard, toast, type Column } from '@/components/ui';
+import { Badge, Button, Card, confirm, DataTable, DatePicker, Dropdown, EmptyState, Field, Icon, Input, LookupSelect, Modal, Pagination, PageHeader, Spinner, StatCard, toast, type Column, TimeInput } from '@/components/ui';
 import { EmailFrame, InboxBanner, SmtpWarning, StatusBadge, useStatusLookup, type CampaignDetail } from './common';
 import { RepliesPanel } from './RepliesPanel';
 
@@ -444,7 +444,7 @@ function ScheduleModal({ id, current, onClose, onDone }: { id: string; current: 
           <DatePicker value={date} onChange={setDate} clearable={false} />
         </Field>
         <Field label="Time" required help="Your local time">
-          <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          <TimeInput aria-label="Time" value={time} onChange={(e) => setTime(e.target.value)} />
         </Field>
       </div>
     </Modal>

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Button, cn, EmptyState, Spinner } from './primitives';
 import { Icon } from './Icon';
+import { Select } from './Select';
 
 export interface Column<T> {
   key: string;
@@ -139,13 +140,7 @@ export function Pagination({ page, totalPages, total, pageSize, onPage, onPageSi
           {from}-{to} of {total}
         </span>
         {onPageSize && (
-          <select className="rounded-md border border-line bg-white px-1.5 py-1 text-xs" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}>
-            {[10, 20, 50, 100].map((s) => (
-              <option key={s} value={s}>
-                {s} / page
-              </option>
-            ))}
-          </select>
+          <Select className="h-7 w-auto px-2 text-xs" value={String(pageSize)} onChange={(e) => onPageSize(Number(e.target.value))} aria-label="Rows per page" options={[10, 20, 50, 100].map((s) => ({ value: String(s), label: `${s} / page` }))} />
         )}
       </div>
       <div className="flex items-center gap-1">

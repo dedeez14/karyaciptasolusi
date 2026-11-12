@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { api } from '@/lib/api';
 import { download } from '@/lib/download';
 import { useDebounce } from '@/hooks/useDebounce';
-import { AsyncSelect, Button, Card, Checkbox, cn, EmptyState, Floating, Icon, Input, LookupSelect, Modal, PageHeader, Spinner, StatCard, Tabs, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, Checkbox, cn, EmptyState, Floating, Icon, Input, LookupSelect, Modal, PageHeader, Spinner, StatCard, Tabs, Textarea, toast, TimeInput } from '@/components/ui';
 import type { ResourceMeta } from '@/features/resources/types';
 
 interface Status {
@@ -456,11 +456,11 @@ function CellEditor({
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs text-slate-500">
               Check in
-              <Input type="time" className="mt-1" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+              <TimeInput className="mt-1" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
             </label>
             <label className="text-xs text-slate-500">
               Check out
-              <Input type="time" className="mt-1" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+              <TimeInput className="mt-1" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
             </label>
           </div>
           <Textarea rows={2} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />

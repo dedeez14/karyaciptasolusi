@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { api } from '@/lib/api';
 import { useLookupOptions } from '@/hooks/useLookups';
 import { AsyncSelect, Badge, cn, DatePicker, Field, Icon, Input, LookupSelect, NumberInput, Spinner, Textarea } from '@/components/ui';
+import { Select } from '@/components/ui';
 
 // ------------------------------------------------------------------ types
 
@@ -346,14 +347,7 @@ export function AudienceBuilder({ value, onChange, disabled, automatic }: { valu
       {value.source === 'MAP_PLACES' && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Lead Finder search" help="Only places where an e-mail address was found">
-            <select className="input" value={value.jobId ?? ''} onChange={(e) => set({ jobId: e.target.value || null })}>
-              <option value="">All searches</option>
-              {(jobs.data ?? []).map((j) => (
-                <option key={j.id} value={j.id}>
-                  {j.code} · {j.name} ({j.withEmail} with e-mail)
-                </option>
-              ))}
-            </select>
+            <Select value={value.jobId ?? ''} onChange={(e) => set({ jobId: e.target.value || null })} placeholder="All searches" options={(jobs.data ?? []).map((j) => ({ value: j.id, label: `${j.code} · ${j.name}`, hint: `${j.withEmail} with e-mail` }))} />
           </Field>
           <Field label="Category contains">
             <Input value={value.category ?? ''} onChange={(e) => set({ category: e.target.value })} placeholder="e.g. konveksi" />

@@ -7,6 +7,7 @@ import { useSession } from '@/stores/session';
 import { AsyncSelect, Button, cn, EmptyState, Icon, Input, PageHeader, Spinner, toast } from '@/components/ui';
 import { ResourceForm } from '@/features/resources/ResourceForm';
 import type { ResourceMeta } from '@/features/resources/types';
+import { Select } from '@/components/ui';
 
 interface Stage {
   id: string;
@@ -185,22 +186,17 @@ export default function PipelineBoardPage() {
                         <span className="truncate pl-2">{o._labels?.ownerId ?? ''}</span>
                       </div>
                       {meta.data?.can.update && (
-                        <select
+                        <Select
                           aria-label="Move to stage"
-                          className="mt-2 w-full rounded-md border border-line bg-white px-2 py-1 text-xs text-slate-600 md:hidden"
+                          className="mt-2 h-8 w-full px-2 text-xs text-slate-600 md:hidden"
                           value={o.stageId ?? ''}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => {
                             const st = stages.find((x) => x.id === e.target.value);
                             if (st) moveTo(o.id, st);
                           }}
-                        >
-                          {stages.map((x) => (
-                            <option key={x.id} value={x.id}>
-                              Move to: {x.name}
-                            </option>
-                          ))}
-                        </select>
+                          options={stages.map((x) => ({ value: x.id, label: `Move to: ${x.name}` }))}
+                        />
                       )}
                     </div>
                   ))}

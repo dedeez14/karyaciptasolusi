@@ -11,3 +11,5 @@ export * from './Tooltip';
 export * from './LookupSelect';
 export * from './Floating';
 export * from './NumberInput';
+export * from './Select';
+export * from './TimeInput';

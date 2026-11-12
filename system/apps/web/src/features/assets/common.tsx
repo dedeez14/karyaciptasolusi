@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney, isoDate, getLocale } from '@/lib/format';
 import { useLookupOptions } from '@/hooks/useLookups';
-import { AsyncSelect, Badge, Button, DatePicker, Drawer, Field, Icon, Input, LookupSelect, Modal, Spinner, Textarea, toast, NumberInput } from '@/components/ui';
+import { AsyncSelect, Badge, Button, DatePicker, Drawer, Field, Icon, Input, LookupSelect, Modal, Spinner, Textarea, toast, NumberInput, MonthInput } from '@/components/ui';
 
 export interface AssetRow {
   id: string;
@@ -339,7 +339,7 @@ export function DepreciationRunModal({ open, onClose, assetIds, title = 'Run dep
     >
       <div className="space-y-4">
         <Field label="Up to and including" help="Missed months before this period are posted too (one journal per asset per month)">
-          <Input type="month" value={period} max={isoDate().slice(0, 7)} onChange={(e) => setPeriod(e.target.value)} className="max-w-48" />
+          <MonthInput aria-label="Period" value={period} max={isoDate().slice(0, 7)} onChange={(e) => setPeriod(e.target.value)} className="max-w-48" />
         </Field>
         {preview.isFetching ? (
           <div className="flex justify-center py-8">

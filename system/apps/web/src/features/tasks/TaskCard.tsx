@@ -1,5 +1,6 @@
 import { cn, Icon } from '@/components/ui';
 import { Avatar, DueLabel, PriorityBadge, type TaskRow, type TaskStage } from './common';
+import { Select } from '@/components/ui';
 
 interface Props {
   task: TaskRow;
@@ -77,19 +78,14 @@ export function TaskCard({ task, priorities, stages, onOpen, onMove, draggable, 
         <Avatar name={task.assigneeName} />
       </div>
       {onMove && stages && (
-        <select
+        <Select
           aria-label="Move to stage"
-          className="mt-2 w-full rounded-md border border-line bg-white px-2 py-1 text-xs text-slate-600 md:hidden"
+          className="mt-2 h-8 w-full px-2 text-xs text-slate-600 md:hidden"
           value={task.stageId}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => onMove(e.target.value)}
-        >
-          {stages.map((s) => (
-            <option key={s.id} value={s.id}>
-              Move to: {s.name}
-            </option>
-          ))}
-        </select>
+          options={stages.map((s) => ({ value: s.id, label: `Move to: ${s.name}` }))}
+        />
       )}
     </div>
   );

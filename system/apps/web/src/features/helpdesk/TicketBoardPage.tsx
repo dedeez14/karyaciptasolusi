@@ -8,6 +8,7 @@ import { useSession } from '@/stores/session';
 import { AsyncSelect, Badge, Button, cn, EmptyState, Icon, Input, LookupSelect, PageHeader, Spinner, toast } from '@/components/ui';
 import { SlaBadge, TICKET_LOOKUPS, type TicketRow } from './common';
 import { TicketFormDrawer } from './TicketFormDrawer';
+import { Select } from '@/components/ui';
 
 const PRIORITY_RANK: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
@@ -164,19 +165,14 @@ export default function TicketBoardPage() {
                           </span>
                         </div>
                         {canMove && (
-                          <select
+                          <Select
                             aria-label="Move to"
-                            className="mt-2 w-full rounded-md border border-line bg-slate-50 px-2 py-1 text-xs text-slate-600 md:hidden"
+                            className="mt-2 h-8 w-full bg-slate-50 px-2 text-xs text-slate-600 md:hidden"
                             value={t.statusCode}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => move(t.id, e.target.value)}
-                          >
-                            {statuses.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
+                            options={statuses.map((o) => ({ value: o.value, label: o.label }))}
+                          />
                         )}
                       </article>
                     );

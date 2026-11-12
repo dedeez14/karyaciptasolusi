@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSession, type MenuNode } from '@/stores/session';
 import { useIdleLogout } from '@/hooks/useIdleLogout';
 import '@/hooks/useTheme';
-import { Button, cn, Dropdown, Icon, Spinner, toast, Tooltip } from '@/components/ui';
+import { Button, cn, Dropdown, Icon, Select, Spinner, toast, Tooltip } from '@/components/ui';
 import { PwaPrompt } from './PwaPrompt';
 import { ErrorBoundary } from './ErrorBoundary';
 import { CommandPalette } from './CommandPalette';
@@ -271,28 +271,10 @@ export function AppLayout() {
           <Button variant="ghost" size="icon" icon="search" className="md:hidden" onClick={() => setPaletteOpen(true)} aria-label="Search menu" />
           <div className="hidden items-center gap-2 sm:flex">
             {me.companies.length > 1 && (
-              <div className="relative">
-                <Icon name="building-2" className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <select className="input h-9 max-w-52 pl-8 text-[13px]" value={me.company.id} onChange={(e) => changeCompany(e.target.value)} aria-label="Company">
-                  {me.companies.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select className="h-9 max-w-52 text-[13px]" leading={<Icon name="building-2" className="h-4 w-4 shrink-0 text-slate-400" />} value={me.company.id} onChange={(e) => changeCompany(e.target.value)} aria-label="Company" menuWidth={240} options={me.companies.map((c) => ({ value: c.id, label: c.name }))} />
             )}
             {me.branches.length > 0 && (
-              <div className="relative">
-                <Icon name="map-pin" className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <select className="input h-9 max-w-48 pl-8 text-[13px]" value={me.branchId ?? ''} onChange={(e) => changeBranch(e.target.value)} aria-label="Branch">
-                  {me.branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select className="h-9 max-w-48 text-[13px]" leading={<Icon name="map-pin" className="h-4 w-4 shrink-0 text-slate-400" />} value={me.branchId ?? ''} onChange={(e) => changeBranch(e.target.value)} aria-label="Branch" menuWidth={220} options={me.branches.map((b) => ({ value: b.id, label: b.name }))} />
             )}
           </div>
           <Clock />

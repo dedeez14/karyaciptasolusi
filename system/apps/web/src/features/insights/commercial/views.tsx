@@ -9,6 +9,7 @@ import type { ResourceMeta, Row } from '@/features/resources/types';
 import type { ResourceViewProps } from '@/features/resources/views/types';
 import { Avatar, LookupBadge, money, Progress } from '../shared';
 import type { ProjectStats } from './ProjectPage';
+import { Select } from '@/components/ui';
 
 const cardCls = 'card group flex flex-col p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-pop';
 
@@ -244,19 +245,14 @@ export function LeadKanbanView({ rows, open, meta, refresh }: ResourceViewProps)
                     <span className="truncate pl-2">{r._labels?.ownerId ?? ''}</span>
                   </div>
                   {meta.can.update && (
-                    <select
+                    <Select
                       aria-label="Move to status"
-                      className="mt-2 w-full rounded-md border border-line bg-white px-2 py-1 text-xs text-slate-600 md:hidden"
+                      className="mt-2 h-8 w-full px-2 text-xs text-slate-600 md:hidden"
                       value={status(r)}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => e.target.value && move(r.id, e.target.value)}
-                    >
-                      {statuses.map((s) => (
-                        <option key={s.value} value={s.value}>
-                          Move to: {s.label}
-                        </option>
-                      ))}
-                    </select>
+                      options={statuses.map((s) => ({ value: s.value, label: `Move to: ${s.label}` }))}
+                    />
                   )}
                 </div>
               ))}

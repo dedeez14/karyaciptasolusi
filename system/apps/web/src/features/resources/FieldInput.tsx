@@ -1,4 +1,4 @@
-import { AsyncSelect, DatePicker, Input, LookupSelect, NumberInput, Select, Switch, Textarea } from '@/components/ui';
+import { AsyncSelect, DatePicker, Input, LookupSelect, NumberInput, Select, Switch, Textarea, TimeInput } from '@/components/ui';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useLookups, type LookupMap } from '@/hooks/useLookups';
@@ -60,7 +60,7 @@ export function FieldInput({ field, value, onChange, invalid, disabled, initialL
       return (
         <div className="flex gap-2">
           <DatePicker id={common.id} className="flex-1" invalid={invalid} disabled={disabled} value={p.date} onChange={(d) => emit(d, p.time)} />
-          <Input type="time" aria-label={`${field.label} time`} className="w-28" invalid={invalid} disabled={disabled || !p.date} value={p.time} onChange={(e) => emit(p.date, e.target.value)} />
+          <TimeInput aria-label={`${field.label} time`} className="w-28" invalid={invalid} disabled={disabled || !p.date} value={p.time} onChange={(e) => emit(p.date, e.target.value)} />
         </div>
       );
     }
