@@ -40,7 +40,10 @@ export interface DocLine {
   lineTotal?: string;
   sourceLineId?: string | null;
   processedQty?: string;
-  product?: { id: string; code: string; name: string; type: string } | null;
+  product?: { id: string; code: string; name: string; type: string; trackLots?: boolean } | null;
+  lotNo?: string | null;
+  expiryDate?: string | null;
+  lotId?: string | null;
   uomCode?: string | null;
   taxName?: string | null;
 }
@@ -55,6 +58,8 @@ export interface DocLink {
 }
 
 export interface TradeDoc {
+  /** lots moved per line id (lot-tracked products) */
+  lots?: Record<string, { lotId: string; lotNo: string; expiryDate: string | null; qty: string }[]>;
   id: string;
   docType: string;
   number: string;

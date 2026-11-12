@@ -3,7 +3,7 @@ import { useSession } from '@/stores/session';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
 import { fmtMoney } from '@/lib/format';
-import { AsyncSelect, Button, cn, Icon, NumberInput } from '@/components/ui';
+import { AsyncSelect, Button, cn, DatePicker, Icon, Input, NumberInput, Select } from '@/components/ui';
 import type { DocLine, DocTypeDef } from './useDocTypes';
 
 export interface EditLine {
@@ -18,6 +18,11 @@ export interface EditLine {
   sourceLineId: string | null;
   /** description filled automatically from the product (replaced when the product changes) */
   autoDesc?: string;
+  /** lot-tracked product: lot received (number + expiry) or the lot to issue from (empty = FEFO) */
+  trackLots?: boolean;
+  lotNo?: string;
+  expiryDate?: string;
+  lotId?: string | null;
 }
 
 let seq = 0;
@@ -43,6 +48,10 @@ export const fromDocLine = (l: DocLine): EditLine => ({
   taxId: l.taxId,
   sourceLineId: l.sourceLineId ?? null,
   autoDesc: l.product?.name,
+  trackLots: !!l.product?.trackLots,
+  lotNo: l.lotNo ?? '',
+  expiryDate: l.expiryDate ? l.expiryDate.slice(0, 10) : '',
+  lotId: l.lotId ?? null,
 });
 
 /** Tax rates by id. Uses the tax list when permitted, otherwise parses the rate from the option label. */
@@ -103,6 +112,7 @@ interface ProductDetail {
   purchasePrice: string;
   saleTaxId: string | null;
   purchaseTaxId: string | null;
+  trackLots?: boolean;
 }
 
 // Container width from which every line is one table row instead of a card: `@min-[57rem]:` (Tailwind
@@ -114,7 +124,7 @@ interface ProductDetail {
  * Narrow containers / phones: one card per line with labelled fields - no horizontal scrolling.
  * Enter moves to the next line (and adds one at the end) instead of submitting the form.
  */
-export function LineEditor({ def, lines, onChange, errors }: { def: DocTypeDef; lines: EditLine[]; onChange: Dispatch<SetStateAction<EditLine[]>>; errors?: Record<string, string> }) {
+export function LineEditor({ def, lines, onChange, errors, warehouseId }: { def: DocTypeDef; lines: EditLine[]; onChange: Dispatch<SetStateAction<EditLine[]>>; errors?: Record<string, string>; warehouseId?: string | null }) {
   const rates = useTaxRates();
   const priced = def.priced;
   const allowNegative = def.stock === 'adjust';
@@ -177,6 +187,10 @@ export function LineEditor({ def, lines, onChange, errors }: { def: DocTypeDef; 
         uomId: p.uomId,
         unitPrice: priced || def.stock === 'adjust' ? String(Number(price ?? 0)) : '0',
         taxId: def.taxField && salesVat ? p[def.taxField] : null,
+        trackLots: !!p.trackLots,
+        lotNo: '',
+        expiryDate: '',
+        lotId: null,
       });
     } catch {
       /* no product read permission: keep the selection, the server fills the defaults */
@@ -321,6 +335,7 @@ export function LineEditor({ def, lines, onChange, errors }: { def: DocTypeDef; 
                 />
                 {errText(err(i, 'description'))}
               </div>
+              {def.stock && l.trackLots && <LotFields def={def} line={l} warehouseId={warehouseId ?? null} onChange={(patch) => update(l.key, patch)} />}
             </div>
           );
         })}
@@ -359,5 +374,60 @@ export function LineTotals({ lines, rates, priced, currency }: { lines: EditLine
         </dd>
       </div>
     </dl>
+  );
+}
+
+interface LotOption {
+  lotId: string;
+  lotNo: string;
+  expiryDate: string | null;
+  qty: number;
+  daysLeft: number | null;
+}
+
+/** lot of one line: number + expiry for goods coming in; the lot to take for goods going out (default FEFO) */
+function LotFields({ def, line, warehouseId, onChange }: { def: DocTypeDef; line: EditLine; warehouseId: string | null; onChange: (p: Partial<EditLine>) => void }) {
+  const inbound = def.stock === 'in' || (def.stock === 'adjust' && Number(line.qty) > 0);
+  const lots = useQuery({
+    queryKey: ['inventory', 'lots', line.productId, warehouseId],
+    queryFn: () => api.get<(LotOption & { productId: string })[]>('/inventory/lots', { warehouseId: warehouseId ?? undefined, status: 'ALL' }),
+    enabled: !inbound && !!line.productId,
+    staleTime: 30_000,
+    select: (rows) => rows.filter((r) => r.productId === line.productId && r.qty > 0),
+  });
+  return (
+    <div className={cn('col-span-full grid grid-cols-1 gap-2 rounded-lg bg-amber-50/60 p-2 sm:grid-cols-3', `@min-[57rem]:col-start-2 @min-[57rem]:col-end-[-2] @min-[57rem]:row-start-3`)}>
+      {inbound ? (
+        <>
+          <label className="text-xs text-slate-600">
+            Batch / lot no.
+            <Input value={line.lotNo ?? ''} maxLength={60} onChange={(e) => onChange({ lotNo: e.target.value })} placeholder="From the label (empty = document no.)" className="mt-0.5 h-8 text-sm" />
+          </label>
+          <label className="text-xs text-slate-600">
+            Expiry date
+            <DatePicker value={line.expiryDate ?? ''} onChange={(v) => onChange({ expiryDate: v })} className="mt-0.5" />
+          </label>
+          <p className="self-end text-[11px] text-amber-700">Lot-tracked product: record the batch printed on the goods.</p>
+        </>
+      ) : (
+        <>
+          <label className="text-xs text-slate-600 sm:col-span-2">
+            Take from batch
+            <Select
+              value={line.lotId ?? ''}
+              onChange={(e) => onChange({ lotId: e.target.value || null })}
+              placeholder="Automatic: expiring first (FEFO)"
+              options={(lots.data ?? []).map((o) => ({
+                value: o.lotId,
+                label: o.lotNo,
+                hint: `${o.qty} in stock${o.expiryDate ? ` · expires ${o.expiryDate.slice(0, 10)}${o.daysLeft !== null && o.daysLeft < 0 ? ' (EXPIRED)' : ''}` : ''}`,
+              }))}
+              className="mt-0.5 h-8 text-sm"
+            />
+          </label>
+          <p className="self-end text-[11px] text-amber-700">Lot-tracked product{!warehouseId ? ': choose the warehouse to see its batches' : ''}.</p>
+        </>
+      )}
+    </div>
   );
 }

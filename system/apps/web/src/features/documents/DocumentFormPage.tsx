@@ -145,6 +145,7 @@ export default function DocumentFormPage() {
           discountPct: Number(l.discountPct) || 0,
           taxId: l.taxId,
           sourceLineId: l.sourceLineId,
+          ...(l.trackLots ? { lotNo: l.lotNo || null, expiryDate: l.expiryDate || null, lotId: l.lotId || null } : {}),
         })),
       };
       return isEdit ? api.patch<TradeDoc>(`/documents/${type}/${id}`, body) : api.post<TradeDoc>(`/documents/${type}`, body);
@@ -322,7 +323,7 @@ export default function DocumentFormPage() {
           }
         >
           {errors.lines && <p className="mb-2 text-sm text-red-600">{errors.lines}</p>}
-          <LineEditor def={def} lines={lines} onChange={setLinesDirty} errors={errors} />
+          <LineEditor def={def} lines={lines} onChange={setLinesDirty} errors={errors} warehouseId={h.warehouseId} />
           {def.priced && (
             <div className="mt-4 border-t border-line pt-4">
               <LineTotals lines={lines} rates={rates} priced currency={h.currencyCode} />

@@ -134,6 +134,7 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['PAYROLL', 'Payroll Run', 'PYR/{YYYY}/', 'YEARLY'],
   ['DSR', 'Personal Data Request', 'DSR/{YYYY}/', 'YEARLY'],
   ['STOCK_COUNT', 'Stock Count (opname)', 'OPN/{YYYY}/', 'YEARLY'],
+  ['DISPOSAL', 'Stock Disposal (pemusnahan)', 'MSN/{YYYY}/', 'YEARLY'],
   ['BREACH', 'Data Breach', 'BRC/{YYYY}/', 'YEARLY'],
   ['PRODUCT', 'Product Code', 'PRD-', 'NEVER'],
   ['CUSTOMER', 'Customer Code', 'CUS-', 'NEVER'],

@@ -29,6 +29,17 @@ const poSchema = z.object({
   lines: z.array(z.object({ productId: z.uuid(), supplierId: z.uuid(), qty: z.coerce.number().positive().max(1e9) })).min(1).max(300),
 });
 
+const disposalSchema = z.object({
+  warehouseId: z.uuid(),
+  date: z.coerce.date(),
+  reasonCode: z.enum(['EXPIRED', 'DAMAGED', 'RECALL', 'OTHER']),
+  method: optText(200),
+  witnessedBy: optText(300),
+  externalWitness: optText(300),
+  notes: optText(2000),
+  items: z.array(z.object({ lotId: z.uuid(), qty: z.coerce.number().positive().max(1e9) })).min(1).max(300),
+});
+
 @Controller('inventory')
 export class InventoryToolsController {
   constructor(private readonly tools: InventoryToolsService, private readonly output: FileOutputService) {}
@@ -54,6 +65,32 @@ export class InventoryToolsController {
   @HttpCode(200)
   createPurchaseOrders(@Body(new ZodPipe(poSchema)) body: z.infer<typeof poSchema>) {
     return this.tools.createPurchaseOrders(body);
+  }
+
+  @Get('lots')
+  lots(@Query('status') status?: string, @Query('warehouseId') warehouseId?: string, @Query('search') search?: string) {
+    return this.tools.lots({ status, warehouseId, search });
+  }
+
+  @Get('lots/:id')
+  lotTrace(@Param('id') id: string) {
+    return this.tools.lotTrace(id);
+  }
+
+  @Get('disposals')
+  disposals() {
+    return this.tools.disposals();
+  }
+
+  @Post('disposals')
+  dispose(@Body(new ZodPipe(disposalSchema)) body: z.infer<typeof disposalSchema>) {
+    return this.tools.dispose(body);
+  }
+
+  @Get('disposals/:id/pdf')
+  async disposalPdf(@Param('id') id: string, @Query('inline') inline: string, @Res() res: Response) {
+    const r = await this.tools.disposalReport(id);
+    await this.output.sendPdf(res, r.doc, r.name, { inline: inline === '1', entity: { type: 'StockDisposal', id } });
   }
 
   @Get('counts')

@@ -27,6 +27,7 @@ const StockCountListPage = lazy(() => import('@/features/inventory/StockCountPag
 const StockCountPage = lazy(() => import('@/features/inventory/StockCountPages').then((m) => ({ default: m.StockCountPage })));
 const ReorderPage = lazy(() => import('@/features/inventory/ReorderPage'));
 const LabelsPage = lazy(() => import('@/features/inventory/LabelsPage'));
+const LotsPage = lazy(() => import('@/features/inventory/LotsPage'));
 const TaskListPage = lazy(() => import('@/features/tasks/TaskListPage'));
 const MyTasksPage = lazy(() => import('@/features/tasks/MyTasksPage'));
 const TaskBoardPage = lazy(() => import('@/features/tasks/TaskBoardPage'));
@@ -100,6 +101,7 @@ export default function App() {
             <Route path="inventory/stock-counts/:id" element={<StockCountPage />} />
             <Route path="inventory/reorder" element={<ReorderPage />} />
             <Route path="inventory/labels" element={<LabelsPage />} />
+            <Route path="inventory/lots" element={<LotsPage />} />
             <Route path="tasks" element={<TaskListPage />} />
             <Route path="tasks/my" element={<MyTasksPage />} />
             <Route path="tasks/board" element={<TaskBoardPage />} />

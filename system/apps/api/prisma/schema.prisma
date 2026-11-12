@@ -538,6 +538,12 @@ model Product {
   reorderQty          Decimal     @default(0) @db.Decimal(18, 4)
   preferredSupplierId String?     @db.Uuid
   leadTimeDays        Int         @default(0)
+  /// batch / lot and expiry tracking (food, medicine, chemicals...): FEFO picking, expiry alerts, recalls
+  trackLots           Boolean     @default(false)
+  /// days from receipt to expiry, used when a receipt gives no expiry date (0 = none)
+  shelfLifeDays       Int         @default(0)
+  /// warn this many days before a lot expires
+  expiryAlertDays     Int         @default(60)
   saleTaxId           String?     @db.Uuid
   purchaseTaxId       String?     @db.Uuid
   incomeAccountId     String?     @db.Uuid
@@ -1341,24 +1347,28 @@ model TradeDocument {
 }
 
 model TradeDocumentLine {
-  id           String  @id @default(uuid()) @db.Uuid
-  documentId   String  @db.Uuid
+  id           String    @id @default(uuid()) @db.Uuid
+  documentId   String    @db.Uuid
   lineNo       Int
-  productId    String? @db.Uuid
+  productId    String?   @db.Uuid
   description  String?
-  qty          Decimal @db.Decimal(18, 4)
-  uomId        String? @db.Uuid
-  unitPrice    Decimal @default(0) @db.Decimal(18, 2)
-  discountPct  Decimal @default(0) @db.Decimal(9, 4)
-  taxId        String? @db.Uuid
-  taxRate      Decimal @default(0) @db.Decimal(9, 4)
-  lineSubtotal Decimal @default(0) @db.Decimal(18, 2)
-  lineDiscount Decimal @default(0) @db.Decimal(18, 2)
-  lineTax      Decimal @default(0) @db.Decimal(18, 2)
-  lineTotal    Decimal @default(0) @db.Decimal(18, 2)
-  unitCost     Decimal @default(0) @db.Decimal(18, 4)
-  processedQty Decimal @default(0) @db.Decimal(18, 4) // qty already converted downstream
-  sourceLineId String? @db.Uuid
+  qty          Decimal   @db.Decimal(18, 4)
+  uomId        String?   @db.Uuid
+  unitPrice    Decimal   @default(0) @db.Decimal(18, 2)
+  discountPct  Decimal   @default(0) @db.Decimal(9, 4)
+  taxId        String?   @db.Uuid
+  taxRate      Decimal   @default(0) @db.Decimal(9, 4)
+  lineSubtotal Decimal   @default(0) @db.Decimal(18, 2)
+  lineDiscount Decimal   @default(0) @db.Decimal(18, 2)
+  lineTax      Decimal   @default(0) @db.Decimal(18, 2)
+  lineTotal    Decimal   @default(0) @db.Decimal(18, 2)
+  unitCost     Decimal   @default(0) @db.Decimal(18, 4)
+  processedQty Decimal   @default(0) @db.Decimal(18, 4) // qty already converted downstream
+  /// lot-tracked products: lot received (number + expiry) or the lot chosen to issue from (empty = FEFO)
+  lotNo        String?   @db.VarChar(60)
+  expiryDate   DateTime? @db.Date
+  lotId        String?   @db.Uuid
+  sourceLineId String?   @db.Uuid
 
   document TradeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
@@ -2568,4 +2578,77 @@ model CreditApplication {
   @@index([creditNoteId])
   @@index([invoiceId])
   @@map("credit_applications")
+}
+
+/// A batch / lot of a product (nomor bets) with its expiry date
+model StockLot {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  productId       String    @db.Uuid
+  lotNo           String    @db.VarChar(60)
+  expiryDate      DateTime? @db.Date
+  manufactureDate DateTime? @db.Date
+  notes           String?   @db.VarChar(300)
+  createdAt       DateTime  @default(now())
+
+  balances LotBalance[]
+
+  @@unique([companyId, productId, lotNo])
+  @@index([companyId, expiryDate])
+  @@map("stock_lots")
+}
+
+model LotBalance {
+  id          String   @id @default(uuid()) @db.Uuid
+  lotId       String   @db.Uuid
+  warehouseId String   @db.Uuid
+  qty         Decimal  @default(0) @db.Decimal(18, 4)
+  updatedAt   DateTime @updatedAt
+
+  lot StockLot @relation(fields: [lotId], references: [id], onDelete: Cascade)
+
+  @@unique([lotId, warehouseId])
+  @@map("lot_balances")
+}
+
+/// Which lots a document line moved (signed: + in, - out); used for reversal on cancel and for lot tracing / recalls
+model LineLot {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  documentId  String   @db.Uuid
+  lineId      String   @db.Uuid
+  lotId       String   @db.Uuid
+  warehouseId String   @db.Uuid
+  qty         Decimal  @db.Decimal(18, 4)
+  createdAt   DateTime @default(now())
+
+  @@index([documentId])
+  @@index([lotId])
+  @@index([lineId])
+  @@map("line_lots")
+}
+
+/// Destruction of expired / damaged stock (pemusnahan): the stock adjustment plus the itemised berita acara
+model StockDisposal {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String   @db.Uuid
+  number          String   @db.VarChar(40)
+  warehouseId     String   @db.Uuid
+  date            DateTime @db.Date
+  /// EXPIRED | DAMAGED | RECALL | OTHER
+  reasonCode      String   @db.VarChar(20)
+  method          String?  @db.VarChar(200)
+  witnessedBy     String?  @db.VarChar(300)
+  /// outside witness, e.g. the account representative of the tax office or a BPOM / Dinkes officer
+  externalWitness String?  @db.VarChar(300)
+  notes           String?
+  adjustmentId    String?  @db.Uuid
+  /// snapshot printed on the berita acara: code, name, lot, expiry, qty, unit cost, value
+  lines           Json
+  totalValue      Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt       DateTime @default(now())
+  createdById     String?  @db.Uuid
+
+  @@unique([companyId, number])
+  @@map("stock_disposals")
 }

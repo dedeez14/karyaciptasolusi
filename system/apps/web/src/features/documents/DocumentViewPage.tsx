@@ -360,6 +360,21 @@ export default function DocumentViewPage() {
                           {l.product?.code}
                           {l.product && l.description && l.description !== l.product.name ? ` · ${l.description}` : ''}
                         </div>
+                        {(d.lots?.[l.id ?? ''] ?? []).length > 0 ? (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {d.lots![l.id!].map((x) => (
+                              <Link key={x.lotId} to={`/inventory/lots?lot=${x.lotId}`} className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 hover:bg-amber-100">
+                                Lot {x.lotNo} · {fmtNumber(x.qty)}
+                                {x.expiryDate ? ` · exp ${fmtDate(x.expiryDate)}` : ''}
+                              </Link>
+                            ))}
+                          </div>
+                        ) : l.lotNo ? (
+                          <div className="mt-1 text-[11px] text-amber-700">
+                            Lot {l.lotNo}
+                            {l.expiryDate ? ` · exp ${fmtDate(l.expiryDate)}` : ''}
+                          </div>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {fmtNumber(l.qty)} {l.uomCode}

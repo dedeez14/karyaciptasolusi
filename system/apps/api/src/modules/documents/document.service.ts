@@ -11,6 +11,7 @@ import { D, round, sum, ZERO } from '../../common/utils/money';
 import { paged } from '../../common/utils/query';
 import { JournalService, PostingLine } from '../accounting/journal.service';
 import { InventoryService } from './inventory.service';
+import { LotService } from './lot.service';
 import { DOC_MAP, DocTypeDef } from './document.registry';
 import { recalcSettlement } from './settlement';
 import { ApprovalService } from '../approvals/approval.service';
@@ -30,6 +31,10 @@ export const lineSchema = z.object({
   discountPct: z.coerce.number().min(0).max(100).default(0),
   taxId: optUuid,
   sourceLineId: optUuid,
+  /** lot-tracked products: lot number and expiry received, or the lot to issue from (empty = FEFO) */
+  lotNo: optText(60),
+  expiryDate: z.preprocess((v) => (v === '' || v === null ? null : v), z.coerce.date().nullable().optional()),
+  lotId: optUuid,
 });
 
 export const docSchema = z.object({
@@ -78,6 +83,7 @@ export class DocumentService {
     private readonly journal: JournalService,
     private readonly inventory: InventoryService,
     private readonly approvals: ApprovalService,
+    private readonly lots: LotService,
   ) {}
 
   def(type: string): DocTypeDef {
@@ -149,7 +155,7 @@ export class DocumentService {
     RequestCtx.assert(`${def.permission}.read`);
     const doc = await this.findOwned(def, id);
     const [products, uoms, taxes, names, warehouses, source, derived, payments] = await Promise.all([
-      this.prisma.product.findMany({ where: { id: { in: doc.lines.map((l) => l.productId).filter(Boolean) as string[] } }, select: { id: true, code: true, name: true, type: true } }),
+      this.prisma.product.findMany({ where: { id: { in: doc.lines.map((l) => l.productId).filter(Boolean) as string[] } }, select: { id: true, code: true, name: true, type: true, trackLots: true } }),
       this.prisma.uom.findMany({ where: { id: { in: doc.lines.map((l) => l.uomId).filter(Boolean) as string[] } }, select: { id: true, code: true } }),
       this.prisma.tax.findMany({ where: { id: { in: doc.lines.map((l) => l.taxId).filter(Boolean) as string[] } }, select: { id: true, code: true, name: true } }),
       this.partyNames([doc]),
@@ -175,6 +181,7 @@ export class DocumentService {
           : null,
       warehouseName: doc.warehouseId ? wm.get(doc.warehouseId) : null,
       toWarehouseName: doc.toWarehouseId ? wm.get(doc.toWarehouseId) : null,
+      lots: await this.lots.ofDocument(this.prisma as unknown as Tx, doc.id),
       balance: D(doc.grandTotal).minus(D(doc.paidAmount)),
       lines: doc.lines.map((l) => ({ ...l, product: l.productId ? pm.get(l.productId) : null, uomCode: l.uomId ? um.get(l.uomId) : null, taxName: l.taxId ? tm.get(l.taxId) : null })),
       source,
@@ -263,6 +270,9 @@ export class DocumentService {
         lineTax: tax,
         lineTotal: subtotal.minus(discount).plus(tax),
         sourceLineId: l.sourceLineId ?? null,
+        lotNo: p?.trackLots ? l.lotNo ?? null : null,
+        expiryDate: p?.trackLots ? l.expiryDate ?? null : null,
+        lotId: p?.trackLots ? l.lotId ?? null : null,
       };
     });
     const subtotal = sum(lines.map((l) => l.lineSubtotal));
@@ -439,6 +449,7 @@ export class DocumentService {
           unitCost: D(l.unitPrice),
         });
         await tx.tradeDocumentLine.update({ where: { id: l.id }, data: { unitCost: D(l.unitPrice) } });
+        if (p.trackLots) await this.lots.receive(tx, { companyId: doc.companyId, documentId: doc.id, lineId: l.id, productId: p.id, warehouseId: doc.warehouseId!, qty: D(l.qty), lotNo: l.lotNo, lotId: l.lotId, expiryDate: l.expiryDate, docNumber: doc.number, docDate: doc.date, shelfLifeDays: p.shelfLifeDays });
         j.push({ key: 'INVENTORY', debit: r.totalCost, description: p.name }, { key: 'OPENING_EQUITY', credit: r.totalCost, description: `Opening stock ${p.name}` });
       }
     } else throw new BadRequestException(`${def.label} cannot be an opening balance document`);
@@ -462,10 +473,12 @@ export class DocumentService {
       const isStock = p?.type === 'STOCK';
       const net = D(l.lineSubtotal).minus(D(l.lineDiscount)).times(rate);
       if (def.returnOf) {
+        if (p?.trackLots && p.type === 'STOCK' && doc.warehouseId) await this.moveLots(tx, def, doc, l, p);
         await this.postReturnLine(tx, def, doc, l, p, net, rate, tm, base, party, j);
         continue;
       }
       if (def.stock && isStock && p) {
+        if (p.trackLots) await this.moveLots(tx, def, doc, l, p);
         const mv = { ...base, productId: p.id, productName: p.name };
         if (def.stock === 'in') {
           const unitCost = D(l.qty).isZero() ? ZERO : net.div(D(l.qty));
@@ -563,6 +576,24 @@ export class DocumentService {
       j.push({ accountId: acc, key: acc ? undefined : 'PURCHASE_EXPENSE', credit: net, description: l.description ?? undefined, ...party });
     }
     if (tax.gt(0)) j.push({ accountId: t?.purchaseAccountId, key: t?.purchaseAccountId ? undefined : 'TAX_IN', credit: tax, description: `${t?.name ?? 'PPN'} - nota retur` });
+  }
+
+  /** lot quantities of one document line of a lot-tracked product (in: receive, out: FEFO / chosen lot) */
+  private async moveLots(tx: Tx, def: DocTypeDef, doc: FullDoc, l: FullDoc['lines'][number], p: { id: string; shelfLifeDays: number }) {
+    const ref = { companyId: doc.companyId, documentId: doc.id, lineId: l.id, productId: p.id };
+    const qty = D(l.qty);
+    const inbound = def.stock === 'in' || (def.stock === 'adjust' && qty.gt(0));
+    const recv = (warehouseId: string, q: typeof qty, lotId?: string | null) =>
+      this.lots.receive(tx, { ...ref, warehouseId, qty: q, lotNo: l.lotNo, lotId: lotId ?? l.lotId, expiryDate: l.expiryDate, docNumber: doc.number, docDate: doc.date, shelfLifeDays: p.shelfLifeDays });
+    if (def.stock === 'transfer') {
+      await this.lots.ensureOpening(tx, doc.companyId, p.id, doc.warehouseId!);
+      const taken = await this.lots.issue(tx, { ...ref, warehouseId: doc.warehouseId!, qty, preferredLotId: l.lotId });
+      for (const t of taken) await this.lots.receive(tx, { ...ref, warehouseId: doc.toWarehouseId!, qty: t.qty, lotId: t.lotId, docNumber: doc.number, docDate: doc.date, shelfLifeDays: 0 });
+      return;
+    }
+    await this.lots.ensureOpening(tx, doc.companyId, p.id, doc.warehouseId!);
+    if (inbound) await recv(doc.warehouseId!, qty.abs());
+    else await this.lots.issue(tx, { ...ref, warehouseId: doc.warehouseId!, qty: qty.abs(), preferredLotId: l.lotId });
   }
 
   /** Uses the remaining credit of a credit / debit note to settle another open invoice of the same partner */
@@ -680,7 +711,10 @@ export class DocumentService {
           await tx.creditApplication.deleteMany({ where: { creditNoteId: id } });
         } else if (D(doc.paidAmount).gt(0)) throw new ConflictException(D(doc.creditedAmount).gt(0) ? 'Document is settled by payments or credit notes. Cancel those first.' : 'Document has payments. Cancel the payments first.');
         if (doc.status !== 'DRAFT') {
-          if (def.stock) await this.inventory.reverse(tx, id, allowNegative);
+          if (def.stock) {
+            await this.inventory.reverse(tx, id, allowNegative);
+            await this.lots.reverse(tx, id);
+          }
           await this.journal.voidBySource(tx, def.code, id);
         }
         const updated = await tx.tradeDocument.update({ where: { id }, data: { status: 'CANCELLED', cancelledAt: new Date(), paidAmount: 0, creditedAmount: 0, updatedById: RequestCtx.user().id } });

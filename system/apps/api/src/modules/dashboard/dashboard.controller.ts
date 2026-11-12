@@ -252,6 +252,15 @@ export class DashboardController {
         kpi.push({ key: 'lowStock', label: 'Low stock items', value: low.length, type: 'number', hint: low.length ? 'At or below minimum' : 'All above minimum', link: '/reports/low-stock' });
         if (low.length) attention.push({ key: 'lowStock', label: 'Products at or below minimum stock', count: low.length, link: '/reports/low-stock', icon: 'package-x', tone: 'amber' });
         out.lowStock = low.slice(0, 6).map((r) => ({ id: r.id, code: r.code, name: r.name, onHand: n(r.onhand), min: n(r.min) }));
+        // lots with stock that are expired or expire within the product's warning period
+        const [lots] = await this.prisma.$queryRaw<{ expired: bigint; expiring: bigint }[]>`
+          SELECT COUNT(*) FILTER (WHERE l."expiryDate" < ${today}::date) AS expired,
+                 COUNT(*) FILTER (WHERE l."expiryDate" >= ${today}::date AND l."expiryDate" <= ${today}::date + p."expiryAlertDays") AS expiring
+          FROM stock_lots l JOIN products p ON p.id = l."productId"
+          WHERE l."companyId" = ${companyId}::uuid AND l."expiryDate" IS NOT NULL
+            AND EXISTS (SELECT 1 FROM lot_balances b WHERE b."lotId" = l.id AND b.qty > 0)`;
+        if (n(lots?.expired)) attention.push({ key: 'lotsExpired', label: 'Batches past their expiry date', count: n(lots.expired), link: '/inventory/lots?status=EXPIRED', icon: 'calendar-x', tone: 'red' });
+        if (n(lots?.expiring)) attention.push({ key: 'lotsExpiring', label: 'Batches expiring soon', count: n(lots.expiring), link: '/inventory/lots?status=EXPIRING', icon: 'hourglass', tone: 'amber' });
       }
 
       if (can('system.audit.read')) {

@@ -315,6 +315,7 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['inventory.counts', 'inventory', 'Stock Counts (Opname)', 'clipboard-check', '/inventory/stock-counts', 'inventory.adjustment.read'],
   ['inventory.reorder', 'inventory', 'Reorder Planner', 'repeat', '/inventory/reorder', 'inventory.stock.read'],
   ['inventory.labels', 'inventory', 'Barcode Labels', 'barcode', '/inventory/labels', 'master.product.read'],
+  ['inventory.lots', 'inventory', 'Lots & Expiry', 'calendar-x', '/inventory/lots', 'inventory.stock.read'],
   ['inventory.transfers', 'inventory', 'Stock Transfers', 'arrow-left-right', '/documents/TRF', 'inventory.transfer.read'],
   ['inventory.products', 'inventory', 'Products & Services', 'package', '/r/products', 'master.product.read'],
   ['inventory.warehouses', 'inventory', 'Warehouses', 'building-2', '/r/warehouses', 'master.warehouse.read'],

@@ -396,4 +396,188 @@ ${l.note}` : l.name, uom: l.uom ?? '', book: q(l.systemQty), counted: q(l.counte
       },
     };
   }
+
+  // ------------------------------------------------------------------ lots, expiry, recalls, disposal
+  /** lots with stock: expiry, days left and value (average cost of the product in that warehouse) */
+  async lots(q: { status?: string; warehouseId?: string; search?: string }) {
+    RequestCtx.assert('inventory.stock.read');
+    const companyId = RequestCtx.companyId();
+    const wh = q.warehouseId && UUID.test(q.warehouseId) ? q.warehouseId : null;
+    const rows = await this.prisma.lotBalance.findMany({
+      where: { qty: { not: 0 }, ...(wh ? { warehouseId: wh } : {}), lot: { companyId } },
+      include: { lot: true },
+    });
+    const products = new Map((await this.prisma.product.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.lot.productId))] } }, select: { id: true, code: true, name: true, expiryAlertDays: true, uom: { select: { code: true } } } })).map((p) => [p.id, p]));
+    const whs = new Map((await this.prisma.warehouse.findMany({ where: { companyId } , select: { id: true, name: true } })).map((w) => [w.id, w.name]));
+    const costs = new Map((await this.prisma.stockBalance.findMany({ where: { companyId, productId: { in: [...products.keys()] } }, select: { productId: true, warehouseId: true, avgCost: true } })).map((b) => [`${b.productId}:${b.warehouseId}`, n(b.avgCost)]));
+    const today = new Date(new Date().toISOString().slice(0, 10)).getTime();
+    const s = (q.search ?? '').trim().toLowerCase();
+    return rows
+      .map((r) => {
+        const p = products.get(r.lot.productId);
+        const days = r.lot.expiryDate ? Math.round((r.lot.expiryDate.getTime() - today) / 86_400_000) : null;
+        const status = days === null ? 'NO_EXPIRY' : days < 0 ? 'EXPIRED' : days <= (p?.expiryAlertDays ?? 60) ? 'EXPIRING' : 'OK';
+        const qty = n(r.qty);
+        return { lotId: r.lotId, lotNo: r.lot.lotNo, productId: r.lot.productId, code: p?.code ?? '', name: p?.name ?? '', uom: p?.uom?.code ?? null, warehouseId: r.warehouseId, warehouse: whs.get(r.warehouseId) ?? '-', expiryDate: r.lot.expiryDate, daysLeft: days, status, qty, value: Math.round(qty * (costs.get(`${r.lot.productId}:${r.warehouseId}`) ?? 0) * 100) / 100 };
+      })
+      .filter((x) => (!q.status || q.status === 'ALL' || x.status === q.status) && (!s || x.lotNo.toLowerCase().includes(s) || x.name.toLowerCase().includes(s) || x.code.toLowerCase().includes(s)))
+      .sort((a, b) => (a.daysLeft ?? 1e9) - (b.daysLeft ?? 1e9) || a.name.localeCompare(b.name));
+  }
+
+  /** where a lot came from and went to: the basis for a recall (which customers received this batch) */
+  async lotTrace(lotId: string) {
+    RequestCtx.assert('inventory.stock.read');
+    if (!UUID.test(lotId)) throw new NotFoundException('Lot not found');
+    const companyId = RequestCtx.companyId();
+    const lot = await this.prisma.stockLot.findFirst({ where: { id: lotId, companyId }, include: { balances: true } });
+    if (!lot) throw new NotFoundException('Lot not found');
+    const [product, moves] = await Promise.all([
+      this.prisma.product.findUnique({ where: { id: lot.productId }, select: { code: true, name: true } }),
+      this.prisma.lineLot.findMany({ where: { lotId }, orderBy: { createdAt: 'asc' } }),
+    ]);
+    const docs = new Map((await this.prisma.tradeDocument.findMany({ where: { id: { in: moves.map((m) => m.documentId) } }, select: { id: true, docType: true, number: true, date: true, status: true, customerId: true, supplierId: true } })).map((d) => [d.id, d]));
+    const [customers, suppliers, whs] = await Promise.all([
+      this.prisma.customer.findMany({ where: { id: { in: [...docs.values()].map((d) => d.customerId!).filter(Boolean) } }, select: { id: true, name: true, phone: true, email: true } }),
+      this.prisma.supplier.findMany({ where: { id: { in: [...docs.values()].map((d) => d.supplierId!).filter(Boolean) } }, select: { id: true, name: true } }),
+      this.prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } }),
+    ]);
+    const cm = new Map(customers.map((c) => [c.id, c]));
+    const sm = new Map(suppliers.map((c) => [c.id, c.name]));
+    const wm = new Map(whs.map((w) => [w.id, w.name]));
+    const movements = moves.map((m) => {
+      const d = docs.get(m.documentId);
+      return { date: d?.date ?? m.createdAt, docType: d?.docType ?? '', documentId: m.documentId, number: d?.number ?? '-', warehouse: wm.get(m.warehouseId) ?? '-', partner: d?.customerId ? cm.get(d.customerId)?.name ?? '' : d?.supplierId ? sm.get(d.supplierId) ?? '' : '', qty: n(m.qty) };
+    });
+    // customers who received this lot and how much (deliveries less returns)
+    const byCustomer = new Map<string, { name: string; phone: string | null; email: string | null; qty: number }>();
+    for (const m of moves) {
+      const d = docs.get(m.documentId);
+      if (!d?.customerId || !['DO', 'SR'].includes(d.docType)) continue;
+      const c = cm.get(d.customerId);
+      const cur = byCustomer.get(d.customerId) ?? { name: c?.name ?? '-', phone: c?.phone ?? null, email: c?.email ?? null, qty: 0 };
+      cur.qty += -n(m.qty);
+      byCustomer.set(d.customerId, cur);
+    }
+    return {
+      lot: { id: lot.id, lotNo: lot.lotNo, expiryDate: lot.expiryDate, productCode: product?.code ?? '', productName: product?.name ?? '' },
+      balances: lot.balances.filter((b) => n(b.qty) !== 0).map((b) => ({ warehouse: wm.get(b.warehouseId) ?? '-', qty: n(b.qty) })),
+      movements,
+      customers: [...byCustomer.entries()].map(([id, v]) => ({ id, ...v })).filter((c) => c.qty > 0),
+    };
+  }
+
+  /** destroys expired / damaged lots: a confirmed stock adjustment (stock loss) and the itemised berita acara */
+  async dispose(input: { warehouseId: string; date: Date; reasonCode: string; method?: string | null; witnessedBy?: string | null; externalWitness?: string | null; notes?: string | null; items: { lotId: string; qty: number }[] }) {
+    RequestCtx.assert('inventory.adjustment.confirm');
+    const u = RequestCtx.user();
+    const wh = await this.prisma.warehouse.findFirst({ where: { id: input.warehouseId, companyId: u.companyId, deletedAt: null } });
+    if (!wh) throw new BadRequestException('Choose a warehouse');
+    const items = input.items.filter((i) => UUID.test(i.lotId) && i.qty > 0);
+    if (!items.length) throw new BadRequestException('Choose at least one lot and quantity');
+    const lots = await this.prisma.stockLot.findMany({ where: { id: { in: items.map((i) => i.lotId) }, companyId: u.companyId }, include: { balances: { where: { warehouseId: wh.id } } } });
+    const lm = new Map(lots.map((l) => [l.id, l]));
+    for (const i of items) {
+      const l = lm.get(i.lotId);
+      if (!l) throw new BadRequestException('Lot not found');
+      if (i.qty > n(l.balances[0]?.qty)) throw new BadRequestException(`Lot ${l.lotNo}: only ${n(l.balances[0]?.qty)} in ${wh.name}`);
+    }
+    const reasons: Record<string, string> = { EXPIRED: 'Kedaluwarsa', DAMAGED: 'Rusak', RECALL: 'Penarikan kembali (recall)', OTHER: 'Lainnya' };
+    const adj = (await this.documents.create('ADJ', {
+      date: input.date.toISOString().slice(0, 10),
+      warehouseId: wh.id,
+      notes: `Pemusnahan barang - ${reasons[input.reasonCode] ?? input.reasonCode}`,
+      lines: items.map((i) => ({ productId: lm.get(i.lotId)!.productId, qty: -i.qty, lotId: i.lotId, description: `Lot ${lm.get(i.lotId)!.lotNo}` })),
+    })) as { id: string; number: string };
+    await this.documents.confirm('ADJ', adj.id);
+    // value actually taken out of stock (average cost at posting)
+    const posted = await this.prisma.tradeDocumentLine.findMany({ where: { documentId: adj.id }, orderBy: { lineNo: 'asc' } });
+    const products = new Map((await this.prisma.product.findMany({ where: { id: { in: posted.map((p) => p.productId!).filter(Boolean) } }, select: { id: true, code: true, name: true, uom: { select: { code: true } } } })).map((p) => [p.id, p]));
+    const snapshot = items.map((i, k) => {
+      const l = lm.get(i.lotId)!;
+      const p = products.get(l.productId);
+      const cost = n(posted[k]?.unitCost);
+      return { code: p?.code ?? '', name: p?.name ?? '', uom: p?.uom?.code ?? '', lotNo: l.lotNo, expiryDate: l.expiryDate, qty: i.qty, unitCost: cost, value: Math.round(i.qty * cost * 100) / 100 };
+    });
+    const total = snapshot.reduce((a, x) => a + x.value, 0);
+    const d = await this.prisma.stockDisposal.create({
+      data: {
+        companyId: u.companyId,
+        number: await this.sequence.next('DISPOSAL', u.companyId, input.date),
+        warehouseId: wh.id,
+        date: input.date,
+        reasonCode: input.reasonCode,
+        method: input.method ?? null,
+        witnessedBy: input.witnessedBy ?? null,
+        externalWitness: input.externalWitness ?? null,
+        notes: input.notes ?? null,
+        adjustmentId: adj.id,
+        lines: snapshot as unknown as Prisma.InputJsonValue,
+        totalValue: D(total),
+        createdById: u.id,
+      },
+    });
+    await this.audit.record('Stock Disposal', d.id, 'CREATE', undefined, { number: d.number, adjustment: adj.number, value: total });
+    return { id: d.id, number: d.number, adjustmentId: adj.id };
+  }
+
+  async disposals() {
+    RequestCtx.assert('inventory.adjustment.read');
+    const companyId = RequestCtx.companyId();
+    const rows = await this.prisma.stockDisposal.findMany({ where: { companyId }, orderBy: { date: 'desc' }, take: 100 });
+    const whs = new Map((await this.prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } })).map((w) => [w.id, w.name]));
+    return rows.map((r) => ({ ...r, warehouse: whs.get(r.warehouseId) ?? '-' }));
+  }
+
+  /** Berita Acara Pemusnahan Barang: itemised list, reason, method and witnesses (support for the expense in the books) */
+  async disposalReport(id: string): Promise<{ doc: PrintableDocument; name: string }> {
+    RequestCtx.assert('inventory.adjustment.read');
+    if (!UUID.test(id)) throw new NotFoundException('Disposal not found');
+    const companyId = RequestCtx.companyId();
+    const d = await this.prisma.stockDisposal.findFirst({ where: { id, companyId } });
+    if (!d) throw new NotFoundException('Disposal not found');
+    const [wh, adj] = await Promise.all([
+      this.prisma.warehouse.findUnique({ where: { id: d.warehouseId }, select: { name: true } }),
+      d.adjustmentId ? this.prisma.tradeDocument.findUnique({ where: { id: d.adjustmentId }, select: { number: true } }) : null,
+    ]);
+    const locale = await this.settings.str('general.locale', companyId, 'id-ID');
+    const m = (v: number) => this.pdf.money(v, locale);
+    const lines = d.lines as unknown as { code: string; name: string; uom: string; lotNo: string; expiryDate: string | null; qty: number; unitCost: number; value: number }[];
+    const reasons: Record<string, string> = { EXPIRED: 'Kedaluwarsa', DAMAGED: 'Rusak', RECALL: 'Penarikan kembali (recall)', OTHER: 'Lainnya' };
+    const date = d.date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+    return {
+      name: `Berita_Acara_Pemusnahan_${d.number}.pdf`,
+      doc: {
+        title: 'Berita Acara Pemusnahan Barang',
+        number: d.number,
+        meta: [
+          { label: 'Tanggal', value: date },
+          { label: 'Gudang', value: wh?.name ?? '-' },
+          { label: 'Alasan', value: reasons[d.reasonCode] ?? d.reasonCode },
+          { label: 'Cara pemusnahan', value: d.method ?? '' },
+          { label: 'Penyesuaian stok', value: adj?.number ?? '' },
+        ],
+        columns: [
+          { key: 'code', label: 'Kode', width: 1.1 },
+          { key: 'name', label: 'Barang', width: 2.8 },
+          { key: 'lot', label: 'No. bets', width: 1.3 },
+          { key: 'exp', label: 'Kedaluwarsa', width: 1.2 },
+          { key: 'qty', label: 'Jumlah', width: 0.9, align: 'right' },
+          { key: 'cost', label: 'Harga perolehan', width: 1.4, align: 'right' },
+          { key: 'value', label: 'Nilai', width: 1.5, align: 'right' },
+        ],
+        rows: lines.map((l) => ({ code: l.code, name: l.name, lot: l.lotNo, exp: l.expiryDate ? new Date(l.expiryDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '-', qty: `${new Intl.NumberFormat(locale).format(l.qty)} ${l.uom}`.trim(), cost: m(l.unitCost), value: m(l.value) })),
+        totals: [{ label: 'Total nilai dimusnahkan', value: m(n(d.totalValue)), bold: true }],
+        notes: [
+          `Pada hari ${date} telah dilakukan pemusnahan barang persediaan di gudang ${wh?.name ?? '-'} sebagaimana daftar di atas, karena ${(reasons[d.reasonCode] ?? d.reasonCode).toLowerCase()}${d.method ? `, dengan cara ${d.method}` : ''}.`,
+          d.witnessedBy ? `Disaksikan oleh: ${d.witnessedBy}.` : '',
+          d.externalWitness ? `Saksi dari pihak luar: ${d.externalWitness}.` : '',
+          'Dokumentasi foto / video pemusnahan dilampirkan. Nilai dicatat sebagai beban selisih persediaan; simpan berita acara ini bersama pembukuan selama 10 tahun.',
+          d.notes ?? '',
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+        signatures: ['Pelaksana', 'Saksi', d.externalWitness ? 'Saksi pihak luar' : 'Mengetahui'],
+      },
+    };
+  }
 }

@@ -22,6 +22,7 @@ import { ResourceService } from './modules/resources/resource.service';
 import { ResourceHooks } from './modules/resources/resource.hooks';
 import { DocumentController } from './modules/documents/document.controller';
 import { DocumentService } from './modules/documents/document.service';
+import { LotService } from './modules/documents/lot.service';
 import { InventoryService } from './modules/documents/inventory.service';
 import { PaymentController } from './modules/payments/payment.controller';
 import { PaymentService } from './modules/payments/payment.service';
@@ -171,6 +172,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ResourceService,
     ResourceHooks,
     DocumentService,
+    LotService,
     InventoryService,
     PaymentService,
     JournalService,
