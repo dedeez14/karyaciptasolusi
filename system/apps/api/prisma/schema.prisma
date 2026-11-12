@@ -3777,3 +3777,324 @@ model SiinasReport {
   @@unique([companyId, year, quarter])
   @@map("siinas_reports")
 }
+
+// ----------------------------------------------------------------------------
+// Agribusiness: farms, livestock / aquaculture cycles, inti-plasma partnership
+// ----------------------------------------------------------------------------
+
+/// Farm: our own farm, or the farm of a plasma partner farmer (Permentan 13/2017 inti-plasma)
+model FarmSite {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  branchId       String?   @db.Uuid
+  code           String    @db.VarChar(30)
+  name           String    @db.VarChar(150)
+  /// LIVESTOCK | AQUACULTURE | PLANTATION | MIXED
+  kind           String    @default("LIVESTOCK") @db.VarChar(12)
+  /// OWN | PLASMA (farm of a partner farmer)
+  ownership      String    @default("OWN") @db.VarChar(10)
+  partnerId      String?   @db.Uuid
+  address        String?
+  regency        String?   @db.VarChar(100)
+  /// livestock business registration / licence (Permentan 13/2017 Art. 10)
+  registrationNo String?   @db.VarChar(100)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  deletedAt      DateTime?
+
+  @@unique([companyId, code])
+  @@map("farm_sites")
+}
+
+/// House, pen, pond or cage of a farm
+model FarmUnit {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  siteId      String    @db.Uuid
+  code        String    @db.VarChar(30)
+  name        String    @db.VarChar(150)
+  /// HOUSE | PEN | POND | CAGE | OTHER
+  kind        String    @default("HOUSE") @db.VarChar(10)
+  capacity    Int       @default(0)
+  areaM2      Decimal?  @db.Decimal(18, 2)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@unique([companyId, code])
+  @@map("farm_units")
+}
+
+/// One production cycle (flock, batch, pond crop) of a population of animals counted by head
+model LivestockCycle {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  branchId         String?   @db.Uuid
+  number           String    @db.VarChar(40)
+  siteId           String    @db.Uuid
+  unitId           String    @db.Uuid
+  /// BROILER | LAYER | BREEDER | DUCK | QUAIL | FISH | SHRIMP | OTHER
+  species          String    @db.VarChar(10)
+  strain           String?   @db.VarChar(100)
+  /// PLANNED | ACTIVE | CLOSED | CANCELLED
+  status           String    @default("PLANNED") @db.VarChar(10)
+  /// GROWING | LAYING (layers, breeders, ducks, quail after the onset of lay)
+  phase            String    @default("GROWING") @db.VarChar(8)
+  placementDate    DateTime  @db.Date
+  initialQty       Int
+  /// age at placement in days (DOC 0, point-of-lay pullets ~ 112)
+  initialAgeDays   Int       @default(0)
+  warehouseId      String    @db.Uuid
+  /// stock issued at placement (DOC, fry, pullets) and products received at harvest
+  stockProductId   String?   @db.Uuid
+  outputProductId  String?   @db.Uuid
+  cullProductId    String?   @db.Uuid
+  eggProductId     String?   @db.Uuid
+  /// KG | PCS: how eggs are received into stock
+  eggUnit          String    @default("KG") @db.VarChar(3)
+  contractId       String?   @db.Uuid
+  targetFcr        Decimal?  @db.Decimal(9, 3)
+  targetWeightKg   Decimal?  @db.Decimal(9, 3)
+  targetAgeDays    Int?
+  /// laying phase: rearing cost capitalised at the onset of lay, written off over the laying period into the eggs
+  layStartDate     DateTime? @db.Date
+  expectedLayWeeks Int       @default(0)
+  rearingCost      Decimal   @default(0) @db.Decimal(18, 2)
+  rearingAmortised Decimal   @default(0) @db.Decimal(18, 2)
+  amortisedTo      DateTime? @db.Date
+  /// laying-phase costs not yet assigned to eggs
+  layingPool       Decimal   @default(0) @db.Decimal(18, 2)
+  mortality        Int       @default(0)
+  culled           Int       @default(0)
+  harvestedQty     Int       @default(0)
+  harvestedKg      Decimal   @default(0) @db.Decimal(18, 3)
+  feedKg           Decimal   @default(0) @db.Decimal(18, 3)
+  eggsGood         Int       @default(0)
+  eggsKg           Decimal   @default(0) @db.Decimal(18, 3)
+  /// cost charged to the cycle and cost taken out (harvest, eggs, abnormal losses)
+  costIn           Decimal   @default(0) @db.Decimal(18, 2)
+  costOut          Decimal   @default(0) @db.Decimal(18, 2)
+  abnormalLoss     Decimal   @default(0) @db.Decimal(18, 2)
+  /// no harvest before this date: withdrawal period of the last medicine (waktu henti obat hewan)
+  withdrawalUntil  DateTime? @db.Date
+  closedAt         DateTime? @db.Date
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+
+  daily      LivestockDaily[]
+  treatments LivestockTreatment[]
+  costs      LivestockCost[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@index([unitId])
+  @@map("livestock_cycles")
+}
+
+/// Daily record of a cycle: depletion, feed, water, weight sample, eggs, climate / water quality
+model LivestockDaily {
+  id                String    @id @default(uuid()) @db.Uuid
+  cycleId           String    @db.Uuid
+  date              DateTime  @db.Date
+  mortality         Int       @default(0)
+  culled            Int       @default(0)
+  /// mortality above normal (outbreak, heat stress...): its cost is written off as an abnormal loss
+  abnormal          Boolean   @default(false)
+  feedProductId     String?   @db.Uuid
+  feedKg            Decimal   @default(0) @db.Decimal(18, 3)
+  waterL            Decimal?  @db.Decimal(18, 2)
+  avgWeightG        Decimal?  @db.Decimal(18, 2)
+  sampleSize        Int?
+  eggsGood          Int       @default(0)
+  eggsCracked       Int       @default(0)
+  eggsKg            Decimal   @default(0) @db.Decimal(18, 3)
+  tempMin           Decimal?  @db.Decimal(6, 2)
+  tempMax           Decimal?  @db.Decimal(6, 2)
+  humidity          Decimal?  @db.Decimal(6, 2)
+  /// aquaculture: { do, ph, salinity, tempC, ammonia, transparencyCm }
+  waterQuality      Json?
+  notes             String?   @db.VarChar(1000)
+  feedCost          Decimal   @default(0) @db.Decimal(18, 2)
+  lossValue         Decimal   @default(0) @db.Decimal(18, 2)
+  eggCost           Decimal   @default(0) @db.Decimal(18, 2)
+  amortisation      Decimal   @default(0) @db.Decimal(18, 2)
+  poolBefore        Decimal   @default(0) @db.Decimal(18, 2)
+  amortisedToBefore DateTime? @db.Date
+  createdAt         DateTime  @default(now())
+  createdById       String?   @db.Uuid
+
+  cycle LivestockCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, date])
+  @@map("livestock_daily")
+}
+
+/// Vaccination, medicine, vitamin or disinfectant given (or planned) to a cycle
+model LivestockTreatment {
+  id              String    @id @default(uuid()) @db.Uuid
+  cycleId         String    @db.Uuid
+  /// VACCINE | MEDICINE | VITAMIN | DISINFECTANT
+  kind            String    @db.VarChar(12)
+  /// PLANNED | DONE | CANCELLED
+  status          String    @default("DONE") @db.VarChar(10)
+  date            DateTime  @db.Date
+  productId       String?   @db.Uuid
+  description     String    @db.VarChar(200)
+  qty             Decimal   @default(0) @db.Decimal(18, 4)
+  cost            Decimal   @default(0) @db.Decimal(18, 2)
+  /// drinking water, eye drop, injection, spray, feed...
+  method          String?   @db.VarChar(40)
+  withdrawalDays  Int       @default(0)
+  withdrawalUntil DateTime? @db.Date
+  vet             String?   @db.VarChar(120)
+  notes           String?   @db.VarChar(500)
+  createdAt       DateTime  @default(now())
+  createdById     String?   @db.Uuid
+
+  cycle LivestockCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@index([cycleId, date])
+  @@map("livestock_treatments")
+}
+
+/// Cost ledger of a cycle (positive = charged to it, negative = taken out of it)
+model LivestockCost {
+  id          String   @id @default(uuid()) @db.Uuid
+  cycleId     String   @db.Uuid
+  date        DateTime @db.Date
+  /// STOCK | FEED | TREATMENT | LABOUR | OVERHEAD | LOSS | HARVEST | EGGS | WRITE_OFF
+  kind        String   @db.VarChar(10)
+  description String   @db.VarChar(200)
+  amount      Decimal  @db.Decimal(18, 2)
+  sourceType  String?  @db.VarChar(10)
+  sourceId    String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  cycle LivestockCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@index([cycleId, date])
+  @@map("livestock_costs")
+}
+
+/// Harvest (or sale of culled layers) of a cycle into stock, optionally with a draft delivery to the buyer
+model LivestockHarvest {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  cycleId     String    @db.Uuid
+  number      String    @db.VarChar(40)
+  date        DateTime  @db.Date
+  /// HARVEST | CULL
+  kind        String    @default("HARVEST") @db.VarChar(8)
+  qty         Int
+  weightKg    Decimal   @db.Decimal(18, 3)
+  ageDays     Int
+  productId   String    @db.Uuid
+  warehouseId String    @db.Uuid
+  customerId  String?   @db.Uuid
+  pricePerKg  Decimal?  @db.Decimal(18, 2)
+  /// optional fair value less costs to sell of the produce at harvest; empty = at cost
+  fairValue   Decimal?  @db.Decimal(18, 2)
+  cost        Decimal   @default(0) @db.Decimal(18, 2)
+  deliveryNo  String?   @db.VarChar(60)
+  vehicleNo   String?   @db.VarChar(30)
+  /// harvest inside the withdrawal period: reason given
+  overrideReason String?  @db.VarChar(300)
+  deliveryDocId  String?  @db.Uuid
+  notes       String?   @db.VarChar(500)
+  /// POSTED | CANCELLED
+  status      String    @default("POSTED") @db.VarChar(10)
+  createdAt   DateTime  @default(now())
+  createdById String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([cycleId])
+  @@map("livestock_harvests")
+}
+
+/// Inti-plasma partnership agreement with a farmer (Permentan 13/2017 Art. 11): contract prices of inputs and of the
+/// harvest, bonuses, terms
+model PartnerContract {
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @db.Uuid
+  number            String    @db.VarChar(40)
+  partnerId         String    @db.Uuid
+  siteId            String?   @db.Uuid
+  species           String    @default("BROILER") @db.VarChar(10)
+  startDate         DateTime  @db.Date
+  endDate           DateTime? @db.Date
+  /// per head of DOC / fry supplied
+  docPrice          Decimal   @default(0) @db.Decimal(18, 2)
+  /// [{ productId, price }] per kg of feed supplied
+  feedPrices        Json      @default("[]")
+  /// medicines, vaccines charged at our cost plus this mark-up
+  medicineMarkupPct Decimal   @default(0) @db.Decimal(9, 4)
+  /// harvest price per kg by average live weight: [{ minKg, maxKg, price }]
+  priceBands        Json      @default("[]")
+  standardFcr       Decimal?  @db.Decimal(9, 3)
+  /// Rp per kg harvested for each 0.01 of FCR better than the standard
+  fcrBonusPerPoint  Decimal   @default(0) @db.Decimal(18, 2)
+  ipThreshold       Decimal?  @db.Decimal(9, 2)
+  ipBonusPerKg      Decimal   @default(0) @db.Decimal(18, 2)
+  /// collect PPh 22 0.25% when buying the harvest (industry / exporter buyer, PMK 51/2025)
+  withholdPph22     Boolean   @default(false)
+  /// loss of earlier cycles still owed by the farmer, deducted from the next settlement
+  carryForward      Decimal   @default(0) @db.Decimal(18, 2)
+  terms             String?
+  /// acknowledged by the regency / city government (Art. 11 (3))
+  acknowledgedBy    String?   @db.VarChar(150)
+  acknowledgedAt    DateTime? @db.Date
+  /// ACTIVE | ENDED
+  status            String    @default("ACTIVE") @db.VarChar(8)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdById       String?   @db.Uuid
+  updatedById       String?   @db.Uuid
+  deletedAt         DateTime?
+
+  @@unique([companyId, number])
+  @@map("partner_contracts")
+}
+
+/// Settlement of a plasma cycle (rekapitulasi hasil pemeliharaan, RHPP)
+model PartnerSettlement {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  number         String    @db.VarChar(40)
+  contractId     String    @db.Uuid
+  cycleId        String    @db.Uuid
+  date           DateTime  @db.Date
+  harvestQty     Int
+  harvestKg      Decimal   @db.Decimal(18, 3)
+  avgWeightKg    Decimal   @db.Decimal(9, 3)
+  pricePerKg     Decimal   @db.Decimal(18, 2)
+  revenue        Decimal   @db.Decimal(18, 2)
+  docCharge      Decimal   @db.Decimal(18, 2)
+  feedCharge     Decimal   @db.Decimal(18, 2)
+  medicineCharge Decimal   @db.Decimal(18, 2)
+  fcr            Decimal   @db.Decimal(9, 3)
+  ip             Decimal   @db.Decimal(9, 2)
+  fcrBonus       Decimal   @db.Decimal(18, 2)
+  ipBonus        Decimal   @db.Decimal(18, 2)
+  deductions     Decimal   @default(0) @db.Decimal(18, 2)
+  carriedIn      Decimal   @default(0) @db.Decimal(18, 2)
+  net            Decimal   @db.Decimal(18, 2)
+  invoiceId      String?   @db.Uuid
+  notes          String?   @db.VarChar(1000)
+  /// POSTED | CANCELLED
+  status         String    @default("POSTED") @db.VarChar(10)
+  createdAt      DateTime  @default(now())
+  createdById    String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([cycleId])
+  @@map("partner_settlements")
+}

@@ -201,7 +201,9 @@ The goal is to avoid building one separate app per industry. Most lines share th
     - deplesi %; FCR = feed kg / live weight kg;
     - IP = (livability % × ABW kg) / (FCR × age) × 100;
     - HDP %; cost per kg.
-- **Inti-plasma partnership** (Permentan 13/2017).
+- **Inti-plasma partnership** (Permentan 13/2017, checked against the official text).
+  - Written agreement with the items of Art. 11 (2), acknowledged by the regency / city (Art. 11 (3)).
+  - Partnership report at least every 3 months (Art. 19, Format-2).
   - The core company supplies DOC, feed and medicine at contract prices and buys the harvest.
   - RHPP settlement = harvest × contract price − inputs + FCR/IP bonus − penalties.
   - Plasma sub-ledger.
@@ -248,7 +250,7 @@ The goal is to avoid building one separate app per industry. Most lines share th
   - faktur code 05; input VAT **not creditable**;
   - the industrial buyer (mill) collects.
 - **PP 49/2022:** VAT exemption on livestock, feed and seeds. Input VAT is not creditable.
-- **PPh 22 on purchases of produce:** 0.25% by industrial buyers and exporters (PMK 34/2017 as amended **[latest amendment to check]**).
+- **PPh 22 on purchases of produce:** 0.25% by industrial buyers and exporters. PMK 51/2025 (Art. 3 (1) f) replaced PMK 34/2017; this comes from secondary sources, and the Rp20 million threshold is **[unverified]**.
 - **PBB P5L** (PMK 186/2019 jo 234/2022): per block category; planting-year map.
 - **Plantations:**
   - UU 39/2014 jo UU 6/2023; HGU;

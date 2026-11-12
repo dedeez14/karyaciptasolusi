@@ -338,5 +338,10 @@
  "package-minus": "box-open",
  "wrench": "wrench",
  "lightbulb": "lightbulb",
- "biohazard": "biohazard"
+ "biohazard": "biohazard",
+ "tractor": "tractor",
+ "egg": "egg",
+ "fish": "fish",
+ "syringe": "syringe",
+ "sprout": "seedling"
 }

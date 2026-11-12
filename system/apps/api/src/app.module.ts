@@ -68,6 +68,7 @@ import { MANUFACTURING_CONTROLLERS, MANUFACTURING_PROVIDERS } from './modules/ma
 import { POS_CONTROLLERS, POS_PROVIDERS } from './modules/pos';
 import { QUALITY_CONTROLLERS, QUALITY_PROVIDERS } from './modules/quality';
 import { COMPLIANCE_CONTROLLERS, COMPLIANCE_PROVIDERS } from './modules/compliance';
+import { FARM_CONTROLLERS, FARM_PROVIDERS } from './modules/farm';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
@@ -147,6 +148,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...MANUFACTURING_CONTROLLERS,
     ...QUALITY_CONTROLLERS,
     ...COMPLIANCE_CONTROLLERS,
+    ...FARM_CONTROLLERS,
     ...POS_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
@@ -208,6 +210,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...MANUFACTURING_PROVIDERS,
     ...QUALITY_PROVIDERS,
     ...COMPLIANCE_PROVIDERS,
+    ...FARM_PROVIDERS,
     ...POS_PROVIDERS,
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,

@@ -59,6 +59,11 @@ const CertificatesPage = lazy(() => compliancePages().then((m) => ({ default: m.
 const TkdnListPage = lazy(() => compliancePages().then((m) => ({ default: m.TkdnListPage })));
 const TkdnEditorPage = lazy(() => compliancePages().then((m) => ({ default: m.TkdnEditorPage })));
 const wastePages = () => import('@/features/compliance/WastePages');
+const farmPages = () => import('@/features/farm/FarmPages');
+const CyclesPage = lazy(() => farmPages().then((m) => ({ default: m.CyclesPage })));
+const CyclePage = lazy(() => farmPages().then((m) => ({ default: m.CyclePage })));
+const ContractsPage = lazy(() => farmPages().then((m) => ({ default: m.ContractsPage })));
+const PartnershipReportPage = lazy(() => farmPages().then((m) => ({ default: m.PartnershipReportPage })));
 const WastePage = lazy(() => wastePages().then((m) => ({ default: m.WastePage })));
 const SiinasPage = lazy(() => wastePages().then((m) => ({ default: m.SiinasPage })));
 const InspectionsPage = lazy(() => qualityPages().then((m) => ({ default: m.InspectionsPage })));
@@ -174,6 +179,10 @@ export default function App() {
             <Route path="maintenance/orders" element={<MaintenanceOrdersPage />} />
             <Route path="maintenance/plans" element={<MaintenancePlansPage />} />
             <Route path="maintenance/oee" element={<OeePage />} />
+            <Route path="farm/cycles" element={<CyclesPage />} />
+            <Route path="farm/cycles/:id" element={<CyclePage />} />
+            <Route path="farm/contracts" element={<ContractsPage />} />
+            <Route path="farm/partnership-report" element={<PartnershipReportPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />
