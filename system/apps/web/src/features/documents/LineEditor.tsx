@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
+import { useSession } from '@/stores/session';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
 import { fmtMoney } from '@/lib/format';
@@ -111,7 +112,10 @@ export function LineEditor({ def, lines, onChange, errors }: { def: DocTypeDef; 
   const priced = def.priced;
   const allowNegative = def.stock === 'adjust';
   const showPrice = priced || allowNegative;
-  const showTax = priced && !!def.taxField;
+  // a company that is not a VAT payer (PKP) charges no output VAT: no tax column on sales documents
+  const vatPayer = useSession((s) => s.me?.prefs.vatPayer ?? true);
+  const salesVat = def.taxField !== 'saleTaxId' || vatPayer;
+  const showTax = priced && !!def.taxField && salesVat;
   const rowsRef = useRef<Record<string, HTMLDivElement | null>>({});
   const focusKey = useRef<string | null>(null);
 
@@ -165,7 +169,7 @@ export function LineEditor({ def, lines, onChange, errors }: { def: DocTypeDef; 
         ...(keepDesc ? {} : { description: p.name, autoDesc: p.name }),
         uomId: p.uomId,
         unitPrice: priced || def.stock === 'adjust' ? String(Number(price ?? 0)) : '0',
-        taxId: def.taxField ? p[def.taxField] : null,
+        taxId: def.taxField && salesVat ? p[def.taxField] : null,
       });
     } catch {
       /* no product read permission: keep the selection, the server fills the defaults */

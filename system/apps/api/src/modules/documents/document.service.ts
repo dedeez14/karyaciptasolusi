@@ -217,9 +217,12 @@ export class DocumentService {
     if (products.length !== productIds.length) throw new BadRequestException('One or more products are invalid');
     const pm = new Map(products.map((p) => [p.id, p]));
     const taxIds = new Set<string>();
+    // output VAT only for a PKP (VAT registered) company; purchase documents always keep the supplier's VAT
+    const salesVat = def.taxField === 'saleTaxId' ? await this.settings.bool('sales.vatPayer', companyId, true) : true;
+    if (!salesVat && input.lines.some((l) => l.taxId)) throw new BadRequestException('Your company is not registered as a VAT payer (PKP), so sales documents cannot charge PPN. Remove the tax, or turn on \"Company is a VAT payer (PKP)\" in System > Settings > Sales once the company is PKP.');
     for (const l of input.lines) {
       const p = l.productId ? pm.get(l.productId) : undefined;
-      if (l.taxId === undefined && p && def.taxField) l.taxId = p[def.taxField];
+      if (l.taxId === undefined && p && def.taxField) l.taxId = salesVat ? p[def.taxField] : null;
       if (l.taxId) taxIds.add(l.taxId);
     }
     const taxes = await this.prisma.tax.findMany({ where: { id: { in: [...taxIds] }, companyId, deletedAt: null } });
@@ -610,6 +613,8 @@ export class DocumentService {
     const used = await this.consumed(this.prisma, id, target.code);
     const products = await this.prisma.product.findMany({ where: { id: { in: src.lines.map((l) => l.productId).filter(Boolean) as string[] } }, select: { id: true, type: true } });
     const ptype = new Map(products.map((p) => [p.id, p.type]));
+    // documents made before the company stopped charging VAT: the new sales document carries no PPN
+    const keepTax = target.taxField !== 'saleTaxId' || (await this.settings.bool('sales.vatPayer', src.companyId, true));
     const lines = src.lines
       .map((l) => ({ l, remaining: D(l.qty).minus(used.get(l.id) ?? ZERO) }))
       .filter(({ l, remaining }) => remaining.gt(0) && (!target.stockItemsOnly || (l.productId && ptype.get(l.productId) === 'STOCK')))
@@ -620,7 +625,7 @@ export class DocumentService {
         uomId: l.uomId,
         unitPrice: Number(l.unitPrice),
         discountPct: Number(l.discountPct),
-        taxId: l.taxId,
+        taxId: keepTax ? l.taxId : null,
         sourceLineId: l.id,
       }));
     if (!lines.length) throw new ConflictException(`Nothing left to convert into a ${target.label}`);

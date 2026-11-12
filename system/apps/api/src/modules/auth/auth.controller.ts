@@ -155,6 +155,7 @@ export class AuthController {
         locale: await this.settings.str('general.locale', u.companyId, 'id-ID'),
         idleTimeoutMinutes: await this.settings.num('security.idleTimeoutMinutes', u.companyId, 30),
         appName: await this.settings.str('general.appName', u.companyId, 'KCS ERP'),
+        vatPayer: await this.settings.bool('sales.vatPayer', u.companyId, true),
         timezone: await this.settings.str('general.timezone', u.companyId, 'Asia/Jakarta'),
       },
       clock: {

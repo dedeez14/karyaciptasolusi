@@ -344,6 +344,7 @@ export class SubscriptionService {
 
   // ------------------------------------------------------------------ write
   private async validate(input: z.infer<typeof subscriptionSchema>) {
+    if (input.lines.some((l) => l.taxId) && !(await this.settings.bool('sales.vatPayer', RequestCtx.companyId(), true))) throw new BadRequestException('Your company is not registered as a VAT payer (PKP), so sales documents cannot charge PPN. Remove the tax, or turn on \"Company is a VAT payer (PKP)\" in System > Settings > Sales once the company is PKP.');
     await assertOwned(this.prisma, 'customer', input.customerId, 'customerId', 'Customer');
     await assertOwned(this.prisma, 'project', input.projectId, 'projectId', 'Project');
     await assertOwned(this.prisma, 'paymentTerm', input.paymentTermId, 'paymentTermId', 'Payment term');

@@ -74,10 +74,11 @@ export class PdfService {
     const taxId = this.crypto.decrypt(c.taxId);
     return {
       name: c.legalName || c.name,
+      // address / phone + e-mail / website + tax number: short lines that do not break in the middle
       lines: [
         [c.address, c.city].filter(Boolean).join(', '),
-        [c.phone && `Phone ${c.phone}`, c.email, c.website].filter(Boolean).join('  |  '),
-        taxId ? `Tax ID: ${taxId}` : '',
+        [c.phone && `Phone ${c.phone}`, c.email].filter(Boolean).join('  ·  '),
+        [c.website?.replace(/^https?:\/\//, '').replace(/\/$/, ''), taxId ? `${c.countryCode === 'ID' ? 'NPWP' : 'Tax ID'} ${taxId}` : ''].filter(Boolean).join('  ·  '),
       ].filter(Boolean),
       logo,
       color: await this.settings.str('document.primaryColor', companyId, '#1e40af'),
@@ -320,9 +321,8 @@ export class PdfService {
       const fy = doc.page.height - 38;
       doc.moveTo(L, fy - 6).lineTo(L + W, fy - 6).lineWidth(0.5).strokeColor(LINE).stroke();
       doc.font('Helvetica').fontSize(7).fillColor(GREY);
-      doc.text(b.footer || b.name, L, fy, { width: W * 0.5, lineBreak: false, height: 10 });
-      if (d.number) doc.text(`${d.title} ${d.number}`, L + W * 0.3, fy, { width: W * 0.4, align: 'center', lineBreak: false, height: 10 });
-      doc.text(`Page ${i - range.start + 1} of ${range.count}`, L + W * 0.7, fy, { width: W * 0.3, align: 'right', lineBreak: false, height: 10 });
+      doc.text(b.footer || b.name, L, fy, { width: W * 0.6, lineBreak: false, height: 10, ellipsis: true });
+      doc.text(`${d.number ? `${d.title} ${d.number}  ·  ` : ''}Page ${i - range.start + 1} of ${range.count}`, L + W * 0.6, fy, { width: W * 0.4, align: 'right', lineBreak: false, height: 10 });
     }
     doc.end();
     const pdf = await done;
