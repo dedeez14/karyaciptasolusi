@@ -542,6 +542,8 @@ model Product {
   trackLots           Boolean     @default(false)
   /// days from receipt to expiry, used when a receipt gives no expiry date (0 = none)
   shelfLifeDays       Int         @default(0)
+  /// POS: kitchen / bar station that prepares it (KDS routing); empty = handed over at the counter
+  posStation          String?     @db.VarChar(30)
   /// warn this many days before a lot expires
   expiryAlertDays     Int         @default(60)
   saleTaxId           String?     @db.Uuid
@@ -687,6 +689,12 @@ model Customer {
   creditLimit   Decimal   @default(0) @db.Decimal(18, 2)
   industryCode  String?   @db.VarChar(50)
   notes         String?
+  /// loyalty membership (POS): member number, points balance, consent under UU 27/2022 (PDP)
+  memberNo         String?   @db.VarChar(30)
+  points           Int       @default(0)
+  memberSince      DateTime?
+  consentAt        DateTime?
+  marketingConsent Boolean   @default(false)
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -695,6 +703,7 @@ model Customer {
   deletedAt     DateTime?
 
   @@unique([companyId, code])
+  @@unique([companyId, memberNo])
   @@index([companyId, name])
   @@map("customers")
 }
@@ -2668,6 +2677,8 @@ model Bom {
   overheadCost Decimal   @default(0) @db.Decimal(18, 2)
   isDefault    Boolean   @default(true)
   isActive     Boolean   @default(true)
+  /// recipe / kit: selling the product (POS) issues these components instead of the product itself
+  backflushOnSale Boolean @default(false)
   notes        String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -2758,6 +2769,7 @@ model PosSession {
   companyId     String    @db.Uuid
   branchId      String?   @db.Uuid
   number        String    @db.VarChar(40)
+  outletId      String?   @db.Uuid
   warehouseId   String    @db.Uuid
   /// cash drawer (cash account)
   cashAccountId String    @db.Uuid
@@ -2779,61 +2791,335 @@ model PosSession {
   @@map("pos_sessions")
 }
 
-/// A point-of-sale receipt (struk). For a PKP retailer it is the simplified tax invoice (faktur pajak digunggung)
+/// A point-of-sale receipt (struk) or an open bill. For a PKP retailer the paid receipt is the simplified tax invoice (faktur pajak digunggung)
 model PosSale {
-  id          String   @id @default(uuid()) @db.Uuid
-  companyId   String   @db.Uuid
-  branchId    String?  @db.Uuid
-  sessionId   String   @db.Uuid
-  number      String   @db.VarChar(40)
-  date        DateTime @db.Date
-  soldAt      DateTime @default(now())
-  customerId  String?  @db.Uuid
-  /// net of VAT and regional tax
-  subtotal    Decimal  @default(0) @db.Decimal(18, 2)
-  discount    Decimal  @default(0) @db.Decimal(18, 2)
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  branchId       String?   @db.Uuid
+  outletId       String?   @db.Uuid
+  /// shift that took the payment (an open bill keeps the shift it was opened in until it is paid)
+  sessionId      String    @db.Uuid
+  /// receipt number, given when the bill is paid (gap-free numbering of the faktur pajak digunggung)
+  number         String?   @db.VarChar(40)
+  date           DateTime  @db.Date
+  soldAt         DateTime  @default(now())
+  customerId     String?   @db.Uuid
+  /// RETAIL | DINE_IN | TAKEAWAY | DELIVERY
+  orderType      String    @default("RETAIL") @db.VarChar(10)
+  tableId        String?   @db.Uuid
+  covers         Int       @default(0)
+  /// bill name / customer name of a tab
+  label          String?   @db.VarChar(60)
+  /// daily queue number (counter service), e.g. A012
+  queueNo        String?   @db.VarChar(12)
+  /// net of VAT and regional tax, after discounts and including the service charge
+  subtotal       Decimal   @default(0) @db.Decimal(18, 2)
+  /// promotions and voucher discounts (already deducted)
+  discount       Decimal   @default(0) @db.Decimal(18, 2)
+  serviceCharge  Decimal   @default(0) @db.Decimal(18, 2)
   /// PPN (VAT) included in / added to the prices
-  taxTotal    Decimal  @default(0) @db.Decimal(18, 2)
-  /// PBJT food & beverage (regional tax, UU HKPD) added to the bill
-  localTax    Decimal  @default(0) @db.Decimal(18, 2)
-  total       Decimal  @default(0) @db.Decimal(18, 2)
-  paid        Decimal  @default(0) @db.Decimal(18, 2)
-  change      Decimal  @default(0) @db.Decimal(18, 2)
-  /// [{ method: CASH | QRIS | CARD | TRANSFER, amount, reference }]
-  payments    Json
-  /// PAID | VOID
-  status      String   @default("PAID") @db.VarChar(10)
-  voidReason  String?  @db.VarChar(200)
-  createdAt   DateTime @default(now())
-  createdById String?  @db.Uuid
+  taxTotal       Decimal   @default(0) @db.Decimal(18, 2)
+  /// PBJT (regional tax, UU 1/2022) on the amount after discount incl. service charge
+  localTax       Decimal   @default(0) @db.Decimal(18, 2)
+  total          Decimal   @default(0) @db.Decimal(18, 2)
+  paid           Decimal   @default(0) @db.Decimal(18, 2)
+  change         Decimal   @default(0) @db.Decimal(18, 2)
+  /// [{ method: CASH | QRIS | CARD | TRANSFER | POINTS, amount, reference }]
+  payments       Json      @default("[]")
+  voucherCode    String?   @db.VarChar(40)
+  /// [{ promotionId, code, name, amount }]
+  promotions     Json      @default("[]")
+  pointsEarned   Int       @default(0)
+  pointsRedeemed Int       @default(0)
+  /// OPEN (bill / tab not paid yet) | PAID | VOID | CANCELLED
+  status         String    @default("PAID") @db.VarChar(10)
+  /// NONE | PREPARING | READY | COLLECTED (queue board)
+  kitchenStatus  String    @default("NONE") @db.VarChar(10)
+  billPrintedAt  DateTime?
+  readyAt        DateTime?
+  collectedAt    DateTime?
+  voidReason     String?   @db.VarChar(200)
+  createdAt      DateTime  @default(now())
+  createdById    String?   @db.Uuid
+  updatedAt      DateTime  @default(now()) @updatedAt
 
-  session PosSession    @relation(fields: [sessionId], references: [id])
+  session PosSession         @relation(fields: [sessionId], references: [id])
   lines   PosSaleLine[]
+  tickets PosKitchenTicket[]
 
   @@unique([companyId, number])
   @@index([companyId, date])
   @@index([sessionId])
+  @@index([outletId, status])
   @@map("pos_sales")
 }
 
 model PosSaleLine {
-  id          String  @id @default(uuid()) @db.Uuid
-  saleId      String  @db.Uuid
-  lineNo      Int
-  productId   String  @db.Uuid
-  name        String  @db.VarChar(200)
-  qty         Decimal @db.Decimal(18, 4)
-  /// price shown to the customer (incl. VAT when prices include tax)
-  unitPrice   Decimal @db.Decimal(18, 2)
-  discountPct Decimal @default(0) @db.Decimal(9, 4)
-  taxId       String? @db.Uuid
+  id            String    @id @default(uuid()) @db.Uuid
+  saleId        String    @db.Uuid
+  lineNo        Int
+  productId     String    @db.Uuid
+  name          String    @db.VarChar(200)
+  qty           Decimal   @db.Decimal(18, 4)
+  /// price shown to the customer incl. modifiers (incl. VAT when prices include tax)
+  unitPrice     Decimal   @db.Decimal(18, 2)
+  discountPct   Decimal   @default(0) @db.Decimal(9, 4)
+  /// promotion / voucher discount allocated to this line (amount at shelf price)
+  promoDiscount Decimal   @default(0) @db.Decimal(18, 2)
+  /// [{ groupId, optionId, name, price, productId, qty }]
+  modifiers     Json      @default("[]")
+  note          String?   @db.VarChar(200)
+  course        Int       @default(1)
+  station       String?   @db.VarChar(30)
+  ticketId      String?   @db.Uuid
+  sentAt        DateTime?
+  /// POS (staff) | QR (ordered by the guest from the table QR code)
+  source        String    @default("POS") @db.VarChar(10)
+  /// ACTIVE | VOID (removed after it was sent to the kitchen)
+  status        String    @default("ACTIVE") @db.VarChar(10)
+  voidReason    String?   @db.VarChar(200)
+  taxId         String?   @db.Uuid
   /// net (DPP), VAT and total of the line
-  lineNet     Decimal @default(0) @db.Decimal(18, 2)
-  lineTax     Decimal @default(0) @db.Decimal(18, 2)
-  lineTotal   Decimal @default(0) @db.Decimal(18, 2)
-  unitCost    Decimal @default(0) @db.Decimal(18, 4)
+  lineNet       Decimal   @default(0) @db.Decimal(18, 2)
+  lineTax       Decimal   @default(0) @db.Decimal(18, 2)
+  lineTotal     Decimal   @default(0) @db.Decimal(18, 2)
+  unitCost      Decimal   @default(0) @db.Decimal(18, 4)
 
-  sale PosSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale   PosSale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  ticket PosKitchenTicket? @relation(fields: [ticketId], references: [id])
 
+  @@index([saleId])
   @@map("pos_sale_lines")
+}
+
+/// A selling point (shop, restaurant, cafe, food-court stall) with its own tax mode, service style and devices
+model PosOutlet {
+  id                   String    @id @default(uuid()) @db.Uuid
+  companyId            String    @db.Uuid
+  branchId             String?   @db.Uuid
+  code                 String    @db.VarChar(20)
+  name                 String    @db.VarChar(100)
+  warehouseId          String    @db.Uuid
+  /// RETAIL (PPN; receipt = faktur pajak digunggung) | FNB (restaurant / cafe: PBJT instead of PPN)
+  mode                 String    @default("RETAIL") @db.VarChar(10)
+  /// COUNTER (pay first, queue number) | TABLE (table service, pay at the end)
+  serviceStyle         String    @default("COUNTER") @db.VarChar(10)
+  pricesIncludeTax     Boolean   @default(true)
+  /// PBJT rate of the regional regulation (Perda), at most 10% for food and beverage (UU 1/2022 Art. 58)
+  pbjtRate             Decimal   @default(0) @db.Decimal(9, 4)
+  serviceChargePct     Decimal   @default(0) @db.Decimal(9, 4)
+  /// service charge collected for the staff (Permenaker 7/2016): a liability, not revenue
+  serviceChargeToStaff Boolean   @default(false)
+  priceListId          String?   @db.Uuid
+  /// the menu of the outlet is only what its price list contains (a restaurant inside a company that also sells other things)
+  menuFromPriceList    Boolean   @default(false)
+  qrisAccountId        String?   @db.Uuid
+  cardAccountId        String?   @db.Uuid
+  transferAccountId    String?   @db.Uuid
+  queuePrefix          String    @default("A") @db.VarChar(5)
+  queueDate            DateTime? @db.Date
+  queueNext            Int       @default(1)
+  receiptFooter        String?   @db.VarChar(300)
+  /// customer display idle message
+  displayMessage       String?   @db.VarChar(300)
+  /// queue board announcement, {number} is replaced by the queue number
+  readyAnnouncement    String    @default("Order {number} is ready") @db.VarChar(200)
+  /// ordering from the table QR code: OFF | CONFIRM (a waiter confirms before the kitchen gets it) | AUTO
+  selfOrder            String    @default("OFF") @db.VarChar(10)
+  kdsWarnMinutes       Int       @default(10)
+  kdsLateMinutes       Int       @default(20)
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  createdById          String?   @db.Uuid
+  updatedById          String?   @db.Uuid
+  deletedAt            DateTime?
+
+  @@unique([companyId, code])
+  @@map("pos_outlets")
+}
+
+model PosTable {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  outletId    String    @db.Uuid
+  code        String    @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  area        String?   @db.VarChar(60)
+  seats       Int       @default(4)
+  sortOrder   Int       @default(0)
+  /// secret of the table QR code (customers order from their phone); a new one invalidates printed codes
+  qrToken     String?   @unique @db.VarChar(64)
+  /// WAITER | BILL: the guests called from the QR page
+  callType    String?   @db.VarChar(10)
+  calledAt    DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@unique([companyId, code])
+  @@index([outletId])
+  @@map("pos_tables")
+}
+
+/// A kitchen / bar ticket: the items of one order sent to one station in one round (KDS)
+model PosKitchenTicket {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @db.Uuid
+  outletId  String    @db.Uuid
+  saleId    String    @db.Uuid
+  round     Int       @default(1)
+  station   String    @db.VarChar(30)
+  course    Int       @default(1)
+  /// table / queue number / bill name shown on the ticket
+  label     String    @db.VarChar(60)
+  /// HELD (course not fired yet) | NEW | PREPARING | READY | SERVED | VOID
+  status    String    @default("NEW") @db.VarChar(10)
+  createdAt DateTime  @default(now())
+  firedAt   DateTime?
+  startedAt DateTime?
+  readyAt   DateTime?
+  servedAt  DateTime?
+
+  sale  PosSale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  lines PosSaleLine[]
+
+  @@index([outletId, status])
+  @@map("pos_kitchen_tickets")
+}
+
+/// Add-ons / choices for menu items (size, sugar level, extra cheese...)
+model PosModifierGroup {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  name      String   @db.VarChar(80)
+  minSelect Int      @default(0)
+  maxSelect Int      @default(1)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  options  PosModifierOption[]
+  products PosProductModifier[]
+
+  @@index([companyId])
+  @@map("pos_modifier_groups")
+}
+
+model PosModifierOption {
+  id        String  @id @default(uuid()) @db.Uuid
+  groupId   String  @db.Uuid
+  name      String  @db.VarChar(80)
+  price     Decimal @default(0) @db.Decimal(18, 2)
+  /// ingredient issued from stock when chosen (optional)
+  productId String? @db.Uuid
+  qty       Decimal @default(1) @db.Decimal(18, 4)
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  group PosModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("pos_modifier_options")
+}
+
+model PosProductModifier {
+  productId String @db.Uuid
+  groupId   String @db.Uuid
+  sortOrder Int    @default(0)
+
+  group PosModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([productId, groupId])
+  @@map("pos_product_modifiers")
+}
+
+/// Selling prices per outlet / channel (falls back to the product sale price)
+model PriceList {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  code        String    @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  items PriceListItem[]
+
+  @@unique([companyId, code])
+  @@map("price_lists")
+}
+
+model PriceListItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  priceListId String  @db.Uuid
+  productId   String  @db.Uuid
+  price       Decimal @db.Decimal(18, 2)
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productId])
+  @@map("price_list_items")
+}
+
+/// POS promotions: item discounts, buy X get Y, bill discounts, happy hours, vouchers, member-only offers
+model PosPromotion {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  code        String    @db.VarChar(30)
+  name        String    @db.VarChar(120)
+  /// ITEM_PERCENT | ITEM_AMOUNT | BUY_X_GET_Y | BILL_PERCENT | BILL_AMOUNT
+  type        String    @db.VarChar(15)
+  value       Decimal   @default(0) @db.Decimal(18, 4)
+  buyQty      Int       @default(0)
+  getQty      Int       @default(0)
+  minSpend    Decimal   @default(0) @db.Decimal(18, 2)
+  /// cap of a percentage bill discount (0 = no cap)
+  maxDiscount Decimal   @default(0) @db.Decimal(18, 2)
+  productIds  String[]  @db.Uuid
+  categoryIds String[]  @db.Uuid
+  /// empty = every outlet
+  outletIds   String[]  @db.Uuid
+  membersOnly Boolean   @default(false)
+  /// when set, only applies after the cashier enters this voucher code
+  voucherCode String?   @db.VarChar(40)
+  startDate   DateTime? @db.Date
+  endDate     DateTime? @db.Date
+  /// 0 = Sunday ... 6 = Saturday; empty = every day
+  days        Int[]
+  /// happy hour window HH:MM (company time zone)
+  timeFrom    String?   @db.VarChar(5)
+  timeTo      String?   @db.VarChar(5)
+  maxUses     Int       @default(0)
+  usedCount   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@unique([companyId, code])
+  @@map("pos_promotions")
+}
+
+/// Loyalty points ledger of a member
+model PosPointEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  customerId  String   @db.Uuid
+  saleId      String?  @db.Uuid
+  points      Int
+  reason      String   @db.VarChar(120)
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@index([companyId, customerId])
+  @@map("pos_point_entries")
 }

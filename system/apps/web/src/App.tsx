@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useSession } from '@/stores/session';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ConfirmHost, PreviewHost, Spinner, ToastHost } from '@/components/ui';
@@ -31,6 +31,14 @@ const LotsPage = lazy(() => import('@/features/inventory/LotsPage'));
 const mfg = () => import('@/features/manufacturing/ManufacturingPages');
 const PosPage = lazy(() => import('@/features/pos/PosPage'));
 const PosShiftsPage = lazy(() => import('@/features/pos/PosShiftsPage'));
+const PosSetupPage = lazy(() => import('@/features/pos/PosSetupPage'));
+const PosMembersPage = lazy(() => import('@/features/pos/PosMembersPage'));
+const TableQrPage = lazy(() => import('@/features/pos/TableQrPage'));
+const GuestOrderPage = lazy(() => import('@/features/pos/GuestOrderPage'));
+const posScreens = () => import('@/features/pos/screens');
+const CustomerDisplayScreen = lazy(() => posScreens().then((m) => ({ default: m.CustomerDisplayScreen })));
+const KitchenDisplayScreen = lazy(() => posScreens().then((m) => ({ default: m.KitchenDisplayScreen })));
+const QueueBoardScreen = lazy(() => posScreens().then((m) => ({ default: m.QueueBoardScreen })));
 const BomListPage = lazy(() => mfg().then((m) => ({ default: m.BomListPage })));
 const BomEditPage = lazy(() => mfg().then((m) => ({ default: m.BomEditPage })));
 const WorkOrderListPage = lazy(() => mfg().then((m) => ({ default: m.WorkOrderListPage })));
@@ -75,6 +83,15 @@ function Protected() {
   return <AppLayout />;
 }
 
+/** signed-in pages without the app frame (customer display, kitchen display, queue board on their own screens) */
+function ProtectedScreen() {
+  const { status } = useSession();
+  const location = useLocation();
+  if (status === 'loading') return <FullScreenSpinner />;
+  if (status === 'anonymous') return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  return <Outlet />;
+}
+
 export default function App() {
   const bootstrap = useSession((s) => s.bootstrap);
   useEffect(() => {
@@ -88,6 +105,14 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/verify" element={<VerifyPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
+          <Route path="/order/:token" element={<GuestOrderPage />} />
+          <Route element={<ProtectedScreen />}>
+            <Route path="screen/display" element={<CustomerDisplayScreen />} />
+            <Route path="screen/kitchen" element={<KitchenDisplayScreen />} />
+            <Route path="screen/queue" element={<QueueBoardScreen />} />
+            <Route path="pos/kitchen" element={<Navigate to="/screen/kitchen" replace />} />
+            <Route path="pos/queue" element={<Navigate to="/screen/queue" replace />} />
+          </Route>
           <Route element={<Protected />}>
             <Route index element={<DashboardPage />} />
             <Route path="profile" element={<ProfilePage />} />
@@ -112,6 +137,9 @@ export default function App() {
             <Route path="inventory/lots" element={<LotsPage />} />
             <Route path="pos" element={<PosPage />} />
             <Route path="pos/shifts" element={<PosShiftsPage />} />
+            <Route path="pos/setup" element={<PosSetupPage />} />
+            <Route path="pos/members" element={<PosMembersPage />} />
+            <Route path="pos/table-qr" element={<TableQrPage />} />
             <Route path="manufacturing/boms" element={<BomListPage />} />
             <Route path="manufacturing/boms/:id" element={<BomEditPage />} />
             <Route path="manufacturing/orders" element={<WorkOrderListPage />} />

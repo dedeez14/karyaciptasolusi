@@ -102,8 +102,9 @@ export class ResourceService {
     'product-categories': 'company', brands: 'company', 'customer-groups': 'company', 'supplier-groups': 'company', campaigns: 'company', projects: 'company',
     users: 'company', 'task-stages': 'company', 'leave-types': 'company', holidays: 'company', 'pipeline-stages': 'company', companies: 'company',
     accounts: ['accounting.', 'hris.expense', 'hris.payroll', 'sales.payment', 'purchase.payment'],
-    'bank-accounts': ['accounting.', 'sales.payment', 'purchase.payment', 'hris.expense.pay', 'hris.payroll.pay', 'hris.payroll.create'],
-    customers: ['sales.', 'crm.', 'support.ticket', 'task.', 'master.project', 'report.'],
+    'pos-outlets': 'company', 'pos-tables': 'company', 'price-lists': 'company',
+    'bank-accounts': ['accounting.', 'pos.', 'sales.payment', 'purchase.payment', 'hris.expense.pay', 'hris.payroll.pay', 'hris.payroll.create'],
+    customers: ['sales.', 'pos.', 'crm.', 'support.ticket', 'task.', 'master.project', 'report.'],
     suppliers: ['purchase.', 'accounting.asset', 'accounting.cash', 'report.'],
     employees: ['hris.', 'accounting.asset', 'task.', 'report.employee-directory'],
   };

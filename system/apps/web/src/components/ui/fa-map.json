@@ -323,5 +323,14 @@
  "x": "xmark",
  "youtube": "brands:youtube",
  "zoom-in": "magnifying-glass-plus",
- "zoom-out": "magnifying-glass-minus"
+ "zoom-out": "magnifying-glass-minus",
+ "chef-hat": "hat-chef",
+ "armchair": "chair",
+ "utensils": "utensils",
+ "bell-ring": "bell-on",
+ "merge": "merge",
+ "gift": "gift",
+ "tv": "tv",
+ "concierge-bell": "bell-concierge",
+ "arrow-right-left": "arrow-right-arrow-left"
 }
