@@ -6,7 +6,7 @@ import { fmtDate, fmtMoney } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useLookupOptions } from '@/hooks/useLookups';
 import { useSession } from '@/stores/session';
-import { Button, Card, DataTable, EmptyState, Icon, Input, Pagination, PageHeader, Tabs, type Column } from '@/components/ui';
+import { Button, Card, DataTable, EmptyState, Icon, Input, Pagination, PageHeader, Tabs, type Column, NumberInput } from '@/components/ui';
 import { BudgetStatus, NewBudgetModal, type BudgetListRow } from './common';
 
 export default function BudgetListPage() {
@@ -105,15 +105,16 @@ export default function BudgetListPage() {
               <Icon name="search" className="absolute top-3 left-3 h-4 w-4 text-slate-400" />
               <Input className="pl-9" placeholder="Search code or name..." value={ls.searchInput} onChange={(e) => ls.setSearchInput(e.target.value)} onBlur={() => ls.setSearch(ls.searchInput)} />
             </form>
-            <Input
-              type="number"
+            <NumberInput
+              decimals={0}
+              grouping={false}
               min={2000}
               max={2100}
               placeholder="Any year"
               value={yearInput}
-              onChange={(e) => {
-                setYearInput(e.target.value);
-                if (!e.target.value || /^\d{4}$/.test(e.target.value)) ls.setFilter('year', e.target.value || null);
+              onChange={(v) => {
+                setYearInput(v);
+                if (!v || /^\d{4}$/.test(v)) ls.setFilter('year', v || null);
               }}
               aria-label="Year"
             />

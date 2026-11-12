@@ -358,7 +358,7 @@ export function AudienceBuilder({ value, onChange, disabled, automatic }: { valu
             <Input value={value.category ?? ''} onChange={(e) => set({ category: e.target.value })} placeholder="e.g. konveksi" />
           </Field>
           <Field label="Minimum rating">
-            <NumberInput value={value.minRating ?? ''} onChange={(v) => set({ minRating: v })} decimals={1} placeholder="Any" />
+            <NumberInput value={value.minRating ?? ''} onChange={(v) => set({ minRating: v })} decimals={1} min={0} max={5} placeholder="Any" />
           </Field>
           <Field label="Place status" help="Ignored places are never e-mailed">
             <CodeChips category="MAP_PLACE_STATUS" value={value.statusCodes ?? []} onChange={(v) => set({ statusCodes: v })} exclude={['IGNORED']} />

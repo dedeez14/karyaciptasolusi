@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney, isoDate } from '@/lib/format';
 import { useLookupOptions } from '@/hooks/useLookups';
-import { AsyncSelect, Badge, Button, DatePicker, Drawer, Field, Icon, Input, LookupSelect, Modal, Spinner, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Badge, Button, DatePicker, Drawer, Field, Icon, Input, LookupSelect, Modal, Spinner, Textarea, toast, NumberInput } from '@/components/ui';
 
 export interface AssetRow {
   id: string;
@@ -221,20 +221,20 @@ export function AssetFormDrawer({ open, onClose, asset, onSaved }: { open: boole
               <DatePicker value={f.depreciationStartDate} onChange={(v) => set('depreciationStartDate', v)} min={f.acquisitionDate} disabled={locked} />
             </Field>
             <Field label="Cost" required error={errors.cost}>
-              <Input type="number" min={0} step="0.01" inputMode="decimal" className="text-right tabular-nums" value={f.cost} onChange={(e) => set('cost', e.target.value)} invalid={!!errors.cost} disabled={locked} />
+              <NumberInput fixed={2} decimals={2} min={0} value={f.cost} onChange={(v) => set('cost', v)} invalid={!!errors.cost} disabled={locked} />
             </Field>
             <Field label="Salvage value" error={errors.salvageValue} help="Expected value at the end of its life">
-              <Input type="number" min={0} step="0.01" inputMode="decimal" className="text-right tabular-nums" value={f.salvageValue} onChange={(e) => set('salvageValue', e.target.value)} invalid={!!errors.salvageValue} disabled={locked} />
+              <NumberInput fixed={2} decimals={2} min={0} value={f.salvageValue} onChange={(v) => set('salvageValue', v)} invalid={!!errors.salvageValue} disabled={locked} />
             </Field>
             <Field label="Useful life (months)" required error={errors.usefulLifeMonths} help={life ? lifeText(life) : undefined}>
-              <Input type="number" min={1} max={600} step={1} className="text-right" value={f.usefulLifeMonths} onChange={(e) => set('usefulLifeMonths', e.target.value)} invalid={!!errors.usefulLifeMonths} disabled={locked} />
+              <NumberInput decimals={0} min={1} max={600} value={f.usefulLifeMonths} onChange={(v) => set('usefulLifeMonths', v)} invalid={!!errors.usefulLifeMonths} disabled={locked} />
             </Field>
             <Field label="Method" required error={errors.methodCode}>
               <LookupSelect category="DEPRECIATION_METHOD" value={f.methodCode} onChange={(v) => set('methodCode', v)} clearable={false} disabled={locked} />
             </Field>
             {!asset && (
               <Field label="Depreciation already booked" error={errors.openingAccumulated} help="Only for existing assets moved into this system">
-                <Input type="number" min={0} step="0.01" className="text-right tabular-nums" value={f.openingAccumulated} onChange={(e) => set('openingAccumulated', e.target.value)} invalid={!!errors.openingAccumulated} />
+                <NumberInput fixed={2} decimals={2} min={0} value={f.openingAccumulated} onChange={(v) => set('openingAccumulated', v)} invalid={!!errors.openingAccumulated} />
               </Field>
             )}
           </div>
@@ -436,7 +436,7 @@ export function DisposeModal({ open, onClose, asset }: { open: boolean; onClose:
             <DatePicker value={f.date} onChange={(v) => setF((s) => ({ ...s, date: v }))} min={asset.acquisitionDate.slice(0, 10)} clearable={false} />
           </Field>
           <Field label="Sale proceeds" error={errors.proceeds} help="0 when scrapped">
-            <Input type="number" min={0} step="0.01" className="text-right tabular-nums" value={f.proceeds} onChange={(e) => setF((s) => ({ ...s, proceeds: e.target.value }))} />
+            <NumberInput fixed={2} decimals={2} min={0} value={f.proceeds} onChange={(v) => setF((s) => ({ ...s, proceeds: v }))} invalid={!!errors.proceeds} />
           </Field>
           {Number(f.proceeds) > 0 && (
             <Field label="Received in" required error={errors.bankAccountId} className="sm:col-span-2">

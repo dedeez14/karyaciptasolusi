@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney, isoDate } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, LookupSelect, PageHeader, Spinner, Switch, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, LookupSelect, PageHeader, Spinner, Switch, Textarea, toast, NumberInput } from '@/components/ui';
 import { computeTotals, LineEditor, newLine, useTaxRates, type EditLine } from '@/features/documents/LineEditor';
 import { SUBSCRIPTION_LINE_DEF, useIntervalText, type SubscriptionDetail } from './common';
 
@@ -198,7 +198,7 @@ export default function SubscriptionFormPage() {
               <LookupSelect category="BILLING_INTERVAL" value={f.intervalCode} onChange={(v) => set('intervalCode', v)} invalid={!!errors.intervalCode} clearable={false} />
             </Field>
             <Field label="Repeat every" help="e.g. 2 with Monthly = every 2 months" error={errors.intervalCount}>
-              <Input type="number" min={1} max={36} step={1} value={f.intervalCount} onChange={(e) => set('intervalCount', e.target.value)} className="text-right" />
+              <NumberInput decimals={0} min={1} max={36} value={f.intervalCount} onChange={(v) => set('intervalCount', v)} invalid={!!errors.intervalCount} />
             </Field>
             <Field label="Start date" required error={errors.startDate} help={isEdit ? undefined : 'The first invoice is created on this date'}>
               <DatePicker value={f.startDate} onChange={(v) => set('startDate', v)} clearable={false} invalid={!!errors.startDate} />

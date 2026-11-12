@@ -4,7 +4,7 @@ import { api, ApiError } from '@/lib/api';
 import { download } from '@/lib/download';
 import { fmtBytes, fmtDateTime, fmtNumber } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, cn, confirm, DatePicker, Drawer, Field, Icon, Input, previewFile, Select, Spinner, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Button, cn, confirm, DatePicker, Drawer, Field, Icon, Input, previewFile, Select, Spinner, Textarea, toast, NumberInput } from '@/components/ui';
 import { Avatar, PriorityBadge, todayIso, usePriorities, useTaskStages, type TaskDetail } from './common';
 
 interface Props {
@@ -100,7 +100,7 @@ function NewTaskForm({ defaults, onCreated, onCancel }: { defaults?: Props['defa
           <AsyncSelect resource="customers" value={form.customerId} onChange={(v) => set('customerId', v ?? '')} placeholder="No customer" />
         </Field>
         <Field label="Estimate (hours)">
-          <Input type="number" min={0} step="0.25" value={form.estimateHours} onChange={(e) => set('estimateHours', e.target.value)} className="text-right" />
+          <NumberInput decimals={2} min={0} max={10000} value={form.estimateHours} onChange={(v) => set('estimateHours', v)} />
         </Field>
         <Field label="Start date">
           <DatePicker value={form.startDate} onChange={(v) => set('startDate', v)} />
@@ -277,7 +277,7 @@ function InlineArea({ value, onSave, disabled }: { value: string; onSave: (v: st
 function InlineNumber({ value, onSave, disabled }: { value: number; onSave: (v: number) => void; disabled?: boolean }) {
   const [v, setV] = useState(String(value));
   useEffect(() => setV(String(value)), [value]);
-  return <Input type="number" min={0} step="0.25" disabled={disabled} value={v} onChange={(e) => setV(e.target.value)} onBlur={() => Number(v) !== value && v !== '' && onSave(Number(v))} className="text-right" />;
+  return <NumberInput decimals={2} min={0} max={10000} disabled={disabled} value={v} onChange={setV} onBlur={() => Number(v) !== value && v !== '' && onSave(Number(v))} />;
 }
 
 // ------------------------------------------------------------------------------------------------- checklist
@@ -370,7 +370,7 @@ function TimeLog({ task, ro, onChange }: { task: TaskDetail; ro: boolean; onChan
       {!ro && (
         <div className="mb-3 grid gap-2 sm:grid-cols-[160px_100px_1fr_auto]">
           <DatePicker value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} clearable={false} />
-          <Input type="number" min={0.25} max={24} step="0.25" placeholder="Hours" value={form.hours} onChange={(e) => setForm((f) => ({ ...f, hours: e.target.value }))} className="text-right" />
+          <NumberInput decimals={2} min={0.25} max={24} placeholder="Hours" value={form.hours} onChange={(v) => setForm((f) => ({ ...f, hours: v }))} />
           <Input placeholder="What did you work on?" value={form.note} maxLength={500} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
           <Button icon="plus" variant="secondary" loading={busy} disabled={!form.date || !(Number(form.hours) > 0)} onClick={add}>
             Log

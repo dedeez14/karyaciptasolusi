@@ -5,7 +5,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { api, ApiError } from '@/lib/api';
 import { fmtCompact, fmtDateTime, fmtMoney } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, cn, confirm, Dropdown, EmptyState, Field, Icon, Input, PageHeader, Select, Spinner, StatCard, Switch, Tabs, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, cn, confirm, Dropdown, EmptyState, Field, Icon, Input, PageHeader, Select, Spinner, StatCard, Switch, Tabs, Textarea, toast, NumberInput } from '@/components/ui';
 import { BudgetStatus, MONTHS, NewBudgetModal, type BudgetDetail, type GridRow } from './common';
 
 let seq = 0;
@@ -246,13 +246,14 @@ export default function BudgetPage() {
                   />
                 </Field>
                 <Field label="Year" required error={errors.year}>
-                  <Input
-                    type="number"
+                  <NumberInput
+                    decimals={0}
+                    grouping={false}
                     min={2000}
                     max={2100}
                     value={head.year}
-                    onChange={(e) => {
-                      setHead((h) => ({ ...h, year: e.target.value }));
+                    onChange={(v) => {
+                      setHead((h) => ({ ...h, year: v }));
                       setDirty(true);
                     }}
                   />
@@ -373,16 +374,15 @@ function Grid({
               {r.amounts.map((a, m) => (
                 <td key={m} className="px-1 py-1.5">
                   {editable ? (
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      step="any"
-                      className="h-9 px-2 text-right tabular-nums"
+                    <NumberInput
+                      decimals={2}
+                      allowNegative
+                      className="h-9 px-2"
                       value={a}
                       aria-label={`${MONTHS[m]} amount`}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         onUpdate(r.key, {
-                          amounts: r.amounts.map((x, j) => (j === m ? e.target.value : x)),
+                          amounts: r.amounts.map((x, j) => (j === m ? v : x)),
                         })
                       }
                     />
@@ -443,16 +443,15 @@ function TotalCell({ total, onSpread }: { total: number; onSpread: (t: number) =
     if (Number.isFinite(n) && Math.abs(n - total) > 0.004) onSpread(n);
   };
   return (
-    <Input
-      type="number"
-      inputMode="decimal"
-      step="any"
-      className="h-9 px-2 text-right font-semibold tabular-nums"
+    <NumberInput
+      decimals={2}
+      allowNegative
+      className="h-9 px-2 font-semibold"
       value={v}
       aria-label="Yearly total"
       title="Type a yearly amount to spread it evenly"
       onFocus={() => setFocused(true)}
-      onChange={(e) => setV(e.target.value)}
+      onChange={setV}
       onBlur={commit}
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
     />

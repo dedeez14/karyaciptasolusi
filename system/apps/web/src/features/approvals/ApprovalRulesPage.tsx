@@ -91,7 +91,7 @@ function RuleDrawer({ rule, open, onClose }: { rule: Rule | null; open: boolean;
             <NumberInput fixed={2} value={form.minAmount} onChange={(v) => set('minAmount', v)} invalid={!!errors.minAmount} />
           </Field>
           <Field label="Approval level" required error={errors.level} help="Level 1 decides first, then level 2, ...">
-            <Input type="number" min={1} max={10} step={1} value={form.level} onChange={(e) => set('level', e.target.value)} invalid={!!errors.level} />
+            <NumberInput decimals={0} grouping={false} min={1} max={10} value={form.level} onChange={(v) => set('level', v)} invalid={!!errors.level} />
           </Field>
         </div>
         <Field label="Approver" required error={errors.approverRoleId ?? errors.approverUserId}>

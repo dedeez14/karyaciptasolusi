@@ -11,9 +11,13 @@ function fieldSchema(f: FieldDef): ZodTypeAny {
     case 'percent':
     case 'integer': {
       let n = z.coerce.number({ error: `${f.label} must be a number` });
-      if (f.type === 'integer') n = n.int();
+      if (f.type === 'integer') n = n.int(`${f.label} must be a whole number`);
       if (f.min !== undefined) n = n.min(f.min, `${f.label} must be at least ${f.min}`);
       if (f.max !== undefined) n = n.max(f.max, `${f.label} must be at most ${f.max}`);
+      // same limits as the number field in the browser: 13 whole digits, money in cents
+      else n = n.max(9_999_999_999_999, `${f.label} is too large`);
+      if (f.min === undefined) n = n.min(-9_999_999_999_999, `${f.label} is too small`);
+      if (f.type === 'money') n = n.refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6, `${f.label} can have at most 2 decimals`);
       s = n;
       break;
     }

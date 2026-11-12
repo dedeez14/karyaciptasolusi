@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { useSession } from '@/stores/session';
-import { Badge, Button, Card, cn, confirm, Field, Icon, Input, Modal, PageHeader, Select, Spinner, Switch, toast } from '@/components/ui';
+import { Badge, Button, Card, cn, confirm, Field, Icon, Input, Modal, PageHeader, Select, Spinner, Switch, toast, NumberInput } from '@/components/ui';
 
 interface MenuRow {
   id: string;
@@ -193,7 +193,7 @@ function MenuForm({ menu, menus, onClose, onSaved }: { menu: Partial<MenuRow> | 
           <Select value={form.permissionCode ?? ''} onChange={(e) => setForm({ ...form, permissionCode: e.target.value || null })} options={(perms.data ?? []).map((p) => ({ value: p.code, label: p.code }))} placeholder="(Everyone)" />
         </Field>
         <Field label="Sort order">
-          <Input type="number" value={form.sortOrder ?? 0} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+          <NumberInput decimals={0} grouping={false} min={0} max={9999} value={form.sortOrder ?? 0} onChange={(v) => setForm({ ...form, sortOrder: v === '' ? 0 : Number(v) })} />
         </Field>
         <Field label="Visible">
           <div className="pt-2">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type Paged } from '@/lib/api';
 import { useLookupOptions } from '@/hooks/useLookups';
-import { Badge, Button, Field, Input, Modal, Select, Textarea, toast } from '@/components/ui';
+import { Badge, Button, Field, Input, Modal, Select, Textarea, toast, NumberInput } from '@/components/ui';
 
 export interface BudgetListRow {
   id: string;
@@ -145,7 +145,7 @@ export function NewBudgetModal({ open, onClose, copyFrom }: { open: boolean; onC
           <Input value={f.name} maxLength={200} onChange={(e) => set('name', e.target.value)} invalid={!!errors.name} />
         </Field>
         <Field label="Year" required error={errors.year}>
-          <Input type="number" min={2000} max={2100} value={f.year} onChange={(e) => set('year', e.target.value)} invalid={!!errors.year} />
+          <NumberInput decimals={0} grouping={false} min={2000} max={2100} value={f.year} onChange={(v) => set('year', v)} invalid={!!errors.year} />
         </Field>
         {!copyFrom && (
           <div className="space-y-2 sm:col-span-3">
@@ -192,12 +192,12 @@ export function NewBudgetModal({ open, onClose, copyFrom }: { open: boolean; onC
         )}
         {f.source === 'actual' && (
           <Field label="Actuals of year" required className="sm:col-span-2">
-            <Input type="number" min={2000} max={2100} value={f.fromActualYear} onChange={(e) => set('fromActualYear', e.target.value)} />
+            <NumberInput decimals={0} grouping={false} min={2000} max={2100} value={f.fromActualYear} onChange={(v) => set('fromActualYear', v)} />
           </Field>
         )}
         {f.source !== 'empty' && (
           <Field label="Adjust by %" help="e.g. 10 = +10%">
-            <Input type="number" step="0.1" min={-100} max={1000} className="text-right" value={f.upliftPct} onChange={(e) => set('upliftPct', e.target.value)} />
+            <NumberInput decimals={2} allowNegative min={-100} max={1000} value={f.upliftPct} onChange={(v) => set('upliftPct', v)} />
           </Field>
         )}
         {!copyFrom && (

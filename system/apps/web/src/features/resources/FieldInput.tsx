@@ -1,4 +1,4 @@
-import { AsyncSelect, DatePicker, Input, LookupSelect, Select, Switch, Textarea } from '@/components/ui';
+import { AsyncSelect, DatePicker, Input, LookupSelect, NumberInput, Select, Switch, Textarea } from '@/components/ui';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useLookups, type LookupMap } from '@/hooks/useLookups';
@@ -6,6 +6,9 @@ import type { FieldDef } from './types';
 
 /** kept for existing imports: lookup lists (cached) for the given categories */
 export { useLookups };
+
+/** integer fields that are positions, years or digit counts rather than quantities */
+const UNGROUPED = /(sortOrder|order|year|padding|decimals|digits|nextNumber)$/i;
 
 const toInputDate = (v: unknown) => (v ? String(v).slice(0, 10) : '');
 const localParts = (v: unknown) => {
@@ -34,16 +37,19 @@ export function FieldInput({ field, value, onChange, invalid, disabled, initialL
     case 'money':
     case 'percent':
       return (
-        <Input
+        <NumberInput
           {...common}
-          type="number"
-          inputMode="decimal"
-          step={field.type === 'integer' ? 1 : field.type === 'money' ? '0.01' : 'any'}
+          value={value}
+          onChange={onChange}
+          // money: 2 decimals shown, integer: none; percent and plain numbers up to the stored precision
+          decimals={field.type === 'integer' ? 0 : field.type === 'money' ? 2 : field.type === 'percent' ? 2 : 4}
+          fixed={field.type === 'money' ? 2 : undefined}
+          // codes, orders and digit counts read better without thousand separators
+          grouping={!(field.type === 'integer' && UNGROUPED.test(field.name))}
+          allowNegative={field.min === undefined || field.min < 0}
           min={field.min}
           max={field.max}
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value === '' ? '' : e.target.value)}
-          className="text-right tabular-nums"
+          placeholder={field.placeholder}
         />
       );
     case 'date':
