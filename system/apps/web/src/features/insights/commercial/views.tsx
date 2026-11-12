@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { fmtCompact, fmtDate, fmtNumber } from '@/lib/format';
+import { fmtCompact, fmtDate, fmtNumber, getLocale } from '@/lib/format';
 import { useLookupOptions } from '@/hooks/useLookups';
 import { Badge, Button, cn, Icon, toast } from '@/components/ui';
 import type { ResourceMeta, Row } from '@/features/resources/types';
@@ -335,7 +335,7 @@ export function ActivityAgendaView({ rows, open, meta, refresh }: ResourceViewPr
           {r.dueDate && (
             <span className="flex items-center gap-1">
               <Icon name="clock" className="h-3 w-3" />
-              {new Date(r.dueDate).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              {new Date(r.dueDate).toLocaleString(getLocale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
           {(r._labels?.customerId || r._labels?.leadId || r._labels?.opportunityId) && (

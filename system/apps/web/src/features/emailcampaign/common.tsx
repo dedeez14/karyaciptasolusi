@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getLocale } from '@/lib/format';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { api } from '@/lib/api';
@@ -376,7 +377,7 @@ export function AudienceBuilder({ value, onChange, disabled, automatic }: { valu
         <div className="flex items-center gap-2">
           <Icon name="users" className="h-4 w-4 text-brand-600" />
           <p className="text-sm font-semibold text-slate-800">
-            {preview.isFetching && !p ? 'Counting…' : p ? `${p.valid.toLocaleString()} recipient${p.valid === 1 ? '' : 's'}` : '—'}
+            {preview.isFetching && !p ? 'Counting…' : p ? `${p.valid.toLocaleString(getLocale())} recipient${p.valid === 1 ? '' : 's'}` : '—'}
           </p>
           {preview.isFetching && <Spinner className="h-3.5 w-3.5 text-slate-400" />}
         </div>
@@ -384,7 +385,7 @@ export function AudienceBuilder({ value, onChange, disabled, automatic }: { valu
         {p && (
           <>
             <p className="mt-1 text-xs text-slate-500">
-              {p.found.toLocaleString()} found · {p.invalid} without a valid address · {p.duplicates} duplicate{p.duplicates === 1 ? '' : 's'} · {p.suppressed} on the do-not-email list
+              {p.found.toLocaleString(getLocale())} found · {p.invalid} without a valid address · {p.duplicates} duplicate{p.duplicates === 1 ? '' : 's'} · {p.suppressed} on the do-not-email list
             </p>
             {automatic && <p className="mt-1 text-xs text-slate-500">Automatic: contacts that match later are e-mailed as they appear.</p>}
             {p.sample.length > 0 && (

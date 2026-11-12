@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, getLocale } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, Icon, Spinner, toast } from '@/components/ui';
 import { useLookups } from '@/features/resources/FieldInput';
@@ -21,7 +21,7 @@ interface MyAttendance {
   workStartTime?: string;
 }
 
-const hhmm = (v: string | null) => (v ? new Date(v).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '--:--');
+const hhmm = (v: string | null) => (v ? new Date(v).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '--:--');
 const duration = (ms: number) => {
   const m = Math.max(0, Math.floor(ms / 60000));
   return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { download } from '@/lib/download';
-import { fmtBytes, fmtDateTime, fmtNumber } from '@/lib/format';
+import { fmtBytes, fmtDateTime, fmtNumber, getLocale } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { AsyncSelect, Button, cn, confirm, DatePicker, Drawer, Field, Icon, Input, previewFile, Select, Spinner, Textarea, toast, NumberInput } from '@/components/ui';
 import { Avatar, PriorityBadge, todayIso, usePriorities, useTaskStages, type TaskDetail } from './common';
@@ -385,7 +385,7 @@ function TimeLog({ task, ro, onChange }: { task: TaskDetail; ro: boolean; onChan
               <div className="min-w-0 flex-1">
                 <p className="truncate text-slate-800">{l.note || <span className="text-slate-400">No note</span>}</p>
                 <p className="text-xs text-slate-500">
-                  {l.userName} · {new Date(l.date.slice(0, 10) + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {l.userName} · {new Date(l.date.slice(0, 10) + 'T00:00:00').toLocaleDateString(getLocale(), { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
               </div>
               <span className="font-semibold tabular-nums">{fmtNumber(l.hours, 2)} h</span>

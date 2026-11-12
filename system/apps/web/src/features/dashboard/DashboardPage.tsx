@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { fmtCompact, fmtDate, fmtMoney, fmtNumber } from '@/lib/format';
+import { fmtCompact, fmtDate, fmtMoney, fmtNumber, getLocale } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Button, Card, EmptyState, Icon, Spinner, StatCard, StatusBadge, type Tone } from '@/components/ui';
 
@@ -51,7 +51,7 @@ export default function DashboardPage() {
       <section className="relative overflow-hidden rounded-2xl bg-brand-600 p-6 text-white shadow-pop sm:p-8">
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm text-brand-100">{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p className="text-sm text-brand-100">{new Date().toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
             <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
               {greet}, {me?.user.fullName.split(' ')[0]} 👋
             </h1>

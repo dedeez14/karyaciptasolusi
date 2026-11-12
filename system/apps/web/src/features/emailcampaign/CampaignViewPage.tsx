@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
 import { download } from '@/lib/download';
-import { fmtDateTime } from '@/lib/format';
+import { fmtDateTime, getLocale } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, DataTable, DatePicker, Dropdown, EmptyState, Field, Icon, Input, LookupSelect, Modal, Pagination, PageHeader, Spinner, StatCard, toast, type Column } from '@/components/ui';
 import { EmailFrame, InboxBanner, SmtpWarning, StatusBadge, useStatusLookup, type CampaignDetail } from './common';
@@ -279,12 +279,12 @@ export default function CampaignViewPage() {
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
-        <StatCard label="Recipients" value={c.totalCount.toLocaleString()} hint={queued ? `${queued} waiting` : c.automatic ? 'Grows with new contacts' : undefined} icon="users" />
-        <StatCard label="Reached" value={c.sentCount.toLocaleString()} hint={hasSteps ? `${c.sequence.reduce((a, x) => a + x.sent, 0).toLocaleString()} e-mails incl. follow-ups` : undefined} icon="send" tone="green" />
-        <StatCard label="Replied" value={c.replyCount.toLocaleString()} hint={c.sentCount ? `${Math.round((c.replyCount / c.sentCount) * 100)}% of reached` : 'Replies stop the follow-ups'} icon="message-square-reply" tone="violet" />
-        <StatCard label="Failed / bounced" value={c.failedCount.toLocaleString()} icon="mail-x" tone="red" />
-        <StatCard label="Unsubscribed" value={c.unsubscribeCount.toLocaleString()} icon="user-minus" tone="amber" />
-        <StatCard label="Opened" value={c.trackOpens ? c.openCount.toLocaleString() : 'Off'} hint={c.trackOpens && c.sentCount ? `${Math.round((c.openCount / c.sentCount) * 100)}% of sent` : 'Open tracking disabled'} icon="mail-open" tone="violet" />
+        <StatCard label="Recipients" value={c.totalCount.toLocaleString(getLocale())} hint={queued ? `${queued} waiting` : c.automatic ? 'Grows with new contacts' : undefined} icon="users" />
+        <StatCard label="Reached" value={c.sentCount.toLocaleString(getLocale())} hint={hasSteps ? `${c.sequence.reduce((a, x) => a + x.sent, 0).toLocaleString(getLocale())} e-mails incl. follow-ups` : undefined} icon="send" tone="green" />
+        <StatCard label="Replied" value={c.replyCount.toLocaleString(getLocale())} hint={c.sentCount ? `${Math.round((c.replyCount / c.sentCount) * 100)}% of reached` : 'Replies stop the follow-ups'} icon="message-square-reply" tone="violet" />
+        <StatCard label="Failed / bounced" value={c.failedCount.toLocaleString(getLocale())} icon="mail-x" tone="red" />
+        <StatCard label="Unsubscribed" value={c.unsubscribeCount.toLocaleString(getLocale())} icon="user-minus" tone="amber" />
+        <StatCard label="Opened" value={c.trackOpens ? c.openCount.toLocaleString(getLocale()) : 'Off'} hint={c.trackOpens && c.sentCount ? `${Math.round((c.openCount / c.sentCount) * 100)}% of sent` : 'Open tracking disabled'} icon="mail-open" tone="violet" />
       </div>
 
       {c.totalCount > 0 && (
@@ -292,7 +292,7 @@ export default function CampaignViewPage() {
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium text-slate-700">Progress</span>
             <span className="tabular-nums text-slate-500">
-              {done.toLocaleString()} / {c.totalCount.toLocaleString()} processed · {pct}%
+              {done.toLocaleString(getLocale())} / {c.totalCount.toLocaleString(getLocale())} processed · {pct}%
             </span>
           </div>
           <div className="h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -321,11 +321,11 @@ export default function CampaignViewPage() {
                   </div>
                   <div className="flex items-center gap-4 text-sm tabular-nums">
                     <span>
-                      <span className="font-semibold text-slate-800">{st.sent.toLocaleString()}</span> <span className="text-slate-500">sent</span>
+                      <span className="font-semibold text-slate-800">{st.sent.toLocaleString(getLocale())}</span> <span className="text-slate-500">sent</span>
                     </span>
                     {i > 0 && (
                       <span>
-                        <span className="font-semibold text-slate-800">{st.waiting.toLocaleString()}</span> <span className="text-slate-500">waiting</span>
+                        <span className="font-semibold text-slate-800">{st.waiting.toLocaleString(getLocale())}</span> <span className="text-slate-500">waiting</span>
                       </span>
                     )}
                     <Button size="sm" variant="ghost" icon="eye" aria-label={`Preview ${i === 0 ? 'first e-mail' : `follow-up ${i}`}`} onClick={() => openPreview(undefined, st.step)} />
@@ -339,7 +339,7 @@ export default function CampaignViewPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card
           title="Recipients"
           bodyClass="p-0"

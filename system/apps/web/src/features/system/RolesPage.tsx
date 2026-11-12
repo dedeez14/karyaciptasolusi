@@ -55,7 +55,7 @@ export default function RolesPage() {
           )
         }
       />
-      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr] [&>*]:min-w-0">
         <Card bodyClass="p-2" className={cn(!showList && 'hidden lg:block')}>
           {roles.isLoading ? (
             <Spinner className="m-4" />

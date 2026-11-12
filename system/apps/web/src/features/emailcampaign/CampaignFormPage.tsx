@@ -197,7 +197,7 @@ export default function CampaignFormPage() {
         <InboxBanner inbox={defaults.data?.inbox} followUps={f.steps.length > 0} />
         {locked && <p className="rounded-xl border border-line bg-slate-50 px-4 py-3 text-sm text-slate-600">This campaign is {existing.data?.statusCode.toLowerCase()} and can no longer be edited.</p>}
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-4">
             <Card title="Details">
               <div className="grid gap-4 sm:grid-cols-2">

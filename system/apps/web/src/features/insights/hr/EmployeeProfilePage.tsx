@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { fmtDate, fmtDateTime, fmtMoney } from '@/lib/format';
+import { fmtDate, fmtDateTime, fmtMoney, getLocale } from '@/lib/format';
 import { useLookupOptions } from '@/hooks/useLookups';
 import { Badge, Button, Card, cn, Icon, previewFile, StatusBadge, toast } from '@/components/ui';
 import type { Row } from '@/features/resources/types';
@@ -203,7 +203,7 @@ function Body({ r, id }: { r: Row; id: string }) {
           actions={
             <div className="flex items-center gap-1">
               <Button size="icon" variant="ghost" icon="chevron-left" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))} />
-              <span className="w-24 text-center text-sm font-medium">{new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
+              <span className="w-24 text-center text-sm font-medium">{new Date(`${month}-01T00:00:00`).toLocaleDateString(getLocale(), { month: 'short', year: 'numeric' })}</span>
               <Button size="icon" variant="ghost" icon="chevron-right" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))} />
             </div>
           }

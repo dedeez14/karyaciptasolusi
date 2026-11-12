@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
-import { fmtDateTime } from '@/lib/format';
+import { fmtDateTime, humanize } from '@/lib/format';
 import { Badge, Card, DataTable, Modal, Pagination, PageHeader, type Column, type Tone } from '@/components/ui';
 import { LogFilters, type LogFilterValue } from './LogFilters';
 
@@ -37,7 +37,7 @@ export default function AuditPage() {
   const columns: Column<AuditRow>[] = [
     { key: 'createdAt', header: 'Time', render: (r) => <span className="whitespace-nowrap">{fmtDateTime(r.createdAt)}</span> },
     { key: 'username', header: 'User', render: (r) => r.username ?? <span className="text-slate-400">system</span> },
-    { key: 'action', header: 'Action', render: (r) => <Badge tone={ACTION_TONE[r.action] ?? 'gray'}>{r.action}</Badge> },
+    { key: 'action', header: 'Action', render: (r) => <Badge tone={ACTION_TONE[r.action] ?? 'gray'}>{humanize(r.action)}</Badge> },
     { key: 'entity', header: 'Entity' },
     { key: 'entityId', header: 'Record', render: (r) => <span className="font-mono text-xs text-slate-500">{r.entityId?.slice(0, 8) ?? ''}</span> },
     {

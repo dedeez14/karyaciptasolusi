@@ -1,9 +1,9 @@
 import { themeColor } from '@/lib/theme';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { fmtCompact, fmtMoney } from '@/lib/format';
+import { fmtCompact, fmtMoney, getLocale } from '@/lib/format';
 
 export default function TrendChart({ data }: { data: { month: string; sales: number; purchases: number }[] }) {
-  const rows = data.map((d) => ({ ...d, label: new Date(d.month + '-01').toLocaleDateString(undefined, { month: 'short', year: '2-digit' }) }));
+  const rows = data.map((d) => ({ ...d, label: new Date(d.month + '-01').toLocaleDateString(getLocale(), { month: 'short', year: '2-digit' }) }));
   return (
     <div className="h-72">
       <ResponsiveContainer width="100%" height="100%">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { fmtMoney, isoDate } from '@/lib/format';
+import { fmtMoney, isoDate, getLocale } from '@/lib/format';
 import { useLookupOptions } from '@/hooks/useLookups';
 import { AsyncSelect, Badge, Button, DatePicker, Drawer, Field, Icon, Input, LookupSelect, Modal, Spinner, Textarea, toast, NumberInput } from '@/components/ui';
 
@@ -79,7 +79,7 @@ export const prevPeriod = () => {
   return isoDate(d).slice(0, 7);
 };
 export const fmtPeriod = (p: string) =>
-  new Date(`${p}-01T00:00:00`).toLocaleDateString(undefined, {
+  new Date(`${p}-01T00:00:00`).toLocaleDateString(getLocale(), {
     month: 'short',
     year: 'numeric',
   });

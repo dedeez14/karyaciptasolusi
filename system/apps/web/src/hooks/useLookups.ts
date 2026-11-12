@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { humanize } from '@/lib/format';
 import { api } from '@/lib/api';
 
 export interface LookupOption {
@@ -22,5 +23,5 @@ export function useLookupOptions(category: string): LookupOption[] {
 /** label for a code of a category (falls back to the code) */
 export function useLookupLabel(category: string) {
   const opts = useLookupOptions(category);
-  return (code: string | null | undefined) => (code ? opts.find((o) => o.value === code)?.label ?? code : '');
+  return (code: string | null | undefined) => (code ? opts.find((o) => o.value === code)?.label ?? humanize(code) : '');
 }

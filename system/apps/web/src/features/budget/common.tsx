@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getLocale } from '@/lib/format';
 import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type Paged } from '@/lib/api';
@@ -53,7 +54,7 @@ export interface BudgetDetail {
   }[];
 }
 
-export const MONTHS = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString(undefined, { month: 'short' }));
+export const MONTHS = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString(getLocale(), { month: 'short' }));
 
 export function BudgetStatus({ code }: { code: string }) {
   const o = useLookupOptions('BUDGET_STATUS').find((x) => x.value === code);

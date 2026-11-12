@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { getLocale } from '@/lib/format';
 import { Link } from 'react-router';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
@@ -56,10 +57,10 @@ const mondayOf = (d = new Date()) => {
   return isoOf(t);
 };
 const shift = (iso: string, days: number) => isoOf(new Date(new Date(`${iso}T00:00:00Z`).getTime() + days * DAY));
-const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', timeZone: 'UTC' });
-const dayNum = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
-const rangeLabel = (a: string, b: string) => `${dayNum(a)} – ${new Date(`${b}T00:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`;
-const h = (n: number) => (n ? (Math.round(n * 100) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '');
+const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(getLocale(), { weekday: 'short', timeZone: 'UTC' });
+const dayNum = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(getLocale(), { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const rangeLabel = (a: string, b: string) => `${dayNum(a)} – ${new Date(`${b}T00:00:00Z`).toLocaleDateString(getLocale(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`;
+const h = (n: number) => (n ? (Math.round(n * 100) / 100).toLocaleString(getLocale(), { maximumFractionDigits: 2 }) : '');
 
 /** "1.5", "1,5", "1:30", "90m" -> hours */
 function parseHours(v: string): number | null {

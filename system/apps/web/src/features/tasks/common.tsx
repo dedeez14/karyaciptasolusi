@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { getLocale } from '@/lib/format';
 import { api } from '@/lib/api';
 import { cn } from '@/components/ui';
 import { useLookups } from '@/features/resources/FieldInput';
@@ -103,7 +104,7 @@ export function DueLabel({ task }: { task: Pick<TaskRow, 'dueDate' | 'completedA
   const d = new Date(task.dueDate.slice(0, 10) + 'T00:00:00');
   return (
     <span className={cn('inline-flex items-center gap-1 text-[11px] font-medium', overdue ? 'text-red-600' : today ? 'text-amber-600' : 'text-slate-500')}>
-      {d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+      {d.toLocaleDateString(getLocale(), { day: 'numeric', month: 'short' })}
       {overdue ? ' · overdue' : today ? ' · today' : ''}
     </span>
   );

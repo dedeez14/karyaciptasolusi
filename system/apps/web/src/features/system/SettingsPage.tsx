@@ -230,7 +230,7 @@ export default function SettingsPage() {
       {settings.isLoading ? (
         <Spinner />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[13rem_1fr]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[13rem_1fr] [&>*]:min-w-0">
           <aside className="space-y-3">
             <div className="relative">
               <Icon

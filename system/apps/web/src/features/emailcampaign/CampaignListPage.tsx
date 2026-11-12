@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
-import { fmtDateTime, plural } from '@/lib/format';
+import { fmtDateTime, plural, getLocale } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, DataTable, EmptyState, Field, Icon, Input, LookupSelect, Modal, Pagination, PageHeader, StatCard, Tabs, Textarea, toast, type Column } from '@/components/ui';
@@ -105,8 +105,8 @@ function Campaigns() {
       align: 'right',
       render: (r) => (
         <div className="text-right text-sm tabular-nums">
-          <span className="font-medium">{r.sentCount.toLocaleString()}</span>
-          <span className="text-slate-400"> / {r.totalCount.toLocaleString()}</span>
+          <span className="font-medium">{r.sentCount.toLocaleString(getLocale())}</span>
+          <span className="text-slate-400"> / {r.totalCount.toLocaleString(getLocale())}</span>
           {(r.replyCount > 0 || r.failedCount > 0 || r.unsubscribeCount > 0) && (
             <span className="block text-xs text-slate-500">
               {[r.replyCount ? `${r.replyCount} replied` : '', r.failedCount ? `${r.failedCount} failed` : '', r.unsubscribeCount ? `${r.unsubscribeCount} unsubscribed` : ''].filter(Boolean).join(' · ')}

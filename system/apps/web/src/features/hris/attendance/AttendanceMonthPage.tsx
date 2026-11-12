@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ComponentType } from 'react';
+import { getLocale } from '@/lib/format';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { download } from '@/lib/download';
@@ -69,7 +70,7 @@ const shiftMonth = (m: string, by: number) => {
 };
 const monthLabel = (m: string) => {
   const [y, mo] = m.split('-').map(Number);
-  return new Date(y, mo - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  return new Date(y, mo - 1, 1).toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
 };
 
 /** Short, readable code per status (initials of its name), unique within the list */
@@ -257,7 +258,7 @@ function MonthSheet() {
                       const missing = !c?.status && d.workday && !d.future && !outside;
                       const editable = canEdit && !outside;
                       const title = [
-                        `${e.fullName} - ${new Date(d.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}`,
+                        `${e.fullName} - ${new Date(d.date).toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}`,
                         d.holiday,
                         c?.status ? name.get(c.status) : missing ? 'No record' : null,
                         c?.leaveType ? `${c.leaveType} (approved leave request)` : null,
@@ -426,7 +427,7 @@ function CellEditor({
         <div className="shrink-0 border-b border-line px-4 py-3">
           <p className="truncate text-sm font-semibold text-slate-900">{emp.fullName}</p>
           <p className="text-xs text-slate-500">
-            {new Date(day.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {new Date(day.date).toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             {day.holiday && <span className="text-rose-600"> · {day.holiday}</span>}
           </p>
           {cell?.source === 'leave' && (

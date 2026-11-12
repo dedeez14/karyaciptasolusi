@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { fmtDateTime } from '@/lib/format';
+import { fmtDateTime, getLocale } from '@/lib/format';
 import { Badge, Button, Card, Field, Icon, Input, PageHeader, Select, Spinner, Tabs, Textarea, toast } from '@/components/ui';
 
 interface Overview {
@@ -171,7 +171,7 @@ export default function SecurityCenterPage() {
           </Card>
           <Card title="Audit trail integrity">
             <Row label="Method" value={o.audit.algorithm} />
-            <Row label="Entries" value={o.audit.entries.toLocaleString()} />
+            <Row label="Entries" value={o.audit.entries.toLocaleString(getLocale())} />
           </Card>
           <Card title="Steganography">
             <Row label="Method" value={o.steganography.method} />
@@ -191,7 +191,7 @@ export default function SecurityCenterPage() {
                   {chain.valid ? 'The audit trail is intact' : 'Tampering detected'}
                 </p>
                 <p className="mt-1">
-                  {chain.checked.toLocaleString()} entries verified
+                  {chain.checked.toLocaleString(getLocale())} entries verified
                   {chain.legacy ? `, ${chain.legacy} legacy entries without a chain` : ''}.
                 </p>
                 {!chain.valid && (

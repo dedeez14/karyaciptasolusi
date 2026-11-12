@@ -1,5 +1,7 @@
 let locale = 'id-ID';
 export const setLocale = (l: string) => (locale = l || 'id-ID');
+/** the company's number / date locale (Settings > General), for Intl calls outside these helpers */
+export const getLocale = () => locale;
 
 export const fmtMoney = (v: unknown, dp = 2) => {
   const n = Number(v ?? 0);
@@ -57,3 +59,11 @@ export const fmtByType = (v: unknown, type?: string) => {
 
 /** '1 record', '3 records' (pass the plural when it is irregular: plural(1, 'person', 'people')) */
 export const plural = (n: number, one: string, many = `${one}s`) => `${Number(n).toLocaleString()} ${Number(n) === 1 ? one : many}`;
+
+/** "EXPENSE_PAYMENT" -> "Expense payment" (codes that have no label of their own) */
+export const humanize = (code: string | null | undefined) => {
+  if (!code) return '';
+  if (!/^[A-Z0-9_]+$/.test(code) || !code.includes('_')) return code.length > 3 && /^[A-Z]+$/.test(code) ? code.charAt(0) + code.slice(1).toLowerCase() : code;
+  const s = code.toLowerCase().replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};

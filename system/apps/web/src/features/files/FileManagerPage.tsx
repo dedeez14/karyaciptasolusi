@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
 import { download } from '@/lib/download';
-import { fmtBytes, fmtDate, fmtDateTime } from '@/lib/format';
+import { fmtBytes, fmtDate, fmtDateTime, getLocale } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { useLookups } from '@/features/resources/FieldInput';
 import { Badge, Button, Card, cn, type Column, confirm, DataTable, DatePicker, Dropdown, EmptyState, Icon, Input, LookupSelect, PageHeader, Pagination, Select, Spinner, toast } from '@/components/ui';
@@ -176,6 +176,7 @@ export default function FileManagerPage() {
       key: 'name',
       header: 'Name',
       sortable: true,
+      className: 'max-w-72',
       render: (f) => (
         <span className="flex min-w-0 items-center gap-2">
           <Icon name={TYPE_META[f.fileType]?.icon ?? 'file'} className="h-4 w-4 shrink-0" />
@@ -378,7 +379,7 @@ export default function FileManagerPage() {
           </>
         }
       />
-      <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[240px_1fr] [&>*]:min-w-0">
         <aside className="hidden lg:block">
           <Card bodyClass="p-3">{sidebar}</Card>
         </aside>
@@ -539,7 +540,7 @@ function groupLabel(by: string, key: string, catLabel: (c: string) => string, fo
   if (by === 'source') return sourceLabel(key);
   if (by === 'category') return catLabel(key);
   if (by === 'folder') return folders.find((f) => f.id === key)?.name ?? key;
-  if (by === 'month') return new Date(`${key}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  if (by === 'month') return new Date(`${key}-01T00:00:00`).toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
   return key;
 }
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, getLocale } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Badge, Button, cn, confirm, Icon, StatusBadge, toast } from '@/components/ui';
 import type { ResourceViewProps } from '@/features/resources/views/types';
@@ -75,7 +75,7 @@ export function LeaveCalendarView({ open }: ResourceViewProps) {
     }
   };
 
-  const label = new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const label = new Date(`${month}-01T00:00:00`).toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
 
   return (
     <div>

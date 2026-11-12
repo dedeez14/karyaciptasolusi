@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { getLocale } from '@/lib/format';
 import { createPortal } from 'react-dom';
 import { cn } from './primitives';
 import { Icon } from './Icon';
@@ -44,7 +45,7 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', inval
   const maxD = parse(max);
   const today = new Date();
 
-  const label = selected ? selected.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  const label = selected ? selected.toLocaleDateString(getLocale(), { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 
   useEffect(() => {
     if (!open) return;
@@ -182,7 +183,7 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', inval
                 className="rounded-lg px-2 py-1 text-sm font-semibold text-slate-900 hover:bg-slate-100"
                 onClick={() => setMode(mode === 'days' ? 'months' : mode === 'months' ? 'years' : 'days')}
               >
-                {mode === 'years' ? `${yearStart} – ${yearStart + 11}` : mode === 'months' ? view.getFullYear() : view.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                {mode === 'years' ? `${yearStart} – ${yearStart + 11}` : mode === 'months' ? view.getFullYear() : view.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' })}
                 <Icon name="chevron-down" className="ml-1 inline h-3.5 w-3.5 text-slate-400" />
               </button>
               <div className="flex gap-1">
@@ -261,7 +262,7 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', inval
                     }}
                     className={cn('rounded-lg py-2.5 text-sm hover:bg-slate-100', selected && selected.getMonth() === m && selected.getFullYear() === view.getFullYear() && 'bg-brand-600 font-semibold text-white hover:bg-brand-600')}
                   >
-                    {new Date(2000, m, 1).toLocaleDateString(undefined, { month: 'short' })}
+                    {new Date(2000, m, 1).toLocaleDateString(getLocale(), { month: 'short' })}
                   </button>
                 ))}
               </div>
