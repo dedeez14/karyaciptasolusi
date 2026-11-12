@@ -5,6 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { faIcons } from './scripts/fa-icons.mjs';
 
 /**
  * Keeps the hashed bundles of previous builds (14 days) in node_modules/.cache/kcs-web-assets.
@@ -69,6 +70,8 @@ export default defineConfig({
   // the company website's postcss.config.js in the repository root.
   css: { postcss: {} },
   plugins: [
+    // Font Awesome Pro icon sprite from the licensed kit on this machine (not committed: Pro license)
+    faIcons(),
     keepPreviousAssets(),
     pdfjsStandardFonts(),
     react(),

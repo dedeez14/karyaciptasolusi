@@ -107,7 +107,7 @@ function NavItem({ node, depth, collapsed, open, toggle, onNavigate, activeCode 
       {depth > 0 && active && <span className="absolute top-1.5 bottom-1.5 -left-[13.5px] w-[3px] rounded-full bg-accent-400" />}
       {depth === 0 && (
         <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', active ? 'bg-accent-400 text-brand-950 shadow-sm' : 'bg-white/8 text-white/70')}>
-          <Icon name={node.icon} className="h-4 w-4" />
+          <Icon name={node.icon} className="h-4 w-4" solid={active} />
         </span>
       )}
       {!collapsed && <span className="truncate">{node.label}</span>}

@@ -92,7 +92,7 @@ export function BottomNav({ onMenu }: { onMenu: () => void }) {
           {({ isActive }) => (
             <>
               {mark(isActive)}
-              <Icon name="house" className="h-5 w-5" />
+              <Icon name="house" className="h-5 w-5" solid={isActive} />
               <span className="truncate">Home</span>
             </>
           )}
@@ -102,7 +102,7 @@ export function BottomNav({ onMenu }: { onMenu: () => void }) {
           return (
             <NavLink key={n.code} to={n.path!} aria-current={on ? 'page' : undefined} className={cn(tab, 'relative', on ? 'text-brand-700' : 'text-slate-500')}>
               {mark(on)}
-              <Icon name={n.icon ?? 'circle'} className="h-5 w-5" />
+              <Icon name={n.icon ?? 'circle'} className="h-5 w-5" solid={on} />
               <span className="max-w-full truncate">{SHORT[n.code] ?? n.label}</span>
             </NavLink>
           );

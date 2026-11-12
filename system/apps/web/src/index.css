@@ -63,6 +63,14 @@
   ::selection {
     @apply bg-brand-100 text-brand-900;
   }
+  /* Font Awesome Pro icons: their artwork fills the whole box, so they are drawn a little smaller to sit at the
+     same optical size as text and the other icons; never squeezed in flex rows */
+  .fa-icon {
+    display: inline-block;
+    flex-shrink: 0;
+    overflow: visible;
+    transform: scale(0.86);
+  }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-brand-500;
   }
