@@ -11,6 +11,7 @@ import { JournalService, PostingLine } from '../accounting/journal.service';
 import { InventoryService } from '../documents/inventory.service';
 import { LotService } from '../documents/lot.service';
 import { QualityService } from '../quality/quality.service';
+import { DocumentService } from '../documents/document.service';
 
 const n = (v: unknown) => Number(v ?? 0);
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -45,7 +46,19 @@ export const bomSchema = z
       .min(1, 'Add at least one component')
       .max(200),
     operations: z
-      .array(z.object({ seq: z.coerce.number().int().min(1).max(999), name: z.string().trim().min(1).max(120), workCenterId: z.uuid(), setupMinutes: z.coerce.number().min(0).max(1e6).default(0), runMinutes: z.coerce.number().min(0).max(1e6).default(0), instructions: optText(1000) }))
+      .array(
+        z.object({
+          seq: z.coerce.number().int().min(1).max(999),
+          name: z.string().trim().min(1).max(120),
+          kind: z.enum(['INTERNAL', 'SUBCONTRACT']).default('INTERNAL'),
+          workCenterId: optUuid,
+          supplierId: optUuid,
+          servicePrice: z.coerce.number().min(0).max(1e12).default(0),
+          setupMinutes: z.coerce.number().min(0).max(1e6).default(0),
+          runMinutes: z.coerce.number().min(0).max(1e6).default(0),
+          instructions: optText(1000),
+        }),
+      )
       .max(100)
       .default([]),
     outputs: z
@@ -60,6 +73,10 @@ export const bomSchema = z
     } else b.lines.forEach((l, i) => !(l.qty > 0) && ctx.addIssue({ code: 'custom', path: ['lines', i, 'qty'], message: 'Enter the quantity per batch' }));
     const share = b.outputs.filter((o) => o.kind === 'CO').reduce((a, o) => a + o.costSharePct, 0);
     if (share >= 100) ctx.addIssue({ code: 'custom', path: ['outputs'], message: 'Co-product shares must leave a share for the main product' });
+    b.operations.forEach((o, i) => {
+      if (o.kind === 'INTERNAL' && !o.workCenterId) ctx.addIssue({ code: 'custom', path: ['operations', i, 'workCenterId'], message: 'Choose the work centre' });
+      if (o.kind === 'SUBCONTRACT' && !o.supplierId) ctx.addIssue({ code: 'custom', path: ['operations', i, 'supplierId'], message: 'Choose the subcontractor' });
+    });
     const seqs = b.operations.map((o) => o.seq);
     if (new Set(seqs).size !== seqs.length) ctx.addIssue({ code: 'custom', path: ['operations'], message: 'Each step needs its own number' });
     b.lines.forEach((l, i) => l.operationSeq && !seqs.includes(l.operationSeq) && ctx.addIssue({ code: 'custom', path: ['lines', i, 'operationSeq'], message: 'No such step in the routing' }));
@@ -117,6 +134,7 @@ export class ManufacturingService {
     private readonly inventory: InventoryService,
     private readonly lots: LotService,
     private readonly quality: QualityService,
+    private readonly documents: DocumentService,
   ) {}
 
   // ------------------------------------------------------------------ bills of materials
@@ -138,13 +156,14 @@ export class ManufacturingService {
       this.prisma.bomOutput.findMany({ where: { bomId: id } }),
     ]);
     const products = new Map((await this.prisma.product.findMany({ where: { id: { in: [b.productId, ...lines.map((l) => l.productId), ...outputs.map((o) => o.productId)] } }, select: { id: true, code: true, name: true, uom: { select: { code: true } } } })).map((p) => [p.id, p]));
-    const centres = new Map((await this.prisma.workCenter.findMany({ where: { id: { in: operations.map((o) => o.workCenterId) } }, select: { id: true, code: true, name: true } })).map((c) => [c.id, c]));
+    const centres = new Map((await this.prisma.workCenter.findMany({ where: { id: { in: operations.map((o) => o.workCenterId!).filter(Boolean) } }, select: { id: true, code: true, name: true } })).map((c) => [c.id, c]));
+    const suppliers = new Map((await this.prisma.supplier.findMany({ where: { id: { in: operations.map((o) => o.supplierId!).filter(Boolean) } }, select: { id: true, code: true, name: true } })).map((c) => [c.id, c]));
     const subBoms = new Set((await this.prisma.bom.findMany({ where: { companyId: b.companyId, productId: { in: lines.map((l) => l.productId) }, isActive: true, deletedAt: null }, select: { productId: true } })).map((x) => x.productId));
     return {
       ...b,
       product: products.get(b.productId) ?? null,
       lines: lines.map((l) => ({ ...l, product: products.get(l.productId) ?? null, hasBom: subBoms.has(l.productId) })),
-      operations: operations.map((o) => ({ ...o, workCenter: centres.get(o.workCenterId) ?? null })),
+      operations: operations.map((o) => ({ ...o, workCenter: o.workCenterId ? centres.get(o.workCenterId) ?? null : null, supplier: o.supplierId ? suppliers.get(o.supplierId) ?? null : null })),
       outputs: outputs.map((o) => ({ ...o, product: products.get(o.productId) ?? null })),
       estimate: await this.estimate(id),
     };
@@ -179,9 +198,10 @@ export class ManufacturingService {
       }
       material += n(l.qty) * (1 + n(l.scrapPct) / 100) * unit;
     }
-    const centres = new Map((await this.prisma.workCenter.findMany({ where: { id: { in: b.operations.map((o) => o.workCenterId) } } })).map((c) => [c.id, c]));
+    const centres = new Map((await this.prisma.workCenter.findMany({ where: { id: { in: b.operations.map((o) => o.workCenterId!).filter(Boolean) } } })).map((c) => [c.id, c]));
     const conversion = b.operations.reduce((a, o) => {
-      const c = centres.get(o.workCenterId);
+      if (o.kind === 'SUBCONTRACT') return a + n(o.servicePrice) * n(b.outputQty);
+      const c = o.workCenterId ? centres.get(o.workCenterId) : null;
       if (!c) return a;
       return a + ((n(o.setupMinutes) + n(o.runMinutes) * n(b.outputQty)) / 60) * (n(c.labourRate) + n(c.machineRate) + n(c.overheadRate));
     }, 0);
@@ -232,8 +252,10 @@ export class ManufacturingService {
       if (!p || p.type !== 'STOCK') throw err(`outputs.${i}.productId`, 'Co- / by-products must be stock products');
       if (o.productId === input.productId) throw err(`outputs.${i}.productId`, 'That is the main product');
     });
-    const centres = await this.prisma.workCenter.count({ where: { id: { in: input.operations.map((o) => o.workCenterId) }, companyId: u.companyId, deletedAt: null } });
-    if (centres !== new Set(input.operations.map((o) => o.workCenterId)).size) throw err('operations', 'A work centre was not found');
+    const wcIds = [...new Set(input.operations.filter((o) => o.kind === 'INTERNAL').map((o) => o.workCenterId!))];
+    if ((await this.prisma.workCenter.count({ where: { id: { in: wcIds }, companyId: u.companyId, deletedAt: null } })) !== wcIds.length) throw err('operations', 'A work centre was not found');
+    const supIds = [...new Set(input.operations.filter((o) => o.kind === 'SUBCONTRACT').map((o) => o.supplierId!))];
+    if ((await this.prisma.supplier.count({ where: { id: { in: supIds }, companyId: u.companyId, deletedAt: null } })) !== supIds.length) throw err('operations', 'A subcontractor was not found');
     await this.assertNoCycle(u.companyId, input.productId, input.lines.map((l) => l.productId));
     // formula: percentages of the batch become quantities
     const lines = input.lines.map((l) => (input.kind === 'FORMULA' ? { ...l, qty: ((l.pct ?? 0) / 100) * input.outputQty } : { ...l, pct: null }));
@@ -267,7 +289,7 @@ export class ManufacturingService {
       }
       if (input.isDefault) await tx.bom.updateMany({ where: { companyId: u.companyId, productId: input.productId, id: { not: bom.id } }, data: { isDefault: false } });
       await tx.bomLine.createMany({ data: lines.map((l, i) => ({ bomId: bom.id, lineNo: i + 1, productId: l.productId, qty: D(l.qty).toDecimalPlaces(4), pct: l.pct === null || l.pct === undefined ? null : D(l.pct), scrapPct: D(l.scrapPct), phantom: l.phantom, operationSeq: l.operationSeq ?? null, notes: l.notes ?? null })) });
-      if (input.operations.length) await tx.bomOperation.createMany({ data: input.operations.map((o) => ({ bomId: bom.id, seq: o.seq, name: o.name, workCenterId: o.workCenterId, setupMinutes: D(o.setupMinutes), runMinutes: D(o.runMinutes), instructions: o.instructions ?? null })) });
+      if (input.operations.length) await tx.bomOperation.createMany({ data: input.operations.map((o) => ({ bomId: bom.id, seq: o.seq, name: o.name, kind: o.kind, workCenterId: o.kind === 'INTERNAL' ? o.workCenterId! : null, supplierId: o.kind === 'SUBCONTRACT' ? o.supplierId! : null, servicePrice: D(o.kind === 'SUBCONTRACT' ? o.servicePrice : 0), setupMinutes: D(o.setupMinutes), runMinutes: D(o.runMinutes), instructions: o.instructions ?? null })) });
       if (input.outputs.length) await tx.bomOutput.createMany({ data: input.outputs.map((o) => ({ bomId: bom.id, productId: o.productId, kind: o.kind, qty: D(o.qty), costSharePct: D(o.kind === 'CO' ? o.costSharePct : 0), nrvPerUnit: D(o.kind === 'BY' ? o.nrvPerUnit : 0) })) });
       return bom;
     });
@@ -308,7 +330,7 @@ export class ManufacturingService {
       this.prisma.stockBalance.findMany({ where: { warehouseId: w.warehouseId, productId: { in: w.lines.map((l) => l.productId) } } }),
       this.prisma.warehouse.findMany({ where: { id: { in: [w.warehouseId, w.outputWarehouseId] } }, select: { id: true, name: true } }),
       this.prisma.bom.findUnique({ where: { id: w.bomId }, select: { code: true, name: true, outputQty: true, normalScrapPct: true, kind: true } }),
-      this.prisma.workCenter.findMany({ where: { id: { in: w.operations.map((o) => o.workCenterId) } }, select: { id: true, code: true, name: true } }),
+      this.prisma.workCenter.findMany({ where: { id: { in: w.operations.map((o) => o.workCenterId!).filter(Boolean) } }, select: { id: true, code: true, name: true } }),
       this.prisma.workOrder.findMany({ where: { parentId: w.id, deletedAt: null }, select: { id: true, number: true, status: true, qty: true, productId: true } }),
       w.parentId ? this.prisma.workOrder.findUnique({ where: { id: w.parentId }, select: { id: true, number: true } }) : null,
     ]);
@@ -320,7 +342,8 @@ export class ManufacturingService {
     const lots = w.status === 'DONE' ? await this.lots.ofDocument(this.prisma as never, w.id) : {};
     // standard: planned materials at average cost + planned minutes at the rates
     const stdMaterial = w.lines.reduce((a, l) => a + n(l.plannedQty) * n(bm.get(l.productId)?.avgCost), 0);
-    const stdConversion = w.operations.reduce((a, o) => a + n(o.plannedMinutes) * n(perMinute(o)), 0) + n(w.labourCost) + n(w.overheadCost);
+    const stdConversion = w.operations.reduce((a, o) => a + (o.kind === 'SUBCONTRACT' ? n(o.servicePrice) * n(w.qty) : n(o.plannedMinutes) * n(perMinute(o))), 0) + n(w.labourCost) + n(w.overheadCost);
+    const suppliers = new Map((await this.prisma.supplier.findMany({ where: { id: { in: w.operations.map((o) => o.supplierId!).filter(Boolean) } }, select: { id: true, name: true } })).map((x) => [x.id, x.name]));
     return {
       ...w,
       product: pm.get(w.productId) ?? null,
@@ -335,7 +358,7 @@ export class ManufacturingService {
         const avg = n(bm.get(l.productId)?.avgCost);
         return { ...l, product: pm.get(l.productId) ?? null, available, shortage: Math.max(0, n(l.plannedQty) - n(l.issuedQty) - available), estCost: Math.round(n(l.plannedQty) * avg), hasBom: subBoms.has(l.productId) };
       }),
-      operations: w.operations.map((o) => ({ ...o, workCenter: cm.get(o.workCenterId) ?? null })),
+      operations: w.operations.map((o) => ({ ...o, workCenter: o.workCenterId ? cm.get(o.workCenterId) ?? null : null, supplierName: o.supplierId ? suppliers.get(o.supplierId) ?? null : null })),
       outputs: w.outputs.map((o) => ({ ...o, product: pm.get(o.productId) ?? null })),
       costs: {
         standardMaterial: Math.round(stdMaterial),
@@ -379,7 +402,7 @@ export class ManufacturingService {
     if (input.parentId && !(await this.prisma.workOrder.count({ where: { id: input.parentId, companyId: u.companyId } }))) throw new BadRequestException('Parent work order not found');
     const factor = D(input.qty).div(D(bom.outputQty));
     const [ops, outputs] = await Promise.all([this.prisma.bomOperation.findMany({ where: { bomId: bom.id }, orderBy: { seq: 'asc' } }), this.prisma.bomOutput.findMany({ where: { bomId: bom.id } })]);
-    const centres = new Map((await this.prisma.workCenter.findMany({ where: { id: { in: ops.map((o) => o.workCenterId) } } })).map((c) => [c.id, c]));
+    const centres = new Map((await this.prisma.workCenter.findMany({ where: { id: { in: ops.map((o) => o.workCenterId!).filter(Boolean) } } })).map((c) => [c.id, c]));
     return this.prisma.$transaction(async (tx) => {
       const parts = await this.explode(tx, u.companyId, bom.id, factor, null);
       const w = await tx.workOrder.create({
@@ -404,8 +427,10 @@ export class ManufacturingService {
           lines: { create: parts.map((p, i) => ({ lineNo: i + 1, productId: p.productId, plannedQty: p.qty.toDecimalPlaces(4), consumedQty: ZERO, operationSeq: p.operationSeq })) },
           operations: {
             create: ops.map((o) => {
-              const c = centres.get(o.workCenterId)!;
-              return { seq: o.seq, name: o.name, workCenterId: o.workCenterId, plannedMinutes: D(o.setupMinutes).plus(D(o.runMinutes).times(input.qty)).toDecimalPlaces(2), labourRate: c.labourRate, machineRate: c.machineRate, overheadRate: c.overheadRate };
+              const base = { seq: o.seq, name: o.name, kind: o.kind, plannedMinutes: D(o.setupMinutes).plus(D(o.runMinutes).times(input.qty)).toDecimalPlaces(2) };
+              if (o.kind === 'SUBCONTRACT') return { ...base, workCenterId: null, supplierId: o.supplierId, servicePrice: o.servicePrice };
+              const c = centres.get(o.workCenterId!)!;
+              return { ...base, workCenterId: o.workCenterId, labourRate: c.labourRate, machineRate: c.machineRate, overheadRate: c.overheadRate };
             }),
           },
           outputs: { create: outputs.map((o) => ({ productId: o.productId, kind: o.kind, plannedQty: D(o.qty).times(factor).toDecimalPlaces(4), costSharePct: o.costSharePct, nrvPerUnit: o.nrvPerUnit })) },
@@ -536,8 +561,8 @@ export class ManufacturingService {
           }
           if (!w.startedAt) await tx.workOrder.update({ where: { id: w.id }, data: { startedAt: now } });
         }
-        const r = await tx.workOrderOperation.update({ where: { id: opId }, data: { status: 'RUNNING', runningSince: now, startedAt: op.startedAt ?? now, operatorId: u.id } });
-        await this.audit.record('Work Order', op.workOrderId, 'STEP_START', undefined, { step: op.seq, name: op.name }, tx);
+        const r = await tx.workOrderOperation.update({ where: { id: opId }, data: { status: 'RUNNING', runningSince: now, startedAt: op.startedAt ?? now, operatorId: u.id, ...(op.kind === 'SUBCONTRACT' && !op.sentAt ? { sentAt: now } : {}) } });
+        await this.audit.record('Work Order', op.workOrderId, op.kind === 'SUBCONTRACT' ? 'MAKLON_SENT' : 'STEP_START', undefined, { step: op.seq, name: op.name }, tx);
         return r;
       },
       { timeout: 60_000 },
@@ -581,11 +606,75 @@ export class ManufacturingService {
       if (op.status === 'DONE') throw new ConflictException('This step is already finished');
       const running = op.status === 'RUNNING' && op.runningSince ? (Date.now() - op.runningSince.getTime()) / 60000 : 0;
       const minutes = input.minutes !== undefined ? D(input.minutes) : D(op.actualMinutes).plus(running);
-      await this.applyConversion(tx, op, minutes, op.workOrder, new Date());
+      if (op.kind === 'SUBCONTRACT') await this.applySubcontract(tx, op, D(input.goodQty), op.workOrder, new Date());
+      else {
+        await this.applyConversion(tx, op, minutes, op.workOrder, new Date());
+        await this.addMachineHours(tx, op.workCenterId, minutes);
+      }
       const r = await tx.workOrderOperation.update({ where: { id: opId }, data: { status: 'DONE', runningSince: null, finishedAt: new Date(), startedAt: op.startedAt ?? new Date(), goodQty: D(input.goodQty), scrapQty: D(input.scrapQty), operatorId: op.operatorId ?? u.id, notes: input.notes ?? op.notes } });
       await this.audit.record('Work Order', op.workOrderId, 'STEP_DONE', undefined, { step: op.seq, minutes: minutes.toFixed(1), good: input.goodQty, scrap: input.scrapQty }, tx);
       return r;
+    }).then(async (r) => {
+      await this.draftSubcontractInvoices(r.workOrderId);
+      return r;
     });
+  }
+
+  /** maklon received back: fee x good units into work in process, Dr WIP / Cr subcontract services not invoiced yet */
+  private async applySubcontract(tx: Tx, op: { id: string; seq: number; name: string; appliedCost: Prisma.Decimal; servicePrice: Prisma.Decimal }, qty: Prisma.Decimal, w: { id: string; companyId: string; branchId: string | null; number: string }, date: Date) {
+    const total = round(qty.times(op.servicePrice));
+    const delta = total.minus(op.appliedCost);
+    if (!delta.isZero()) {
+      await this.journal.post(tx, {
+        companyId: w.companyId,
+        branchId: w.branchId,
+        date,
+        description: `${w.number}: maklon step ${op.seq} ${op.name}`,
+        reference: w.number,
+        sourceType: 'WO',
+        sourceId: w.id,
+        lines: delta.gt(0) ? [{ key: 'WIP', debit: delta }, { key: 'SUBCON_ACCRUED', credit: delta }] : [{ key: 'SUBCON_ACCRUED', debit: delta.abs() }, { key: 'WIP', credit: delta.abs() }],
+      });
+      await tx.workOrder.update({ where: { id: w.id }, data: { wipConversion: { increment: delta } } });
+    }
+    await tx.workOrderOperation.update({ where: { id: op.id }, data: { appliedCost: total, receivedAt: new Date() } });
+  }
+
+  /** machine-hour counters of the equipment of a work centre (counter-based preventive maintenance) */
+  private async addMachineHours(tx: Tx, workCenterId: string | null, minutes: Prisma.Decimal) {
+    if (!workCenterId || minutes.lte(0)) return;
+    await tx.equipment.updateMany({ where: { workCenterId, counterUnit: 'HOURS', deletedAt: null, status: { not: 'RETIRED' } }, data: { counter: { increment: minutes.div(60).toDecimalPlaces(2) } } });
+  }
+
+  /** the subcontract service product whose expense account is the "received not invoiced" account (clears it on the invoice) */
+  private async subcontractProduct(companyId: string) {
+    const existing = await this.prisma.product.findFirst({ where: { companyId, code: 'MAKLON', deletedAt: null } });
+    if (existing) return existing;
+    const acc = await this.prisma.accountMapping.findFirst({ where: { companyId, key: 'SUBCON_ACCRUED' } });
+    return this.prisma.product.create({ data: { companyId, code: 'MAKLON', name: 'Subcontracting service (maklon)', type: 'SERVICE', isSellable: false, isPurchasable: true, expenseAccountId: acc?.accountId ?? null, description: 'Toll manufacturing fee. PPh 23 2% is withheld on the fee when paying (PMK 141/2015); materials we supplied are not part of it.' } });
+  }
+
+  /** a draft purchase invoice per received maklon step (fee x good units, PPN 12% DPP 11/12): review and confirm it */
+  private async draftSubcontractInvoices(workOrderId: string) {
+    const ops = await this.prisma.workOrderOperation.findMany({ where: { workOrderId, kind: 'SUBCONTRACT', status: 'DONE', invoiceId: null, supplierId: { not: null } }, include: { workOrder: true } });
+    for (const op of ops) {
+      if (D(op.appliedCost).lte(0)) continue;
+      const product = await this.subcontractProduct(op.workOrder.companyId);
+      const ppn = await this.prisma.tax.findFirst({ where: { companyId: op.workOrder.companyId, code: 'PPN12', isActive: true } });
+      const doc = await this.documents.create(
+        'PI',
+        {
+          date: new Date(new Date().toISOString().slice(0, 10)),
+          supplierId: op.supplierId,
+          reference: op.workOrder.number,
+          notes: `Maklon ${op.name} for work order ${op.workOrder.number}. Withhold PPh 23 2% on the fee when paying.`,
+          lines: [{ productId: product.id, description: `${op.name} - ${op.workOrder.number}`, qty: Number(op.goodQty), unitPrice: Number(op.servicePrice), taxId: ppn?.id ?? null }],
+        },
+        undefined,
+        { skipPermission: true },
+      );
+      await this.prisma.workOrderOperation.update({ where: { id: op.id }, data: { invoiceId: (doc as { id: string }).id } });
+    }
   }
 
   /** open steps for the shop floor (released orders), optionally of one work centre */
@@ -593,7 +682,7 @@ export class ManufacturingService {
     RequestCtx.assert('manufacturing.order.report');
     const companyId = RequestCtx.companyId();
     const ops = await this.prisma.workOrderOperation.findMany({
-      where: { status: { not: 'DONE' }, ...(workCenterId && UUID.test(workCenterId) ? { workCenterId } : {}), workOrder: { companyId, status: 'RELEASED', deletedAt: null } },
+      where: { status: { not: 'DONE' }, kind: 'INTERNAL', ...(workCenterId && UUID.test(workCenterId) ? { workCenterId } : {}), workOrder: { companyId, status: 'RELEASED', deletedAt: null } },
       include: { workOrder: { select: { id: true, number: true, productId: true, qty: true, plannedDate: true, operations: { select: { seq: true, status: true } } } } },
       orderBy: [{ workOrder: { plannedDate: 'asc' } }, { seq: 'asc' }],
       take: 300,
@@ -610,7 +699,7 @@ export class ManufacturingService {
         plannedMinutes: n(o.plannedMinutes),
         actualMinutes: n(o.actualMinutes),
         runningSince: o.runningSince,
-        workCenter: centres.get(o.workCenterId)?.name ?? '-',
+        workCenter: (o.workCenterId && centres.get(o.workCenterId)?.name) || '-',
         workCenterId: o.workCenterId,
         order: { id: o.workOrder.id, number: o.workOrder.number, qty: n(o.workOrder.qty), plannedDate: o.workOrder.plannedDate },
         product: products.get(o.workOrder.productId)?.name ?? '',
@@ -631,7 +720,7 @@ export class ManufacturingService {
     RequestCtx.assert('manufacturing.order.confirm');
     const u = RequestCtx.user();
     const allowNegative = await this.allowNegative(u.companyId);
-    return this.prisma.$transaction(
+    const done = await this.prisma.$transaction(
       async (tx) => {
         await tx.$queryRaw`SELECT id FROM work_orders WHERE id = ${id}::uuid FOR UPDATE`;
         let w = await this.ownOrder(id, tx);
@@ -648,7 +737,11 @@ export class ManufacturingService {
         for (const op of w.operations.filter((o) => o.status !== 'DONE')) {
           const running = op.status === 'RUNNING' && op.runningSince ? (Date.now() - op.runningSince.getTime()) / 60000 : 0;
           const minutes = D(op.actualMinutes).plus(running).gt(0) ? D(op.actualMinutes).plus(running) : D(op.plannedMinutes);
-          await this.applyConversion(tx, op, minutes, w, input.date);
+          if (op.kind === 'SUBCONTRACT') await this.applySubcontract(tx, op, D(input.producedQty), w, input.date);
+          else {
+            await this.applyConversion(tx, op, minutes, w, input.date);
+            await this.addMachineHours(tx, op.workCenterId, minutes);
+          }
           await tx.workOrderOperation.update({ where: { id: op.id }, data: { status: 'DONE', runningSince: null, finishedAt: new Date(), startedAt: op.startedAt ?? new Date(), goodQty: D(input.producedQty) } });
         }
         // 3. flat conversion cost of a BOM without routing
@@ -748,6 +841,9 @@ export class ManufacturingService {
       },
       { timeout: 120_000 },
     );
+    // maklon steps applied at completion get their supplier invoice drafted too
+    await this.draftSubcontractInvoices(id);
+    return done;
   }
 
   /** cancels a work order: stock movements (materials, products), lots and every journal of it are reversed */
@@ -766,6 +862,51 @@ export class ManufacturingService {
       await this.audit.record('Work Order', id, 'CANCEL', { status: w.status }, { status: 'CANCELLED' }, tx);
       return { ok: true };
     });
+  }
+
+  /** maklon jobs: materials at the subcontractor, goods back, supplier invoices (also the data of the delivery note) */
+  async subcontracting(status?: string) {
+    RequestCtx.assert('manufacturing.order.read');
+    const companyId = RequestCtx.companyId();
+    const ops = await this.prisma.workOrderOperation.findMany({
+      where: { kind: 'SUBCONTRACT', workOrder: { companyId, deletedAt: null, status: { not: 'CANCELLED' } }, ...(status === 'OPEN' ? { status: { not: 'DONE' } } : status === 'DONE' ? { status: 'DONE' } : {}) },
+      include: { workOrder: { include: { lines: true, operations: { select: { seq: true } } } } },
+      orderBy: [{ status: 'asc' }, { workOrder: { plannedDate: 'asc' } }],
+      take: 300,
+    });
+    const ids = [...new Set(ops.flatMap((o) => [o.workOrder.productId, ...o.workOrder.lines.map((l) => l.productId)]))];
+    const [products, suppliers, invoices, company] = await Promise.all([
+      this.prisma.product.findMany({ where: { id: { in: ids } }, select: { id: true, code: true, name: true, uom: { select: { code: true } } } }),
+      this.prisma.supplier.findMany({ where: { id: { in: ops.map((o) => o.supplierId!).filter(Boolean) } }, select: { id: true, name: true, address: true, city: true, phone: true } }),
+      this.prisma.tradeDocument.findMany({ where: { id: { in: ops.map((o) => o.invoiceId!).filter(Boolean) } }, select: { id: true, number: true, status: true } }),
+      this.prisma.company.findUnique({ where: { id: companyId }, select: { name: true, legalName: true, address: true, city: true, phone: true } }),
+    ]);
+    const pm = new Map(products.map((p) => [p.id, p]));
+    const sm = new Map(suppliers.map((p) => [p.id, p]));
+    const im = new Map(invoices.map((p) => [p.id, p]));
+    return {
+      company,
+      jobs: ops.map((o) => {
+        const first = Math.min(...o.workOrder.operations.map((x) => x.seq));
+        const lines = o.workOrder.lines.filter((l) => l.operationSeq === o.seq || (l.operationSeq === null && o.seq === first));
+        return {
+          id: o.id,
+          seq: o.seq,
+          name: o.name,
+          status: o.status,
+          servicePrice: n(o.servicePrice),
+          fee: n(o.appliedCost),
+          goodQty: n(o.goodQty),
+          scrapQty: n(o.scrapQty),
+          sentAt: o.sentAt,
+          receivedAt: o.receivedAt,
+          supplier: o.supplierId ? sm.get(o.supplierId) ?? null : null,
+          invoice: o.invoiceId ? im.get(o.invoiceId) ?? null : null,
+          order: { id: o.workOrder.id, number: o.workOrder.number, qty: n(o.workOrder.qty), plannedDate: o.workOrder.plannedDate, status: o.workOrder.status, product: pm.get(o.workOrder.productId) ?? null },
+          materials: lines.map((l) => ({ name: pm.get(l.productId)?.name ?? '', code: pm.get(l.productId)?.code ?? '', uom: pm.get(l.productId)?.uom?.code ?? '', planned: n(l.plannedQty), sent: n(l.issuedQty) })),
+        };
+      }),
+    };
   }
 
   // ------------------------------------------------------------------ capacity

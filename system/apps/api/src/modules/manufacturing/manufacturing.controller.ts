@@ -109,6 +109,11 @@ export class ManufacturingController {
     return this.mfg.finishOperation(id, body);
   }
 
+  @Get('subcontracting')
+  subcontracting(@Query('status') status?: string) {
+    return this.mfg.subcontracting(status);
+  }
+
   @Get('capacity')
   capacity(@Query('month') month?: string) {
     return this.mfg.capacity(month ?? '');

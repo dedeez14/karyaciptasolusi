@@ -3188,11 +3188,16 @@ model BomOperation {
   bomId        String  @db.Uuid
   seq          Int
   name         String  @db.VarChar(120)
-  workCenterId String  @db.Uuid
+  workCenterId String? @db.Uuid
   /// minutes per batch to set up, and per finished unit to run
   setupMinutes Decimal @default(0) @db.Decimal(18, 2)
   runMinutes   Decimal @default(0) @db.Decimal(18, 4)
   instructions String? @db.VarChar(1000)
+  /// INTERNAL (own work centre) | SUBCONTRACT (maklon: done by a supplier, paid per unit)
+  kind         String  @default("INTERNAL") @db.VarChar(12)
+  supplierId   String? @db.Uuid
+  /// service fee per finished unit (excl. PPN)
+  servicePrice Decimal @default(0) @db.Decimal(18, 2)
 
   bom Bom @relation(fields: [bomId], references: [id], onDelete: Cascade)
 
@@ -3224,7 +3229,7 @@ model WorkOrderOperation {
   workOrderId    String    @db.Uuid
   seq            Int
   name           String    @db.VarChar(120)
-  workCenterId   String    @db.Uuid
+  workCenterId   String?   @db.Uuid
   plannedMinutes Decimal   @default(0) @db.Decimal(18, 2)
   actualMinutes  Decimal   @default(0) @db.Decimal(18, 2)
   goodQty        Decimal   @default(0) @db.Decimal(18, 4)
@@ -3243,6 +3248,13 @@ model WorkOrderOperation {
   /// conversion cost already applied to work in process
   appliedCost    Decimal   @default(0) @db.Decimal(18, 2)
   notes          String?   @db.VarChar(500)
+  /// maklon: subcontractor, fee per unit, materials sent / goods back, the supplier invoice drafted for the fee
+  kind           String    @default("INTERNAL") @db.VarChar(12)
+  supplierId     String?   @db.Uuid
+  servicePrice   Decimal   @default(0) @db.Decimal(18, 2)
+  sentAt         DateTime?
+  receivedAt     DateTime?
+  invoiceId      String?   @db.Uuid
 
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
@@ -3396,4 +3408,132 @@ model QcNcr {
   @@unique([companyId, number])
   @@index([companyId, status])
   @@map("qc_ncrs")
+}
+
+/// Machine, mould, tool, vehicle or other equipment that is maintained (and may be inspected under K3 rules)
+model Equipment {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  code             String    @db.VarChar(30)
+  name             String    @db.VarChar(150)
+  /// MACHINE | MOULD | TOOL | VEHICLE | PRESSURE (boiler / pressure vessel) | LIFTING | ELECTRICAL | OTHER
+  kind             String    @default("MACHINE") @db.VarChar(12)
+  workCenterId     String?   @db.Uuid
+  fixedAssetId     String?   @db.Uuid
+  manufacturer     String?   @db.VarChar(100)
+  model            String?   @db.VarChar(100)
+  serialNo         String?   @db.VarChar(100)
+  location         String?   @db.VarChar(150)
+  /// RUNNING | DOWN | RETIRED
+  status           String    @default("RUNNING") @db.VarChar(10)
+  /// usage counter for counter-based maintenance: HOURS | SHOTS | KM | CYCLES
+  counterUnit      String    @default("HOURS") @db.VarChar(10)
+  counter          Decimal   @default(0) @db.Decimal(18, 2)
+  /// K3 periodic inspection (riksa uji, Permenaker 38/2016 / 37/2016): certificate and its expiry
+  inspectionCertNo String?   @db.VarChar(100)
+  inspectionExpiry DateTime? @db.Date
+  notes            String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+  deletedAt        DateTime?
+
+  @@unique([companyId, code])
+  @@map("equipment")
+}
+
+/// Preventive maintenance plan of an equipment: every N days and / or every N counter units
+model MaintenancePlan {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  equipmentId     String    @db.Uuid
+  name            String    @db.VarChar(150)
+  intervalDays    Int       @default(0)
+  intervalCounter Decimal   @default(0) @db.Decimal(18, 2)
+  /// order created this many days before it is due
+  leadDays        Int       @default(3)
+  checklist       String?
+  estimatedMinutes Int      @default(0)
+  lastDoneAt      DateTime? @db.Date
+  lastCounter     Decimal   @default(0) @db.Decimal(18, 2)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([companyId, equipmentId])
+  @@map("maintenance_plans")
+}
+
+/// Maintenance work: preventive, breakdown repair or inspection; parts used leave stock to the maintenance expense
+model MaintenanceOrder {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  number          String    @db.VarChar(40)
+  equipmentId     String    @db.Uuid
+  planId          String?   @db.Uuid
+  /// PREVENTIVE | BREAKDOWN | INSPECTION
+  type            String    @db.VarChar(12)
+  /// OPEN | IN_PROGRESS | DONE | CANCELLED
+  status          String    @default("OPEN") @db.VarChar(12)
+  priority        String    @default("NORMAL") @db.VarChar(8)
+  description     String
+  dueDate         DateTime? @db.Date
+  reportedAt      DateTime  @default(now())
+  startedAt       DateTime?
+  doneAt          DateTime?
+  /// equipment stopped (breakdown) from reportedAt until done
+  stopsEquipment  Boolean   @default(false)
+  downtimeMinutes Decimal   @default(0) @db.Decimal(18, 2)
+  workDone        String?
+  technician      String?   @db.VarChar(120)
+  labourHours     Decimal   @default(0) @db.Decimal(18, 2)
+  labourCost      Decimal   @default(0) @db.Decimal(18, 2)
+  partsCost       Decimal   @default(0) @db.Decimal(18, 2)
+  counterAtDone   Decimal?  @db.Decimal(18, 2)
+  warehouseId     String?   @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   @db.Uuid
+
+  parts MaintenancePart[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@index([equipmentId])
+  @@map("maintenance_orders")
+}
+
+model MaintenancePart {
+  id        String  @id @default(uuid()) @db.Uuid
+  orderId   String  @db.Uuid
+  productId String  @db.Uuid
+  qty       Decimal @db.Decimal(18, 4)
+  unitCost  Decimal @default(0) @db.Decimal(18, 4)
+
+  order MaintenanceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("maintenance_parts")
+}
+
+/// Stop of a work centre / equipment, for availability and OEE
+model DowntimeEvent {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  workCenterId String?   @db.Uuid
+  equipmentId  String?   @db.Uuid
+  startAt      DateTime
+  endAt        DateTime?
+  minutes      Decimal   @default(0) @db.Decimal(18, 2)
+  /// BREAKDOWN | SETUP | NO_MATERIAL | NO_OPERATOR | QUALITY | POWER | PLANNED (planned stops do not lower availability)
+  reason       String    @db.VarChar(15)
+  planned      Boolean   @default(false)
+  maintenanceOrderId String? @db.Uuid
+  notes        String?   @db.VarChar(500)
+  createdAt    DateTime  @default(now())
+  createdById  String?   @db.Uuid
+
+  @@index([companyId, startAt])
+  @@map("downtime_events")
 }

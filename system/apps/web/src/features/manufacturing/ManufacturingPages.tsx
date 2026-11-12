@@ -36,7 +36,7 @@ interface BomRow {
   outputCount?: number;
   estimate: Estimate | null;
   lines?: { id: string; productId: string; qty: string; pct: string | null; scrapPct: string; phantom: boolean; operationSeq: number | null; notes: string | null; product: Prod; hasBom: boolean }[];
-  operations?: { id: string; seq: number; name: string; workCenterId: string; setupMinutes: string; runMinutes: string; instructions: string | null; workCenter: { code: string; name: string } | null }[];
+  operations?: { id: string; seq: number; name: string; kind?: 'INTERNAL' | 'SUBCONTRACT'; workCenterId: string | null; supplierId?: string | null; servicePrice?: string; setupMinutes: string; runMinutes: string; instructions: string | null; workCenter: { code: string; name: string } | null }[];
   outputs?: { id: string; productId: string; kind: 'CO' | 'BY'; qty: string; costSharePct: string; nrvPerUnit: string; product: Prod }[];
 }
 interface OrderLine {
@@ -65,6 +65,12 @@ interface Operation {
   runningSince: string | null;
   appliedCost: string;
   workCenter: { code: string; name: string } | null;
+  kind?: 'INTERNAL' | 'SUBCONTRACT';
+  supplierName?: string | null;
+  servicePrice?: string;
+  sentAt?: string | null;
+  receivedAt?: string | null;
+  invoiceId?: string | null;
 }
 interface Order {
   id: string;
@@ -167,11 +173,11 @@ export function BomListPage() {
 }
 
 type EditLine = { key: string; productId: string | null; qty: string; pct: string; scrapPct: string; phantom: boolean; operationSeq: string; notes: string };
-type EditOp = { key: string; seq: string; name: string; workCenterId: string | null; setupMinutes: string; runMinutes: string; instructions: string };
+type EditOp = { key: string; seq: string; name: string; kind: 'INTERNAL' | 'SUBCONTRACT'; workCenterId: string | null; supplierId: string | null; servicePrice: string; setupMinutes: string; runMinutes: string; instructions: string };
 type EditOut = { key: string; productId: string | null; kind: 'CO' | 'BY'; qty: string; costSharePct: string; nrvPerUnit: string };
 let k = 0;
 const blank = (): EditLine => ({ key: `l${++k}`, productId: null, qty: '1', pct: '', scrapPct: '0', phantom: false, operationSeq: '', notes: '' });
-const blankOp = (seq: number): EditOp => ({ key: `o${++k}`, seq: String(seq), name: '', workCenterId: null, setupMinutes: '0', runMinutes: '0', instructions: '' });
+const blankOp = (seq: number): EditOp => ({ key: `o${++k}`, seq: String(seq), name: '', kind: 'INTERNAL', workCenterId: null, supplierId: null, servicePrice: '0', setupMinutes: '0', runMinutes: '0', instructions: '' });
 const blankOut = (): EditOut => ({ key: `x${++k}`, productId: null, kind: 'BY', qty: '1', costSharePct: '0', nrvPerUnit: '0' });
 
 export function BomEditPage() {
@@ -191,7 +197,7 @@ export function BomEditPage() {
     if (!b) return;
     setF({ code: b.code, name: b.name, productId: b.productId, kind: b.kind, outputQty: String(Number(b.outputQty)), normalScrapPct: String(Number(b.normalScrapPct)), labourCost: String(Number(b.labourCost)), overheadCost: String(Number(b.overheadCost)), isDefault: b.isDefault, isActive: b.isActive, notes: b.notes ?? '' });
     setLines((b.lines ?? []).map((l) => ({ key: l.id, productId: l.productId, qty: String(Number(l.qty)), pct: l.pct === null ? '' : String(Number(l.pct)), scrapPct: String(Number(l.scrapPct)), phantom: l.phantom, operationSeq: l.operationSeq ? String(l.operationSeq) : '', notes: l.notes ?? '' })));
-    setOps((b.operations ?? []).map((o) => ({ key: o.id, seq: String(o.seq), name: o.name, workCenterId: o.workCenterId, setupMinutes: String(Number(o.setupMinutes)), runMinutes: String(Number(o.runMinutes)), instructions: o.instructions ?? '' })));
+    setOps((b.operations ?? []).map((o) => ({ key: o.id, seq: String(o.seq), name: o.name, kind: o.kind ?? 'INTERNAL', workCenterId: o.workCenterId, supplierId: o.supplierId ?? null, servicePrice: String(Number(o.servicePrice ?? 0)), setupMinutes: String(Number(o.setupMinutes)), runMinutes: String(Number(o.runMinutes)), instructions: o.instructions ?? '' })));
     setOuts((b.outputs ?? []).map((o) => ({ key: o.id, productId: o.productId, kind: o.kind, qty: String(Number(o.qty)), costSharePct: String(Number(o.costSharePct)), nrvPerUnit: String(Number(o.nrvPerUnit)) })));
   }, [q.data]);
   const formula = f.kind === 'FORMULA';
@@ -206,7 +212,7 @@ export function BomEditPage() {
         labourCost: Number(f.labourCost) || 0,
         overheadCost: Number(f.overheadCost) || 0,
         lines: lines.filter((l) => l.productId).map((l) => ({ productId: l.productId, qty: formula ? 0 : Number(l.qty), pct: formula ? Number(l.pct) || 0 : null, scrapPct: Number(l.scrapPct) || 0, phantom: l.phantom, operationSeq: l.operationSeq ? Number(l.operationSeq) : null, notes: l.notes })),
-        operations: ops.filter((o) => o.workCenterId && o.name.trim()).map((o) => ({ seq: Number(o.seq), name: o.name, workCenterId: o.workCenterId, setupMinutes: Number(o.setupMinutes) || 0, runMinutes: Number(o.runMinutes) || 0, instructions: o.instructions })),
+        operations: ops.filter((o) => (o.kind === 'SUBCONTRACT' ? o.supplierId : o.workCenterId) && o.name.trim()).map((o) => ({ seq: Number(o.seq), name: o.name, kind: o.kind, workCenterId: o.kind === 'INTERNAL' ? o.workCenterId : null, supplierId: o.kind === 'SUBCONTRACT' ? o.supplierId : null, servicePrice: Number(o.servicePrice) || 0, setupMinutes: Number(o.setupMinutes) || 0, runMinutes: Number(o.runMinutes) || 0, instructions: o.instructions })),
         outputs: outs.filter((o) => o.productId).map((o) => ({ productId: o.productId, kind: o.kind, qty: Number(o.qty), costSharePct: Number(o.costSharePct) || 0, nrvPerUnit: Number(o.nrvPerUnit) || 0 })),
       };
       return isNew ? api.post<{ id: string }>('/manufacturing/boms', body) : api.patch<{ id: string }>(`/manufacturing/boms/${id}`, body);
@@ -385,15 +391,42 @@ export function BomEditPage() {
                 <Field label={i === 0 ? 'Name' : undefined}>
                   <Input value={o.name} maxLength={120} onChange={(e) => setOp(o.key, { name: e.target.value })} placeholder="Mixing, cutting, assembly..." />
                 </Field>
-                <Field label={i === 0 ? 'Work centre' : undefined}>
-                  <AsyncSelect resource="work-centers" value={o.workCenterId} onChange={(v) => setOp(o.key, { workCenterId: v })} manageHref="/r/work-centers" manageLabel="Manage work centres" aria-label={`Work centre ${i + 1}`} />
+                <Field label={i === 0 ? 'Done by' : undefined}>
+                  <div className="flex gap-1">
+                    <Select
+                      value={o.kind}
+                      onChange={(e) => setOp(o.key, { kind: e.target.value as EditOp['kind'] })}
+                      options={[
+                        { value: 'INTERNAL', label: 'In house' },
+                        { value: 'SUBCONTRACT', label: 'Maklon' },
+                      ]}
+                      className="w-32 shrink-0"
+                      aria-label={`Done by ${i + 1}`}
+                    />
+                    {o.kind === 'INTERNAL' ? (
+                      <AsyncSelect resource="work-centers" value={o.workCenterId} onChange={(v) => setOp(o.key, { workCenterId: v })} manageHref="/r/work-centers" manageLabel="Manage work centres" aria-label={`Work centre ${i + 1}`} />
+                    ) : (
+                      <AsyncSelect resource="suppliers" value={o.supplierId} onChange={(v) => setOp(o.key, { supplierId: v })} placeholder="Subcontractor" aria-label={`Subcontractor ${i + 1}`} />
+                    )}
+                  </div>
                 </Field>
-                <Field label={i === 0 ? 'Set-up min' : undefined}>
-                  <NumberInput decimals={2} min={0} value={o.setupMinutes} onChange={(v) => setOp(o.key, { setupMinutes: v })} aria-label={`Set-up ${i + 1}`} />
-                </Field>
-                <Field label={i === 0 ? 'Min / unit' : undefined}>
-                  <NumberInput decimals={4} min={0} value={o.runMinutes} onChange={(v) => setOp(o.key, { runMinutes: v })} aria-label={`Run ${i + 1}`} />
-                </Field>
+                {o.kind === 'INTERNAL' ? (
+                  <>
+                    <Field label={i === 0 ? 'Set-up min' : undefined}>
+                      <NumberInput decimals={2} min={0} value={o.setupMinutes} onChange={(v) => setOp(o.key, { setupMinutes: v })} aria-label={`Set-up ${i + 1}`} />
+                    </Field>
+                    <Field label={i === 0 ? 'Min / unit' : undefined}>
+                      <NumberInput decimals={4} min={0} value={o.runMinutes} onChange={(v) => setOp(o.key, { runMinutes: v })} aria-label={`Run ${i + 1}`} />
+                    </Field>
+                  </>
+                ) : (
+                  <>
+                    <Field label={i === 0 ? 'Fee / unit' : undefined} help={i === 0 ? 'Excl. PPN; PPh 23 2% withheld when paying' : undefined}>
+                      <NumberInput fixed={2} min={0} value={o.servicePrice} onChange={(v) => setOp(o.key, { servicePrice: v })} aria-label={`Fee ${i + 1}`} />
+                    </Field>
+                    <span />
+                  </>
+                )}
                 <Button variant="ghost" size="icon" icon="trash-2" onClick={() => setOps((xs) => xs.filter((x) => x.key !== o.key))} aria-label="Remove step" />
               </li>
             ))}
@@ -689,15 +722,36 @@ export function WorkOrderPage() {
                     </span>{' '}
                     <Badge tone={OP_STATUS[op.status].tone}>{OP_STATUS[op.status].label}</Badge>
                   </td>
-                  <td className="px-3 py-2 text-slate-600">{op.workCenter?.name}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{mins(Number(op.plannedMinutes))}</td>
-                  <td className={cn('px-3 py-2 text-right tabular-nums', Number(op.actualMinutes) > Number(op.plannedMinutes) * 1.1 && 'text-amber-700')}>{op.status === 'PENDING' ? '-' : mins(Number(op.actualMinutes))}</td>
+                  <td className="px-3 py-2 text-slate-600">
+                    {op.kind === 'SUBCONTRACT' ? (
+                      <span>
+                        <Badge tone="violet">Maklon</Badge> {op.supplierName}
+                        <span className="block text-xs text-slate-500">
+                          {fmtMoney(op.servicePrice ?? 0, 0)} / unit{op.invoiceId ? ' · invoice drafted' : ''}
+                        </span>
+                      </span>
+                    ) : (
+                      op.workCenter?.name
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">{op.kind === 'SUBCONTRACT' ? '-' : mins(Number(op.plannedMinutes))}</td>
+                  <td className={cn('px-3 py-2 text-right tabular-nums', Number(op.actualMinutes) > Number(op.plannedMinutes) * 1.1 && 'text-amber-700')}>{op.kind === 'SUBCONTRACT' ? (op.sentAt ? `sent ${fmtDate(op.sentAt)}` : '-') : op.status === 'PENDING' ? '-' : mins(Number(op.actualMinutes))}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{op.status === 'DONE' ? `${fmtNumber(op.goodQty)} / ${fmtNumber(op.scrapQty)}` : '-'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(op.appliedCost, 0)}</td>
                   <td className="px-4 py-2 text-right">
                     {o.status === 'RELEASED' && op.status !== 'DONE' && can('manufacturing.order.report') && (
                       <div className="flex justify-end gap-1">
-                        {op.status !== 'RUNNING' ? (
+                        {op.kind === 'SUBCONTRACT' ? (
+                          op.status === 'PENDING' ? (
+                            <Button size="sm" variant="outline" icon="truck" onClick={() => act(`operations/${op.id}/start`, `Materials sent to ${op.supplierName}`)}>
+                              Send
+                            </Button>
+                          ) : (
+                            <Link to="/manufacturing/subcontracting" className="self-center text-xs text-brand-700 hover:underline">
+                              Delivery note
+                            </Link>
+                          )
+                        ) : op.status !== 'RUNNING' ? (
                           <Button size="sm" variant="outline" icon="play" onClick={() => act(`operations/${op.id}/start`, `Step ${op.seq} started`)}>
                             Start
                           </Button>
@@ -707,7 +761,7 @@ export function WorkOrderPage() {
                           </Button>
                         )}
                         <Button size="sm" icon="check" onClick={() => setReporting(op)}>
-                          Finish
+                          {op.kind === 'SUBCONTRACT' ? 'Receive' : 'Finish'}
                         </Button>
                       </div>
                     )}
@@ -859,20 +913,21 @@ export function WorkOrderPage() {
   );
 }
 
-export function StepFinishModal({ op, qty, onClose, onDone }: { op: { id: string; seq: number; name: string; status: string; actualMinutes: string | number; runningSince: string | null; plannedMinutes: string | number }; qty: number; onClose: () => void; onDone: () => void }) {
+export function StepFinishModal({ op, qty, onClose, onDone }: { op: { id: string; seq: number; name: string; status: string; actualMinutes: string | number; runningSince: string | null; plannedMinutes: string | number; kind?: string; supplierName?: string | null; servicePrice?: string | number }; qty: number; onClose: () => void; onDone: () => void }) {
+  const maklon = op.kind === 'SUBCONTRACT';
   const running = op.status === 'RUNNING' && op.runningSince ? (Date.now() - new Date(op.runningSince).getTime()) / 60000 : 0;
   const worked = Number(op.actualMinutes) + running;
   const [f, setF] = useState({ goodQty: String(qty), scrapQty: '0', minutes: worked > 0 ? String(Math.round(worked)) : String(Math.round(Number(op.plannedMinutes))), notes: '' });
-  const save = useMutation({ mutationFn: () => api.post(`/manufacturing/operations/${op.id}/finish`, { goodQty: Number(f.goodQty) || 0, scrapQty: Number(f.scrapQty) || 0, minutes: Number(f.minutes), notes: f.notes }), onSuccess: () => (toast.success(`Step ${op.seq} finished`), onDone()), onError: (e) => toast.error(e) });
+  const save = useMutation({ mutationFn: () => api.post(`/manufacturing/operations/${op.id}/finish`, { goodQty: Number(f.goodQty) || 0, scrapQty: Number(f.scrapQty) || 0, ...(maklon ? {} : { minutes: Number(f.minutes) }), notes: f.notes }), onSuccess: () => (toast.success(maklon ? 'Received; the subcontractor invoice is drafted in Purchase Invoices' : `Step ${op.seq} finished`), onDone()), onError: (e) => toast.error(e) });
   return (
     <Modal
       open
       onClose={onClose}
-      title={`Finish step ${op.seq} · ${op.name}`}
+      title={maklon ? `Receive from ${op.supplierName ?? 'the subcontractor'} · ${op.name}` : `Finish step ${op.seq} · ${op.name}`}
       size="sm"
       footer={
         <Button icon="check" loading={save.isPending} onClick={() => save.mutate()}>
-          Finish step
+          {maklon ? 'Receive' : 'Finish step'}
         </Button>
       }
     >
@@ -883,9 +938,15 @@ export function StepFinishModal({ op, qty, onClose, onDone }: { op: { id: string
         <Field label="Scrap">
           <NumberInput decimals={4} min={0} value={f.scrapQty} onChange={(v) => setF({ ...f, scrapQty: v })} />
         </Field>
-        <Field label="Minutes worked" className="col-span-2" help={`Planned ${mins(Number(op.plannedMinutes))}${worked ? `, timer ${mins(worked)}` : ''}`}>
-          <NumberInput decimals={1} min={0} value={f.minutes} onChange={(v) => setF({ ...f, minutes: v })} />
-        </Field>
+        {maklon ? (
+          <p className="col-span-2 text-xs text-slate-500">
+            Fee {fmtMoney(Number(op.servicePrice ?? 0) * (Number(f.goodQty) || 0), 0)} ({fmtNumber(f.goodQty)} × {fmtMoney(op.servicePrice ?? 0, 0)}) goes into work in process; a draft purchase invoice with PPN is made for the subcontractor. PPh 23 2% is withheld on the fee when you pay it (PMK 141/2015).
+          </p>
+        ) : (
+          <Field label="Minutes worked" className="col-span-2" help={`Planned ${mins(Number(op.plannedMinutes))}${worked ? `, timer ${mins(worked)}` : ''}`}>
+            <NumberInput decimals={1} min={0} value={f.minutes} onChange={(v) => setF({ ...f, minutes: v })} />
+          </Field>
+        )}
         <Field label="Notes" className="col-span-2">
           <Input value={f.notes} maxLength={500} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="Machine stop, quality issue..." />
         </Field>

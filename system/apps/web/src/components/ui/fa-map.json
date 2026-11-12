@@ -335,5 +335,6 @@
  "arrow-right-left": "arrow-right-arrow-left",
  "hard-hat": "helmet-safety",
  "cog": "gear",
- "package-minus": "box-open"
+ "package-minus": "box-open",
+ "wrench": "wrench"
 }
