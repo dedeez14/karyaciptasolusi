@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useSession } from "@/stores/session";
 import {
+  AsyncSelect,
   Badge,
   Button,
   Card,
@@ -13,6 +14,7 @@ import {
   Input,
   LookupSelect,
   PageHeader,
+  Select,
   Spinner,
   Switch,
   Tabs,
@@ -41,6 +43,7 @@ const GROUPS: Record<string, { label: string; icon: string }> = {
   document: { label: "Documents", icon: "file-text" },
   sales: { label: "Sales", icon: "shopping-cart" },
   inventory: { label: "Inventory", icon: "boxes" },
+  pos: { label: "Point of Sale", icon: "store" },
   hris: { label: "HRIS", icon: "id-card" },
   accounting: { label: "Accounting", icon: "calculator" },
   approvals: { label: "Approvals", icon: "stamp" },
@@ -399,7 +402,24 @@ export default function SettingsPage() {
                         </p>
                       </div>
                       <div>
-                        {s.valueType.startsWith("lookup:") ? (
+                        {s.valueType.startsWith("ref:") ? (
+                          <AsyncSelect
+                            resource={s.valueType.slice(4)}
+                            value={values[s.key] || null}
+                            disabled={!editable}
+                            onChange={(v) => change(s.key, v ?? "")}
+                            placeholder="Not set"
+                            aria-label={s.label ?? s.key}
+                          />
+                        ) : s.valueType.startsWith("choice:") ? (
+                          <Select
+                            value={values[s.key] ?? ""}
+                            disabled={!editable}
+                            options={s.valueType.slice(7).split("|").map((o) => ({ value: o, label: o }))}
+                            onChange={(e) => change(s.key, e.target.value)}
+                            aria-label={s.label ?? s.key}
+                          />
+                        ) : s.valueType.startsWith("lookup:") ? (
                           <LookupSelect
                             category={s.valueType.slice(7)}
                             value={values[s.key] ?? ""}

@@ -140,7 +140,13 @@ export class DashboardController {
           aging('SI'),
         ]);
         const overdueAmt = n(overdue._sum.grandTotal) - n(overdue._sum.paidAmount);
-        kpi.push({ key: 'salesMonth', label: 'Sales this month', value: n(month._sum.grandTotal), prev: n(prev._sum.grandTotal), spark: spark('sales'), type: 'money', hint: `${month._count._all} ${month._count._all === 1 ? 'invoice' : 'invoices'}`, link: '/documents/SI', goodWhenUp: true });
+        // invoices plus point-of-sale receipts
+        const [posMonth, posPrev] = await Promise.all([
+          this.prisma.posSale.aggregate({ where: { companyId, status: 'PAID', date: { gte: monthStart } }, _sum: { total: true }, _count: { _all: true } }),
+          this.prisma.posSale.aggregate({ where: { companyId, status: 'PAID', date: { gte: prevStart, lt: prevSameDay } }, _sum: { total: true } }),
+        ]);
+        const posCount = posMonth._count._all;
+        kpi.push({ key: 'salesMonth', label: 'Sales this month', value: n(month._sum.grandTotal) + n(posMonth._sum.total), prev: n(prev._sum.grandTotal) + n(posPrev._sum.total), spark: spark('sales'), type: 'money', hint: `${month._count._all} ${month._count._all === 1 ? 'invoice' : 'invoices'}${posCount ? ` · ${posCount} POS receipts` : ''}`, link: '/documents/SI', goodWhenUp: true });
         kpi.push({ key: 'receivable', label: 'Receivables', value: n(openSi._sum.grandTotal) - n(openSi._sum.paidAmount), type: 'money', hint: overdue._count._all ? `${overdue._count._all} overdue` : 'Nothing overdue', link: '/reports/ar-aging' });
         if (overdue._count._all) attention.push({ key: 'overdueAr', label: 'Customer invoices overdue', count: overdue._count._all, amount: overdueAmt, link: '/reports/ar-aging', icon: 'alarm-clock', tone: 'red' });
         if (drafts) attention.push({ key: 'draftSi', label: 'Draft invoices not yet confirmed', count: drafts, link: '/documents/SI?f.status=DRAFT', icon: 'file-pen', tone: 'blue' });

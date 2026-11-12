@@ -2751,3 +2751,89 @@ model WorkOrderLine {
 
   @@map("work_order_lines")
 }
+
+/// Cashier shift: opening float, sales, counted cash at closing (difference posted as cash over / short)
+model PosSession {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  branchId      String?   @db.Uuid
+  number        String    @db.VarChar(40)
+  warehouseId   String    @db.Uuid
+  /// cash drawer (cash account)
+  cashAccountId String    @db.Uuid
+  openedAt      DateTime  @default(now())
+  openedById    String?   @db.Uuid
+  openingCash   Decimal   @default(0) @db.Decimal(18, 2)
+  closedAt      DateTime?
+  closedById    String?   @db.Uuid
+  expectedCash  Decimal   @default(0) @db.Decimal(18, 2)
+  countedCash   Decimal?  @db.Decimal(18, 2)
+  /// OPEN | CLOSED
+  status        String    @default("OPEN") @db.VarChar(10)
+  notes         String?
+
+  sales PosSale[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@map("pos_sessions")
+}
+
+/// A point-of-sale receipt (struk). For a PKP retailer it is the simplified tax invoice (faktur pajak digunggung)
+model PosSale {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  branchId    String?  @db.Uuid
+  sessionId   String   @db.Uuid
+  number      String   @db.VarChar(40)
+  date        DateTime @db.Date
+  soldAt      DateTime @default(now())
+  customerId  String?  @db.Uuid
+  /// net of VAT and regional tax
+  subtotal    Decimal  @default(0) @db.Decimal(18, 2)
+  discount    Decimal  @default(0) @db.Decimal(18, 2)
+  /// PPN (VAT) included in / added to the prices
+  taxTotal    Decimal  @default(0) @db.Decimal(18, 2)
+  /// PBJT food & beverage (regional tax, UU HKPD) added to the bill
+  localTax    Decimal  @default(0) @db.Decimal(18, 2)
+  total       Decimal  @default(0) @db.Decimal(18, 2)
+  paid        Decimal  @default(0) @db.Decimal(18, 2)
+  change      Decimal  @default(0) @db.Decimal(18, 2)
+  /// [{ method: CASH | QRIS | CARD | TRANSFER, amount, reference }]
+  payments    Json
+  /// PAID | VOID
+  status      String   @default("PAID") @db.VarChar(10)
+  voidReason  String?  @db.VarChar(200)
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  session PosSession    @relation(fields: [sessionId], references: [id])
+  lines   PosSaleLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@index([sessionId])
+  @@map("pos_sales")
+}
+
+model PosSaleLine {
+  id          String  @id @default(uuid()) @db.Uuid
+  saleId      String  @db.Uuid
+  lineNo      Int
+  productId   String  @db.Uuid
+  name        String  @db.VarChar(200)
+  qty         Decimal @db.Decimal(18, 4)
+  /// price shown to the customer (incl. VAT when prices include tax)
+  unitPrice   Decimal @db.Decimal(18, 2)
+  discountPct Decimal @default(0) @db.Decimal(9, 4)
+  taxId       String? @db.Uuid
+  /// net (DPP), VAT and total of the line
+  lineNet     Decimal @default(0) @db.Decimal(18, 2)
+  lineTax     Decimal @default(0) @db.Decimal(18, 2)
+  lineTotal   Decimal @default(0) @db.Decimal(18, 2)
+  unitCost    Decimal @default(0) @db.Decimal(18, 4)
+
+  sale PosSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@map("pos_sale_lines")
+}

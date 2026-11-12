@@ -29,6 +29,9 @@ export function permissionCatalog(): PermissionDef[] {
   for (const d of DOC_TYPES) for (const op of ['read', 'create', 'update', 'delete', 'confirm', 'cancel', 'print']) out.push(make(`${d.permission}.${op}`, `${op} ${d.label}`));
   for (const r of REPORTS) out.push(make(`report.${r.key}.view`, `View report: ${r.label}`));
   const extra: [string, string][] = [
+    ['pos.sale.create', 'Sell at the point of sale (open / close own shift)'],
+    ['pos.sale.void', 'Void point-of-sale receipts of an open shift'],
+    ['pos.session.manage', 'View all cashier shifts, close them and see the daily recap'],
     ['manufacturing.bom.read', 'View bills of materials'],
     ['manufacturing.bom.create', 'Create bills of materials'],
     ['manufacturing.bom.update', 'Edit bills of materials'],

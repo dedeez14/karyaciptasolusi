@@ -29,6 +29,8 @@ const ReorderPage = lazy(() => import('@/features/inventory/ReorderPage'));
 const LabelsPage = lazy(() => import('@/features/inventory/LabelsPage'));
 const LotsPage = lazy(() => import('@/features/inventory/LotsPage'));
 const mfg = () => import('@/features/manufacturing/ManufacturingPages');
+const PosPage = lazy(() => import('@/features/pos/PosPage'));
+const PosShiftsPage = lazy(() => import('@/features/pos/PosShiftsPage'));
 const BomListPage = lazy(() => mfg().then((m) => ({ default: m.BomListPage })));
 const BomEditPage = lazy(() => mfg().then((m) => ({ default: m.BomEditPage })));
 const WorkOrderListPage = lazy(() => mfg().then((m) => ({ default: m.WorkOrderListPage })));
@@ -108,6 +110,8 @@ export default function App() {
             <Route path="inventory/reorder" element={<ReorderPage />} />
             <Route path="inventory/labels" element={<LabelsPage />} />
             <Route path="inventory/lots" element={<LotsPage />} />
+            <Route path="pos" element={<PosPage />} />
+            <Route path="pos/shifts" element={<PosShiftsPage />} />
             <Route path="manufacturing/boms" element={<BomListPage />} />
             <Route path="manufacturing/boms/:id" element={<BomEditPage />} />
             <Route path="manufacturing/orders" element={<WorkOrderListPage />} />

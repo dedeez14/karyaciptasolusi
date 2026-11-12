@@ -106,7 +106,9 @@ export class ObligationsController {
           const rev = await this.prisma.tradeDocument.aggregate({ where: { companyId, docType: 'SI', deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL', 'COMPLETED'] }, date: { gte: from, lt: to } }, _sum: { subtotal: true, discountTotal: true } });
           // sales returns of the month lower the gross turnover
           const ret = await this.prisma.tradeDocument.aggregate({ where: { companyId, docType: 'SR', deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL', 'COMPLETED'] }, date: { gte: from, lt: to } }, _sum: { subtotal: true, discountTotal: true } });
-          const omzet = r2(num(rev._sum.subtotal) - num(rev._sum.discountTotal) - (num(ret._sum.subtotal) - num(ret._sum.discountTotal)));
+          // point-of-sale receipts are turnover too (net of VAT and regional tax)
+          const pos = await this.prisma.posSale.aggregate({ where: { companyId, status: 'PAID', date: { gte: from, lt: to } }, _sum: { subtotal: true } });
+          const omzet = r2(num(rev._sum.subtotal) - num(rev._sum.discountTotal) - (num(ret._sum.subtotal) - num(ret._sum.discountTotal)) + num(pos._sum.subtotal));
           add(next(15), {
             kind: 'TAX',
             title: `Setor PPh Final UMKM ${String(finalRate).replace('.', ',')}% masa ${label}`,

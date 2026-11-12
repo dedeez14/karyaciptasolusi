@@ -65,6 +65,7 @@ import { HELPDESK_CONTROLLERS, HELPDESK_PROVIDERS } from './modules/helpdesk';
 import { PRIVACY_CONTROLLERS, PRIVACY_PROVIDERS } from './modules/privacy';
 import { INVENTORY_CONTROLLERS, INVENTORY_PROVIDERS } from './modules/inventory';
 import { MANUFACTURING_CONTROLLERS, MANUFACTURING_PROVIDERS } from './modules/manufacturing';
+import { POS_CONTROLLERS, POS_PROVIDERS } from './modules/pos';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
@@ -142,6 +143,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...PRIVACY_CONTROLLERS,
     ...INVENTORY_CONTROLLERS,
     ...MANUFACTURING_CONTROLLERS,
+    ...POS_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
     ...INSIGHTS_CONTROLLERS,
@@ -200,6 +202,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...PRIVACY_PROVIDERS,
     ...INVENTORY_PROVIDERS,
     ...MANUFACTURING_PROVIDERS,
+    ...POS_PROVIDERS,
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,
     ...INSIGHTS_PROVIDERS,

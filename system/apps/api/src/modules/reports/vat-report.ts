@@ -78,6 +78,9 @@ export async function vatSummary(ctx: ReportCtx): Promise<ReportResult> {
   };
   const signed = (d: { docType: string; taxTotal: unknown; exchangeRate: unknown }) => (d.docType === 'SR' || d.docType === 'PRT' ? -1 : 1) * n(d.taxTotal) * (n(d.exchangeRate) || 1);
   for (const d of sales) add(d.date, 'output', signed(d));
+  // retail receipts (faktur pajak digunggung) count in the output VAT of their month
+  const pos = await prisma.posSale.findMany({ where: { companyId: ctx.companyId, status: 'PAID', date: { gte: from(ctx.p), lte: to(ctx.p) }, taxTotal: { gt: 0 } }, select: { date: true, taxTotal: true } });
+  for (const d of pos) add(d.date, 'output', n(d.taxTotal));
   for (const d of purchases) add(d.date, 'input', signed(d));
   const rows = [...months.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
