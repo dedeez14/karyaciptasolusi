@@ -158,6 +158,8 @@ export class DocumentPrintService {
       amount: { value: Number(p.amount), currency: company.currencyCode },
       notes: p.notes,
       signatures: isIn ? ['Received by'] : ['Prepared by', 'Approved by', 'Received by'],
+      // UU 10/2020: a receipt for more than Rp5.000.000 carries stamp duty
+      stampDuty: isIn && company.currencyCode === 'IDR' && Number(p.amount) > 5_000_000,
       verify: { k: isIn ? 'PAY_IN' : 'PAY_OUT', id: p.id, n: p.number, d: new Date(p.date).toISOString().slice(0, 10), a: Number(p.amount), cur: company.currencyCode },
     };
   }

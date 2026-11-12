@@ -26,6 +26,7 @@ function autoFill(text: string, f: Form, client?: { name: string; contact: strin
     [/\[alamat\]/gi, f.personAddress.trim().replace(/\s*\n\s*/g, ', ')],
     [/\[jabatan\]/gi, f.personPosition.trim()],
     [/\[nama penerima\]/gi, f.personName.trim()],
+    [/\[nama penanda tangan\]/gi, f.signerName.trim()],
     [/\[nama perusahaan klien\]/gi, client?.name ?? ''],
     [/\[nama kontak\]/gi, client?.contact || f.personName.trim()],
   ];

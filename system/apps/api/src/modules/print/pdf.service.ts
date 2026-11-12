@@ -37,6 +37,8 @@ export interface PrintableDocument {
   landscape?: boolean;
   /** facts to digitally sign; adds a verification QR code */
   verify?: SignedFacts;
+  /** stamp duty is due (UU 10/2020: e.g. a receipt for more than Rp5.000.000): a meterai box in the company's signature */
+  stampDuty?: boolean;
 }
 
 interface Brand {
@@ -78,10 +80,13 @@ export interface LetterContent {
 }
 
 /** formal documents: centred title + number instead of number / subject / addressee */
-const TITLED_LETTERS = new Set(['EMPLOYMENT', 'INCOME', 'ASSIGNMENT', 'POWER_OF_ATTORNEY', 'DECLARATION', 'APPOINTMENT', 'CONTRACT', 'WARNING', 'REFERENCE', 'HANDOVER', 'STATEMENT', 'MEMO', 'MINUTES', 'PROJECT_AGREEMENT', 'NDA', 'WORK_ORDER', 'RESIGNATION', 'LEAVE_PERMIT']);
+const TITLED_LETTERS = new Set(['PERMANENT_CONTRACT', 'EMPLOYMENT', 'INCOME', 'ASSIGNMENT', 'POWER_OF_ATTORNEY', 'DECLARATION', 'APPOINTMENT', 'CONTRACT', 'WARNING', 'REFERENCE', 'HANDOVER', 'STATEMENT', 'MEMO', 'MINUTES', 'PROJECT_AGREEMENT', 'NDA', 'WORK_ORDER', 'RESIGNATION', 'LEAVE_PERMIT']);
 /** documents signed by both sides: label of the other party, label of the company, stamp duty box */
+/** stamp duty on a document signed by the company alone (UU 10/2020: statements and similar letters) */
+const STAMPED_LETTERS = new Set(['DECLARATION']);
 const TWO_PARTY_LETTERS: Record<string, { other: string; company: string; stamp: boolean }> = {
   CONTRACT: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
+  PERMANENT_CONTRACT: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
   HANDOVER: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: false },
   POWER_OF_ATTORNEY: { other: 'Penerima Kuasa,', company: 'Pemberi Kuasa,', stamp: true },
   PROJECT_AGREEMENT: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
@@ -344,7 +349,15 @@ export class PdfService {
         const x = startX + i * sw + 8;
         const w = sw - 16;
         doc.font('Helvetica-Bold').fontSize(7).fillColor(GREY).text(s.toUpperCase(), x, y, { width: w, align: 'center', characterSpacing: 0.6 });
-        const signHere = !!b.signer && /authori|approv/i.test(s) && !/draft|cancel/i.test(d.status ?? '');
+        // the company's own box: approval / authorisation, or "received by" on a receipt for a customer payment
+        const companyBox = /authori|approv/i.test(s) || (d.verify?.k === 'PAY_IN' && /received/i.test(s));
+        const signHere = !!b.signer && companyBox && !/draft|cancel/i.test(d.status ?? '');
+        if (d.stampDuty && companyBox) {
+          const mw = 54;
+          const mx = x + 8;
+          doc.save().dash(2, { space: 2 }).roundedRect(mx, y + 14, mw, 40, 3).lineWidth(0.6).strokeColor('#94a3b8').stroke().undash().restore();
+          doc.font('Helvetica').fontSize(6).fillColor('#94a3b8').text('Meterai\nRp10.000', mx, y + 26, { width: mw, align: 'center' });
+        }
         if (signHere) {
           try {
             doc.image(b.signer!.image, x + 6, y + 12, { fit: [w - 12, 48], align: 'center', valign: 'bottom' });
@@ -633,7 +646,7 @@ export class PdfService {
       y = this.ensure(doc, y, 40);
       const lines = block.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
       if (lines[0].startsWith('# ')) {
-        doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(lines[0].slice(2), L, y, { width: W, align: lines[0].length < 40 ? 'center' : 'left' });
+        doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(lines[0].slice(2), L, y, { width: W, align: lines[0].length < 90 ? 'center' : 'left' });
         y = doc.y + 4;
         lines.shift();
         if (!lines.length) continue;
@@ -711,7 +724,12 @@ export class PdfService {
       const mw = 62;
       const mx = L + (sw - mw) / 2;
       doc.save().dash(2, { space: 2 }).roundedRect(mx, qy + 8, mw, 46, 3).lineWidth(0.6).strokeColor('#94a3b8').stroke().undash().restore();
-      doc.font('Helvetica').fontSize(6.5).fillColor('#94a3b8').text('Meterai\n10.000', mx, qy + 22, { width: mw, align: 'center' });
+      doc.font('Helvetica').fontSize(6.5).fillColor('#94a3b8').text('Meterai\nRp10.000', mx, qy + 22, { width: mw, align: 'center' });
+    }
+    if (!parties && STAMPED_LETTERS.has(l.type ?? '')) {
+      const mw = 58;
+      doc.save().dash(2, { space: 2 }).roundedRect(sx - mw + 18, qy + 10, mw, 42, 3).lineWidth(0.6).strokeColor('#94a3b8').stroke().undash().restore();
+      doc.font('Helvetica').fontSize(6.3).fillColor('#94a3b8').text('Meterai\nRp10.000', sx - mw + 18, qy + 23, { width: mw, align: 'center' });
     }
     const ny = qy + 70;
     if (parties) {
@@ -730,7 +748,8 @@ export class PdfService {
       const fy = doc.page.height - 36;
       doc.moveTo(L, fy - 6).lineTo(L + W, fy - 6).lineWidth(0.5).strokeColor(LINE).stroke();
       doc.font('Helvetica').fontSize(6.8).fillColor(GREY);
-      doc.text(`Dokumen ini ditandatangani secara elektronik oleh sistem ${b.name}${publicHost ? `. Verifikasi keaslian: ${publicHost}/verify` : ''}  ·  ${l.number}`, L, fy, { width: W, lineBreak: false, height: 10, ellipsis: true });
+      const pageNo = range.count > 1 ? `  ·  Halaman ${i - range.start + 1} dari ${range.count}` : '';
+      doc.text(`Dokumen ini ditandatangani secara elektronik oleh sistem ${b.name}${publicHost ? `. Verifikasi keaslian: ${publicHost}/verify` : ''}  ·  ${l.number}${pageNo}`, L, fy, { width: W, lineBreak: false, height: 10, ellipsis: true });
     }
     doc.end();
     const pdf = await done;
