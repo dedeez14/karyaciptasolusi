@@ -53,6 +53,10 @@ export const fmtByType = (v: unknown, type?: string) => {
     case 'boolean':
       return v ? 'Yes' : 'No';
     default:
+      // dates that arrive without a type (report columns, audit values) are still shown readably
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return /T00:00:00(\.000)?Z$/.test(v) ? fmtDate(v) : fmtDateTime(v);
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return fmtDate(v);
+      if (v instanceof Date) return fmtDateTime(v);
       return String(v);
   }
 };

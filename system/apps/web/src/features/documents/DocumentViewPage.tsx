@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { download } from '@/lib/download';
 import { previewFile } from '@/components/ui/preview';
-import { fmtDate, fmtDateTime, fmtMoney, fmtNumber } from '@/lib/format';
+import { fmtDate, fmtDateTime, fmtMoney, fmtNumber, fmtByType } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, Dropdown, EmptyState, Field, Icon, Input, Modal, PageHeader, Spinner, StatusBadge, Textarea, toast, Steps } from '@/components/ui';
 import { docPath, statusLabel, useDocType, useDocTypes, type TradeDoc } from './useDocTypes';
@@ -548,7 +548,7 @@ function Info({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
       <dt className="text-xs font-medium text-slate-500">{label}</dt>
-      <dd className="mt-0.5 font-medium text-slate-900">{value ? String(value) : <span className="text-slate-300">—</span>}</dd>
+      <dd className="mt-0.5 font-medium text-slate-900">{value ? fmtByType(value) : <span className="text-slate-300">—</span>}</dd>
     </div>
   );
 }

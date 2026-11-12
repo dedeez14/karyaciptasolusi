@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
-import { fmtDateTime, humanize } from '@/lib/format';
+import { fmtDateTime, humanize, fmtByType } from '@/lib/format';
 import { Badge, Card, DataTable, Modal, Pagination, PageHeader, type Column, type Tone } from '@/components/ui';
 import { LogFilters, type LogFilterValue } from './LogFilters';
 
@@ -20,7 +20,8 @@ interface AuditRow {
 }
 
 const ACTION_TONE: Record<string, Tone> = { CREATE: 'green', UPDATE: 'blue', DELETE: 'red', CANCEL: 'red', CONFIRM: 'violet', APPROVED: 'green', REJECTED: 'red' };
-const show = (v: unknown) => (v === null || v === undefined ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v));
+// readable values: dates in the company format, booleans as Yes/No, objects as JSON
+const show = (v: unknown) => (v === null || v === undefined ? '—' : typeof v === 'object' ? JSON.stringify(v, (_k, x) => (typeof x === 'string' ? fmtByType(x) : x)) : fmtByType(v) || String(v));
 
 export default function AuditPage() {
   const [filters, setFilters] = useState<LogFilterValue>({});
