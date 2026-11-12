@@ -28,6 +28,12 @@ const StockCountPage = lazy(() => import('@/features/inventory/StockCountPages')
 const ReorderPage = lazy(() => import('@/features/inventory/ReorderPage'));
 const LabelsPage = lazy(() => import('@/features/inventory/LabelsPage'));
 const LotsPage = lazy(() => import('@/features/inventory/LotsPage'));
+const mfg = () => import('@/features/manufacturing/ManufacturingPages');
+const BomListPage = lazy(() => mfg().then((m) => ({ default: m.BomListPage })));
+const BomEditPage = lazy(() => mfg().then((m) => ({ default: m.BomEditPage })));
+const WorkOrderListPage = lazy(() => mfg().then((m) => ({ default: m.WorkOrderListPage })));
+const WorkOrderPage = lazy(() => mfg().then((m) => ({ default: m.WorkOrderPage })));
+const ProductionSummaryPage = lazy(() => mfg().then((m) => ({ default: m.ProductionSummaryPage })));
 const TaskListPage = lazy(() => import('@/features/tasks/TaskListPage'));
 const MyTasksPage = lazy(() => import('@/features/tasks/MyTasksPage'));
 const TaskBoardPage = lazy(() => import('@/features/tasks/TaskBoardPage'));
@@ -102,6 +108,11 @@ export default function App() {
             <Route path="inventory/reorder" element={<ReorderPage />} />
             <Route path="inventory/labels" element={<LabelsPage />} />
             <Route path="inventory/lots" element={<LotsPage />} />
+            <Route path="manufacturing/boms" element={<BomListPage />} />
+            <Route path="manufacturing/boms/:id" element={<BomEditPage />} />
+            <Route path="manufacturing/orders" element={<WorkOrderListPage />} />
+            <Route path="manufacturing/orders/:id" element={<WorkOrderPage />} />
+            <Route path="manufacturing/summary" element={<ProductionSummaryPage />} />
             <Route path="tasks" element={<TaskListPage />} />
             <Route path="tasks/my" element={<MyTasksPage />} />
             <Route path="tasks/board" element={<TaskBoardPage />} />

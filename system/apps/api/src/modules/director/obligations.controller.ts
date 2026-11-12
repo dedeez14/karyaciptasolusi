@@ -120,6 +120,16 @@ export class ObligationsController {
           add(next(15), { kind: 'BPJS', title: `Bayar iuran BPJS Ketenagakerjaan bulan ${BULAN[(period.getUTCMonth() + 1) % 12]}`, detail: 'JHT, JP, JKK, JKM paling lambat tanggal 15; terlambat didenda 2% per bulan', ...(stat.tk ? { amount: r2(stat.tk) } : {}) });
         }
       }
+      // SIINas (Permenperin 13/2025): industrial companies report every quarter by the 10th of the next month
+      if ((await on('siinas')) && (await this.prisma.workOrder.count({ where: { companyId, deletedAt: null } }))) {
+        for (let k = -1; k <= 4; k++) {
+          const q = Math.floor(today.getUTCMonth() / 3) + k; // quarter index relative to this year
+          const year = today.getUTCFullYear() + Math.floor(q / 4);
+          const quarter = ((q % 4) + 4) % 4; // 0..3
+          const due = workday(new Date(Date.UTC(year, quarter * 3 + 3, 10)));
+          if (due >= addDays(today, -10) && due <= until) push(due, { kind: 'TAX', title: `Laporan SIINas triwulan ${quarter + 1} ${year}`, detail: 'Data produksi, bahan baku, tenaga kerja dan investasi di siinas.kemenperin.go.id', link: '/manufacturing/summary' });
+        }
+      }
       if (employees > 0 && (await on('a1'))) {
         for (const y of [today.getUTCFullYear(), today.getUTCFullYear() + 1]) {
           const d = workday(new Date(Date.UTC(y, 0, 31)));

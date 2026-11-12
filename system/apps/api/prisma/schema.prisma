@@ -2652,3 +2652,102 @@ model StockDisposal {
   @@unique([companyId, number])
   @@map("stock_disposals")
 }
+
+/// Bill of materials: the components and conversion cost needed to make a batch of a product
+model Bom {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  code         String    @db.VarChar(30)
+  name         String    @db.VarChar(200)
+  /// finished product
+  productId    String    @db.Uuid
+  /// quantity of the product one batch makes
+  outputQty    Decimal   @default(1) @db.Decimal(18, 4)
+  /// standard direct labour and production overhead per batch (SAK EP: overhead at normal capacity)
+  labourCost   Decimal   @default(0) @db.Decimal(18, 2)
+  overheadCost Decimal   @default(0) @db.Decimal(18, 2)
+  isDefault    Boolean   @default(true)
+  isActive     Boolean   @default(true)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdById  String?   @db.Uuid
+  updatedById  String?   @db.Uuid
+  deletedAt    DateTime?
+
+  lines BomLine[]
+
+  @@unique([companyId, code])
+  @@index([companyId, productId])
+  @@map("boms")
+}
+
+model BomLine {
+  id        String  @id @default(uuid()) @db.Uuid
+  bomId     String  @db.Uuid
+  lineNo    Int
+  productId String  @db.Uuid
+  /// per batch
+  qty       Decimal @db.Decimal(18, 4)
+  /// expected loss in production (added to the quantity issued)
+  scrapPct  Decimal @default(0) @db.Decimal(9, 4)
+  notes     String? @db.VarChar(300)
+
+  bom Bom @relation(fields: [bomId], references: [id], onDelete: Cascade)
+
+  @@map("bom_lines")
+}
+
+/// Production order: components issued, finished goods received at material + labour + overhead cost
+model WorkOrder {
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @db.Uuid
+  branchId          String?   @db.Uuid
+  number            String    @db.VarChar(40)
+  bomId             String    @db.Uuid
+  productId         String    @db.Uuid
+  qty               Decimal   @db.Decimal(18, 4)
+  producedQty       Decimal   @default(0) @db.Decimal(18, 4)
+  warehouseId       String    @db.Uuid
+  outputWarehouseId String    @db.Uuid
+  plannedDate       DateTime  @db.Date
+  completedDate     DateTime? @db.Date
+  /// DRAFT | RELEASED | DONE | CANCELLED
+  status            String    @default("DRAFT") @db.VarChar(20)
+  labourCost        Decimal   @default(0) @db.Decimal(18, 2)
+  overheadCost      Decimal   @default(0) @db.Decimal(18, 2)
+  materialCost      Decimal   @default(0) @db.Decimal(18, 2)
+  totalCost         Decimal   @default(0) @db.Decimal(18, 2)
+  unitCost          Decimal   @default(0) @db.Decimal(18, 4)
+  /// finished goods lot (lot-tracked products)
+  lotNo             String?   @db.VarChar(60)
+  expiryDate        DateTime? @db.Date
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdById       String?   @db.Uuid
+  updatedById       String?   @db.Uuid
+  deletedAt         DateTime?
+
+  lines WorkOrderLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@map("work_orders")
+}
+
+model WorkOrderLine {
+  id          String  @id @default(uuid()) @db.Uuid
+  workOrderId String  @db.Uuid
+  lineNo      Int
+  productId   String  @db.Uuid
+  plannedQty  Decimal @db.Decimal(18, 4)
+  /// actual quantity used (defaults to the planned quantity)
+  consumedQty Decimal @default(0) @db.Decimal(18, 4)
+  unitCost    Decimal @default(0) @db.Decimal(18, 4)
+  lotId       String? @db.Uuid
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@map("work_order_lines")
+}

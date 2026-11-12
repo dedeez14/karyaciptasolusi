@@ -29,6 +29,14 @@ export function permissionCatalog(): PermissionDef[] {
   for (const d of DOC_TYPES) for (const op of ['read', 'create', 'update', 'delete', 'confirm', 'cancel', 'print']) out.push(make(`${d.permission}.${op}`, `${op} ${d.label}`));
   for (const r of REPORTS) out.push(make(`report.${r.key}.view`, `View report: ${r.label}`));
   const extra: [string, string][] = [
+    ['manufacturing.bom.read', 'View bills of materials'],
+    ['manufacturing.bom.create', 'Create bills of materials'],
+    ['manufacturing.bom.update', 'Edit bills of materials'],
+    ['manufacturing.bom.delete', 'Delete bills of materials'],
+    ['manufacturing.order.read', 'View work orders'],
+    ['manufacturing.order.create', 'Create and release work orders'],
+    ['manufacturing.order.confirm', 'Finish work orders (issue materials, receive products)'],
+    ['manufacturing.order.cancel', 'Cancel work orders'],
     ['sales.payment.read', 'View customer receipts'],
     ['sales.payment.create', 'Record customer receipts'],
     ['sales.payment.cancel', 'Cancel customer receipts'],
