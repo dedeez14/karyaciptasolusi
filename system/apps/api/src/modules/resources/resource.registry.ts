@@ -356,6 +356,14 @@ export const RESOURCES: ResourceDef[] = [
     defaultSort: { field: 'sortOrder', order: 'asc' },
   },
   simple('price-lists', 'priceList', 'pos', 'Price Lists', 'Price List', 'pos.price-list'),
+  // ----- Manufacturing ----------------------------------------------------------
+  simple('work-centers', 'workCenter', 'manufacturing', 'Work Centers', 'Work Center', 'manufacturing.workcenter', [
+    money('labourRate', 'Direct labour per hour', { list: true, help: 'Wages of the operators of this machine / line per running hour' }),
+    money('machineRate', 'Machine cost per hour', { list: true, help: 'Depreciation, power and maintenance per running hour' }),
+    money('overheadRate', 'Other overhead per hour', { help: 'Supervision, factory rent... spread over the normal capacity' }),
+    num('capacityHours', 'Normal capacity (hours / month)', { min: 0, list: true, help: 'SAK EP / PSAK 202: fixed overhead is absorbed on normal capacity; hours not used leave the overhead as a period expense (see Capacity & Overhead)' }),
+    int('stations', 'Machines / stations', { min: 1, max: 1000, default: 1 }),
+  ]),
   simple('payment-terms', 'paymentTerm', 'master', 'Payment Terms', 'Payment Term', 'master.payment-term', [int('days', 'Days', { min: 0, max: 365, default: 0, list: true })]),
   simple('payment-methods', 'paymentMethod', 'master', 'Payment Methods', 'Payment Method', 'master.payment-method'),
   simple(

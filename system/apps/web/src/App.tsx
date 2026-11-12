@@ -43,6 +43,9 @@ const BomListPage = lazy(() => mfg().then((m) => ({ default: m.BomListPage })));
 const BomEditPage = lazy(() => mfg().then((m) => ({ default: m.BomEditPage })));
 const WorkOrderListPage = lazy(() => mfg().then((m) => ({ default: m.WorkOrderListPage })));
 const WorkOrderPage = lazy(() => mfg().then((m) => ({ default: m.WorkOrderPage })));
+const mfgFloor = () => import('@/features/manufacturing/MfgFloorPages');
+const ShopFloorPage = lazy(() => mfgFloor().then((m) => ({ default: m.ShopFloorPage })));
+const CapacityPage = lazy(() => mfgFloor().then((m) => ({ default: m.CapacityPage })));
 const ProductionSummaryPage = lazy(() => mfg().then((m) => ({ default: m.ProductionSummaryPage })));
 const TaskListPage = lazy(() => import('@/features/tasks/TaskListPage'));
 const MyTasksPage = lazy(() => import('@/features/tasks/MyTasksPage'));
@@ -145,6 +148,8 @@ export default function App() {
             <Route path="manufacturing/orders" element={<WorkOrderListPage />} />
             <Route path="manufacturing/orders/:id" element={<WorkOrderPage />} />
             <Route path="manufacturing/summary" element={<ProductionSummaryPage />} />
+            <Route path="manufacturing/shop-floor" element={<ShopFloorPage />} />
+            <Route path="manufacturing/capacity" element={<CapacityPage />} />
             <Route path="tasks" element={<TaskListPage />} />
             <Route path="tasks/my" element={<MyTasksPage />} />
             <Route path="tasks/board" element={<TaskBoardPage />} />

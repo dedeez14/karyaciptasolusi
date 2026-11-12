@@ -673,34 +673,34 @@ model CustomerGroup {
 }
 
 model Customer {
-  id            String    @id @default(uuid()) @db.Uuid
-  companyId     String    @db.Uuid
-  code          String    @db.VarChar(30)
-  name          String    @db.VarChar(200)
-  groupId       String?   @db.Uuid
-  contactPerson String?   @db.VarChar(150)
-  email         String?   @db.VarChar(150)
-  phone         String?   @db.VarChar(50)
-  taxId         String?   @db.VarChar(255) // encrypted
-  address       String?
-  city          String?   @db.VarChar(100)
-  countryCode   String?   @db.VarChar(3)
-  paymentTermId String?   @db.Uuid
-  creditLimit   Decimal   @default(0) @db.Decimal(18, 2)
-  industryCode  String?   @db.VarChar(50)
-  notes         String?
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  code             String    @db.VarChar(30)
+  name             String    @db.VarChar(200)
+  groupId          String?   @db.Uuid
+  contactPerson    String?   @db.VarChar(150)
+  email            String?   @db.VarChar(150)
+  phone            String?   @db.VarChar(50)
+  taxId            String?   @db.VarChar(255) // encrypted
+  address          String?
+  city             String?   @db.VarChar(100)
+  countryCode      String?   @db.VarChar(3)
+  paymentTermId    String?   @db.Uuid
+  creditLimit      Decimal   @default(0) @db.Decimal(18, 2)
+  industryCode     String?   @db.VarChar(50)
+  notes            String?
   /// loyalty membership (POS): member number, points balance, consent under UU 27/2022 (PDP)
   memberNo         String?   @db.VarChar(30)
   points           Int       @default(0)
   memberSince      DateTime?
   consentAt        DateTime?
   marketingConsent Boolean   @default(false)
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  createdById   String?   @db.Uuid
-  updatedById   String?   @db.Uuid
-  deletedAt     DateTime?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+  deletedAt        DateTime?
 
   @@unique([companyId, code])
   @@unique([companyId, memberNo])
@@ -2664,29 +2664,35 @@ model StockDisposal {
 
 /// Bill of materials: the components and conversion cost needed to make a batch of a product
 model Bom {
-  id           String    @id @default(uuid()) @db.Uuid
-  companyId    String    @db.Uuid
-  code         String    @db.VarChar(30)
-  name         String    @db.VarChar(200)
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  code            String    @db.VarChar(30)
+  name            String    @db.VarChar(200)
   /// finished product
-  productId    String    @db.Uuid
+  productId       String    @db.Uuid
   /// quantity of the product one batch makes
-  outputQty    Decimal   @default(1) @db.Decimal(18, 4)
+  outputQty       Decimal   @default(1) @db.Decimal(18, 4)
   /// standard direct labour and production overhead per batch (SAK EP: overhead at normal capacity)
-  labourCost   Decimal   @default(0) @db.Decimal(18, 2)
-  overheadCost Decimal   @default(0) @db.Decimal(18, 2)
-  isDefault    Boolean   @default(true)
-  isActive     Boolean   @default(true)
+  labourCost      Decimal   @default(0) @db.Decimal(18, 2)
+  overheadCost    Decimal   @default(0) @db.Decimal(18, 2)
+  isDefault       Boolean   @default(true)
+  isActive        Boolean   @default(true)
   /// recipe / kit: selling the product (POS) issues these components instead of the product itself
-  backflushOnSale Boolean @default(false)
-  notes        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  createdById  String?   @db.Uuid
-  updatedById  String?   @db.Uuid
-  deletedAt    DateTime?
+  backflushOnSale Boolean   @default(false)
+  /// STANDARD (quantities per batch) | FORMULA (components in % of the batch weight / volume, scaled to the batch)
+  kind            String    @default("STANDARD") @db.VarChar(10)
+  /// expected loss of finished units (e.g. 2%): losses above it are abnormal and expensed (SAK EP / PSAK 202)
+  normalScrapPct  Decimal   @default(0) @db.Decimal(9, 4)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   @db.Uuid
+  updatedById     String?   @db.Uuid
+  deletedAt       DateTime?
 
-  lines BomLine[]
+  lines      BomLine[]
+  operations BomOperation[]
+  outputs    BomOutput[]
 
   @@unique([companyId, code])
   @@index([companyId, productId])
@@ -2694,15 +2700,21 @@ model Bom {
 }
 
 model BomLine {
-  id        String  @id @default(uuid()) @db.Uuid
-  bomId     String  @db.Uuid
-  lineNo    Int
-  productId String  @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
+  bomId        String   @db.Uuid
+  lineNo       Int
+  productId    String   @db.Uuid
   /// per batch
-  qty       Decimal @db.Decimal(18, 4)
+  qty          Decimal  @db.Decimal(18, 4)
   /// expected loss in production (added to the quantity issued)
-  scrapPct  Decimal @default(0) @db.Decimal(9, 4)
-  notes     String? @db.VarChar(300)
+  scrapPct     Decimal  @default(0) @db.Decimal(9, 4)
+  /// formula BOMs: share of the batch in percent
+  pct          Decimal? @db.Decimal(9, 4)
+  /// phantom sub-assembly: not stocked, its own BOM is exploded into the work order
+  phantom      Boolean  @default(false)
+  /// routing step that consumes it (issued when that step starts); empty = at the start
+  operationSeq Int?
+  notes        String?  @db.VarChar(300)
 
   bom Bom @relation(fields: [bomId], references: [id], onDelete: Cascade)
 
@@ -2733,6 +2745,18 @@ model WorkOrder {
   /// finished goods lot (lot-tracked products)
   lotNo             String?   @db.VarChar(60)
   expiryDate        DateTime? @db.Date
+  /// sub-assembly order made for a parent work order
+  parentId          String?   @db.Uuid
+  startedAt         DateTime?
+  /// running cost in work in process: materials issued + conversion applied
+  wipMaterial       Decimal   @default(0) @db.Decimal(18, 2)
+  wipConversion     Decimal   @default(0) @db.Decimal(18, 2)
+  scrapQty          Decimal   @default(0) @db.Decimal(18, 4)
+  /// abnormal loss expensed at completion and value of by-products received
+  abnormalLoss      Decimal   @default(0) @db.Decimal(18, 2)
+  byProductValue    Decimal   @default(0) @db.Decimal(18, 2)
+  /// standard cost of what was produced (for the variance)
+  standardCost      Decimal   @default(0) @db.Decimal(18, 2)
   notes             String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -2740,7 +2764,9 @@ model WorkOrder {
   updatedById       String?   @db.Uuid
   deletedAt         DateTime?
 
-  lines WorkOrderLine[]
+  lines      WorkOrderLine[]
+  operations WorkOrderOperation[]
+  outputs    WorkOrderOutput[]
 
   @@unique([companyId, number])
   @@index([companyId, status])
@@ -2748,15 +2774,18 @@ model WorkOrder {
 }
 
 model WorkOrderLine {
-  id          String  @id @default(uuid()) @db.Uuid
-  workOrderId String  @db.Uuid
-  lineNo      Int
-  productId   String  @db.Uuid
-  plannedQty  Decimal @db.Decimal(18, 4)
+  id           String  @id @default(uuid()) @db.Uuid
+  workOrderId  String  @db.Uuid
+  lineNo       Int
+  productId    String  @db.Uuid
+  plannedQty   Decimal @db.Decimal(18, 4)
   /// actual quantity used (defaults to the planned quantity)
-  consumedQty Decimal @default(0) @db.Decimal(18, 4)
-  unitCost    Decimal @default(0) @db.Decimal(18, 4)
-  lotId       String? @db.Uuid
+  consumedQty  Decimal @default(0) @db.Decimal(18, 4)
+  /// already issued to work in process
+  issuedQty    Decimal @default(0) @db.Decimal(18, 4)
+  operationSeq Int?
+  unitCost     Decimal @default(0) @db.Decimal(18, 4)
+  lotId        String? @db.Uuid
 
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
@@ -3122,4 +3151,117 @@ model PosPointEntry {
 
   @@index([companyId, customerId])
   @@map("pos_point_entries")
+}
+
+/// A machine, line or team where production steps run, with its cost rates and normal capacity
+model WorkCenter {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  code          String    @db.VarChar(20)
+  name          String    @db.VarChar(100)
+  /// direct labour per hour (operators of the step)
+  labourRate    Decimal   @default(0) @db.Decimal(18, 2)
+  /// machine cost per hour (depreciation, power, maintenance)
+  machineRate   Decimal   @default(0) @db.Decimal(18, 2)
+  /// other production overhead per hour
+  overheadRate  Decimal   @default(0) @db.Decimal(18, 2)
+  /// normal capacity in hours per month: fixed overhead is absorbed on it, the unabsorbed part is a period expense
+  capacityHours Decimal   @default(0) @db.Decimal(18, 2)
+  /// number of machines / stations working in parallel
+  stations      Int       @default(1)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+  deletedAt     DateTime?
+
+  @@unique([companyId, code])
+  @@map("work_centers")
+}
+
+/// Routing step of a bill of materials
+model BomOperation {
+  id           String  @id @default(uuid()) @db.Uuid
+  bomId        String  @db.Uuid
+  seq          Int
+  name         String  @db.VarChar(120)
+  workCenterId String  @db.Uuid
+  /// minutes per batch to set up, and per finished unit to run
+  setupMinutes Decimal @default(0) @db.Decimal(18, 2)
+  runMinutes   Decimal @default(0) @db.Decimal(18, 4)
+  instructions String? @db.VarChar(1000)
+
+  bom Bom @relation(fields: [bomId], references: [id], onDelete: Cascade)
+
+  @@map("bom_operations")
+}
+
+/// Other products a BOM yields: co-products (share of the joint cost) and by-products (valued at net realisable value)
+model BomOutput {
+  id           String  @id @default(uuid()) @db.Uuid
+  bomId        String  @db.Uuid
+  productId    String  @db.Uuid
+  /// CO | BY
+  kind         String  @db.VarChar(5)
+  /// per batch
+  qty          Decimal @db.Decimal(18, 4)
+  /// co-product share of the joint cost in percent (the main product takes the rest)
+  costSharePct Decimal @default(0) @db.Decimal(9, 4)
+  /// by-product: net realisable value per unit (selling price less costs to sell), deducted from the main cost
+  nrvPerUnit   Decimal @default(0) @db.Decimal(18, 4)
+
+  bom Bom @relation(fields: [bomId], references: [id], onDelete: Cascade)
+
+  @@map("bom_outputs")
+}
+
+/// A routing step of a work order: planned vs actual time, good and scrap quantity, cost applied
+model WorkOrderOperation {
+  id             String    @id @default(uuid()) @db.Uuid
+  workOrderId    String    @db.Uuid
+  seq            Int
+  name           String    @db.VarChar(120)
+  workCenterId   String    @db.Uuid
+  plannedMinutes Decimal   @default(0) @db.Decimal(18, 2)
+  actualMinutes  Decimal   @default(0) @db.Decimal(18, 2)
+  goodQty        Decimal   @default(0) @db.Decimal(18, 4)
+  scrapQty       Decimal   @default(0) @db.Decimal(18, 4)
+  /// PENDING | RUNNING | PAUSED | DONE
+  status         String    @default("PENDING") @db.VarChar(10)
+  /// running since (cleared when paused)
+  runningSince   DateTime?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  operatorId     String?   @db.Uuid
+  /// rates at the time of the order
+  labourRate     Decimal   @default(0) @db.Decimal(18, 2)
+  machineRate    Decimal   @default(0) @db.Decimal(18, 2)
+  overheadRate   Decimal   @default(0) @db.Decimal(18, 2)
+  /// conversion cost already applied to work in process
+  appliedCost    Decimal   @default(0) @db.Decimal(18, 2)
+  notes          String?   @db.VarChar(500)
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([workCenterId, status])
+  @@map("work_order_operations")
+}
+
+/// Co- and by-products of a work order
+model WorkOrderOutput {
+  id           String  @id @default(uuid()) @db.Uuid
+  workOrderId  String  @db.Uuid
+  productId    String  @db.Uuid
+  kind         String  @db.VarChar(5)
+  plannedQty   Decimal @db.Decimal(18, 4)
+  producedQty  Decimal @default(0) @db.Decimal(18, 4)
+  costSharePct Decimal @default(0) @db.Decimal(9, 4)
+  nrvPerUnit   Decimal @default(0) @db.Decimal(18, 4)
+  unitCost     Decimal @default(0) @db.Decimal(18, 4)
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@map("work_order_outputs")
 }

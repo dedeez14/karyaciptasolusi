@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
-import { bomSchema, completeSchema, ManufacturingService, workOrderSchema } from './manufacturing.service';
+import { bomSchema, completeSchema, finishOpSchema, issueSchema, ManufacturingService, workOrderSchema } from './manufacturing.service';
 
 @Controller('manufacturing')
 export class ManufacturingController {
@@ -57,6 +57,46 @@ export class ManufacturingController {
   @HttpCode(200)
   complete(@Param('id') id: string, @Body(new ZodPipe(completeSchema)) body: z.infer<typeof completeSchema>) {
     return this.mfg.complete(id, body);
+  }
+
+  @Post('orders/:id/issue')
+  @HttpCode(200)
+  issue(@Param('id') id: string, @Body(new ZodPipe(issueSchema)) body: z.infer<typeof issueSchema>) {
+    return this.mfg.issue(id, body);
+  }
+
+  @Post('orders/:id/sub-orders')
+  @HttpCode(200)
+  subOrders(@Param('id') id: string) {
+    return this.mfg.createSubOrders(id);
+  }
+
+  @Get('shop-floor')
+  shopFloor(@Query('workCenterId') workCenterId?: string) {
+    return this.mfg.shopFloor(workCenterId);
+  }
+
+  @Post('operations/:id/start')
+  @HttpCode(200)
+  start(@Param('id') id: string) {
+    return this.mfg.startOperation(id);
+  }
+
+  @Post('operations/:id/pause')
+  @HttpCode(200)
+  pause(@Param('id') id: string) {
+    return this.mfg.pauseOperation(id);
+  }
+
+  @Post('operations/:id/finish')
+  @HttpCode(200)
+  finish(@Param('id') id: string, @Body(new ZodPipe(finishOpSchema)) body: z.infer<typeof finishOpSchema>) {
+    return this.mfg.finishOperation(id, body);
+  }
+
+  @Get('capacity')
+  capacity(@Query('month') month?: string) {
+    return this.mfg.capacity(month ?? '');
   }
 
   @Post('orders/:id/cancel')

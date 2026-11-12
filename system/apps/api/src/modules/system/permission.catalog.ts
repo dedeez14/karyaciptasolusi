@@ -43,6 +43,7 @@ export function permissionCatalog(): PermissionDef[] {
     ['manufacturing.order.create', 'Create and release work orders'],
     ['manufacturing.order.confirm', 'Finish work orders (issue materials, receive products)'],
     ['manufacturing.order.cancel', 'Cancel work orders'],
+    ['manufacturing.order.report', 'Report production on the shop floor (start / finish steps, quantities)'],
     ['sales.payment.read', 'View customer receipts'],
     ['sales.payment.create', 'Record customer receipts'],
     ['sales.payment.cancel', 'Cancel customer receipts'],
