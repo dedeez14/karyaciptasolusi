@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, CheckCircle, Bell, Loader2, AlertCircle } from 'lucide-react';
 import { useSite } from '../lib/siteContext';
-import { CMS_ENABLED, EMAIL_RE, ENQUIRY_LIMITS, submitEnquiry } from '../lib/site';
+import { Link } from 'react-router-dom';
+import { CMS_ENABLED, EMAIL_RE, ENQUIRY_LIMITS, NEWSLETTER_NOTICE, submitEnquiry } from '../lib/site';
 
 const easing = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -46,6 +47,7 @@ export default function NewsletterSection() {
       name: (addr.split('@')[0] || addr).slice(0, ENQUIRY_LIMITS.name),
       email: addr,
       website: honeypot,
+      consentText: NEWSLETTER_NOTICE,
     });
     if (res.ok) {
       setStatus({ kind: 'done', via: 'server' });
@@ -135,7 +137,13 @@ export default function NewsletterSection() {
             )}
           </div>
 
-          <p className="text-white/70 text-[11px] mt-4">Tidak ada spam. Anda bisa berhenti berlangganan kapan saja.</p>
+          <p className="text-white/70 text-[11px] mt-4">
+            {NEWSLETTER_NOTICE} Lihat{' '}
+            <Link to="/kebijakan-privasi" className="underline hover:text-white">
+              Kebijakan Privasi
+            </Link>
+            .
+          </p>
         </motion.div>
       </div>
     </section>

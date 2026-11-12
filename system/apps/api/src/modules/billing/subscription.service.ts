@@ -138,10 +138,11 @@ export class SubscriptionService {
     const taxes = taxIds.length
       ? await this.prisma.tax.findMany({
           where: { id: { in: taxIds } },
-          select: { id: true, rate: true },
+          select: { id: true, rate: true, baseNumerator: true, baseDenominator: true },
         })
       : [];
-    const rate = new Map(taxes.map((t) => [t.id, D(t.rate)]));
+    // effective rate incl. DPP nilai lain (PPN 12% x 11/12, PMK 131/2024)
+    const rate = new Map(taxes.map((t) => [t.id, D(t.rate).times(t.baseNumerator).div(t.baseDenominator)]));
     let net = D(0);
     let tax = D(0);
     for (const l of lines) {

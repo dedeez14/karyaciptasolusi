@@ -44,8 +44,12 @@ export class CompanyBootstrapService {
     for (const [code, name, prefix, resetPeriod] of SEQUENCE_TEMPLATE) {
       await db.numberSequence.upsert({ where: { companyId_code: { companyId, code } }, create: { companyId, code, name, prefix, resetPeriod, padding: 5 }, update: {} });
     }
-    for (const [code, name, rate] of TAX_TEMPLATE) {
-      await db.tax.upsert({ where: { companyId_code: { companyId, code } }, create: { ...c, code, name, rate, salesAccountId: ids.get('2-1300'), purchaseAccountId: ids.get('1-1500') }, update: {} });
+    for (const [code, name, kind, rate, baseNumerator, baseDenominator, extra, noNpwpSurcharge, [out, inn]] of TAX_TEMPLATE) {
+      await db.tax.upsert({
+        where: { companyId_code: { companyId, code } },
+        create: { ...c, code, name, kind, rate, baseNumerator, baseDenominator, trxCode: kind === 'VAT' ? extra : null, objectCode: kind === 'WHT' ? extra : null, noNpwpSurcharge, salesAccountId: ids.get(out), purchaseAccountId: ids.get(inn) },
+        update: {},
+      });
     }
     for (const [code, name, days] of PAYMENT_TERM_TEMPLATE) {
       await db.paymentTerm.upsert({ where: { companyId_code: { companyId, code } }, create: { ...c, code, name, days }, update: {} });
@@ -76,7 +80,7 @@ export class CompanyBootstrapService {
     for (const [code, name, kind, calcType, amount] of SALARY_COMPONENT_TEMPLATE) {
       await db.salaryComponent.upsert({
         where: { companyId_code: { companyId, code } },
-        create: { ...c, code, name, kind, calcType, amount, accountId: kind === 'DEDUCTION' ? ids.get('2-1500') : ids.get('6-1100') },
+        create: { ...c, code, name, kind, calcType, amount, accountId: kind === 'DEDUCTION' ? ids.get('2-1500') : ids.get('6-1100'), fixedAllowance: code === 'POSITION', isActive: !['BPJS_TK', 'BPJS_KES', 'PPH21'].includes(code) },
         update: {},
       });
     }

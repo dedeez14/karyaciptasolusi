@@ -338,7 +338,13 @@ export interface EnquiryPayload {
   message?: string;
   /** honeypot — harus kosong */
   website: string;
+  /** UU PDP: pemberitahuan / persetujuan yang dilihat pengirim, disimpan bersama datanya */
+  consentText?: string;
 }
+
+/** teks pemberitahuan pemrosesan data yang tampil di bawah formulir (disimpan bersama lead di ERP) */
+export const CONTACT_NOTICE = 'Data Anda hanya dipakai untuk membalas pesan ini.';
+export const NEWSLETTER_NOTICE = 'Dengan berlangganan, Anda setuju menerima e-mail informasi dari kami. Anda bisa berhenti berlangganan kapan saja.';
 
 export type EnquiryResult =
   | { ok: true }

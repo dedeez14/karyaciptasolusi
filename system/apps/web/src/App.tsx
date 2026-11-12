@@ -22,6 +22,7 @@ const JournalFormPage = lazy(() => import('@/features/accounting/JournalFormPage
 const JournalViewPage = lazy(() => import('@/features/accounting/JournalViewPage'));
 const PayrollListPage = lazy(() => import('@/features/hris/PayrollListPage'));
 const PayrollDetailPage = lazy(() => import('@/features/hris/PayrollDetailPage'));
+const SeverancePage = lazy(() => import('@/features/hris/SeverancePage'));
 const TaskListPage = lazy(() => import('@/features/tasks/TaskListPage'));
 const MyTasksPage = lazy(() => import('@/features/tasks/MyTasksPage'));
 const TaskBoardPage = lazy(() => import('@/features/tasks/TaskBoardPage'));
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="accounting/journals/:id" element={<JournalViewPage />} />
             <Route path="hris/payroll" element={<PayrollListPage />} />
             <Route path="hris/payroll/:id" element={<PayrollDetailPage />} />
+            <Route path="hris/severance" element={<SeverancePage />} />
             <Route path="tasks" element={<TaskListPage />} />
             <Route path="tasks/my" element={<MyTasksPage />} />
             <Route path="tasks/board" element={<TaskBoardPage />} />

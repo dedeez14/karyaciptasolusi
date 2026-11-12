@@ -3,7 +3,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { SettingsService } from '../../common/settings/settings.service';
 import { RequestCtx } from '../../common/context/request-context';
-import { D } from '../../common/utils/money';
+import { D, round } from '../../common/utils/money';
+import type { Prisma } from '@prisma/client';
 import { DocTypeDef } from '../documents/document.registry';
 import { PdfService, PrintableDocument } from './pdf.service';
 
@@ -97,26 +98,59 @@ export class DocumentPrintService {
     if (def.priced) {
       totals.push({ label: 'Subtotal', value: m(doc.subtotal) });
       if (D(doc.discountTotal).gt(0)) totals.push({ label: 'Discount', value: `-${m(doc.discountTotal)}` });
-      if (D(doc.taxTotal).gt(0)) totals.push({ label: 'Tax', value: m(doc.taxTotal) });
+      if (D(doc.taxTotal).gt(0)) {
+        // PMK 131/2024: show the tax base (DPP) and, for PPN 12%, the "DPP nilai lain" (11/12) the tax is charged on
+        const net = D(doc.subtotal).minus(D(doc.discountTotal));
+        const taxIds = [...new Set(doc.lines.map((l: any) => l.taxId).filter(Boolean))] as string[];
+        const taxes = taxIds.length ? await this.prisma.tax.findMany({ where: { id: { in: taxIds } }, select: { id: true, name: true, rate: true, baseNumerator: true, baseDenominator: true } }) : [];
+        const other = taxes.some((t) => t.baseNumerator !== t.baseDenominator);
+        totals.push({ label: 'Tax base (DPP)', value: m(net) });
+        if (other) {
+          const dppNl = doc.lines.reduce((a: Prisma.Decimal, l: any) => {
+            const t = taxes.find((x) => x.id === l.taxId);
+            return t ? a.plus(D(l.lineSubtotal).minus(D(l.lineDiscount)).times(t.baseNumerator).div(t.baseDenominator)) : a;
+          }, D(0));
+          totals.push({ label: 'DPP nilai lain (11/12)', value: m(round(dppNl)) });
+        }
+        const rates = [...new Set(taxes.map((t) => Number(t.rate)))];
+        totals.push({ label: rates.length === 1 ? `PPN ${rates[0]}%` : 'PPN', value: m(doc.taxTotal) });
+      }
       totals.push({ label: `Total (${doc.currencyCode})`, value: m(doc.grandTotal), bold: !def.payable || D(doc.paidAmount).isZero() });
       if (def.payable && D(doc.paidAmount).gt(0)) {
         totals.push({ label: 'Paid', value: `-${m(doc.paidAmount)}` });
         totals.push({ label: 'Balance Due', value: m(D(doc.grandTotal).minus(D(doc.paidAmount))), bold: true });
       }
     }
+    // a sales invoice of a company that is not a PKP is not a tax invoice (UU PPN Pasal 14)
+    let taxNote = '';
+    if (def.code === 'SI') {
+      const vatPayer = await this.settings.bool('sales.vatPayer', companyId, true);
+      const nib = (await this.settings.str('tax.nib', companyId, '')).trim();
+      const pp55 = (await this.settings.str('tax.regime', companyId, 'UMKM_FINAL')) === 'UMKM_FINAL' && (await this.settings.bool('tax.pp55Certificate', companyId, false));
+      taxNote = [
+        vatPayer ? '' : 'The seller is not a VAT-registered entrepreneur (Non-PKP): this invoice is not a tax invoice (Faktur Pajak) and contains no PPN.',
+        pp55 ? 'The seller holds a Surat Keterangan PP 55/2022: income tax withheld on this invoice is the 0.5% final rate, not PPh 23.' : '',
+        nib ? `NIB ${nib}.` : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    }
+    const paidInFull = def.payable && doc.status === 'COMPLETED';
     return {
       title: def.printTitle,
       number: doc.number,
-      status: doc.status === 'DRAFT' ? 'Draft' : doc.status === 'CANCELLED' ? 'Cancelled' : def.payable && doc.status === 'COMPLETED' ? 'Paid' : undefined,
+      status: doc.status === 'DRAFT' ? 'Draft' : doc.status === 'CANCELLED' ? 'Cancelled' : paidInFull ? 'Paid' : undefined,
       parties,
       meta,
       columns,
       rows,
       totals,
       amount: def.priced ? { value: Number(doc.grandTotal), currency: doc.currencyCode } : undefined,
-      notes: doc.notes,
+      notes: [doc.notes, taxNote].filter(Boolean).join('\n\n') || null,
       terms: doc.terms,
       paymentInfo: def.code === 'SI' ? await this.settings.str('document.paymentInfo', companyId, '') : null,
+      // UU 10/2020: an invoice marked paid (it then acknowledges receipt of money) above Rp5.000.000 carries stamp duty
+      stampDuty: def.code === 'SI' && paidInFull && doc.currencyCode === 'IDR' && Number(doc.grandTotal) > 5_000_000,
       signatures: def.signatures,
       verify: { k: def.code, id: doc.id, n: doc.number, d: new Date(doc.date).toISOString().slice(0, 10), a: def.priced ? Number(doc.grandTotal) : null, cur: def.priced ? doc.currencyCode : null },
     };
@@ -152,7 +186,9 @@ export class DocumentPrintService {
       rows: p.allocations.map((a: any, i: number) => ({ no: String(i + 1), doc: a.document.number, date: fmtDate(a.document.date), total: m(a.document.grandTotal), amount: m(a.amount) })),
       totals: [
         { label: 'Applied to Invoices', value: m(allocated) },
-        ...(Number(p.amount) - allocated > 0 ? [{ label: 'Unapplied (Advance)', value: m(Number(p.amount) - allocated) }] : []),
+        // income tax withheld (PPh 23 / 4(2) / final): settles part of the invoices without cash
+        ...(Number(p.whtAmount ?? 0) > 0 ? [{ label: `Tax withheld${p.whtSlipNo ? ` (slip ${p.whtSlipNo})` : ''}`, value: `-${m(p.whtAmount)}` }] : []),
+        ...(Number(p.amount) + Number(p.whtAmount ?? 0) - allocated > 0.005 ? [{ label: 'Unapplied (Advance)', value: m(Number(p.amount) + Number(p.whtAmount ?? 0) - allocated) }] : []),
         { label: `Total (${company.currencyCode})`, value: m(p.amount), bold: true },
       ],
       amount: { value: Number(p.amount), currency: company.currencyCode },

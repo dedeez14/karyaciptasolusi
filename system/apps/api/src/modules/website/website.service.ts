@@ -29,6 +29,8 @@ export const enquirySchema = z.object({
   message: clean(4000).optional(),
   /** honeypot: people never see this field, bots fill it */
   website: z.string().max(500).optional(),
+  /** UU PDP: the notice shown next to the form when the data was given */
+  consentText: clean(500).optional(),
 });
 
 const lines = (v: string) =>
@@ -180,7 +182,20 @@ export class WebsiteService {
       const lead = await this.prisma.$transaction(async (tx) => {
         const code = await this.sequence.next('LEAD', companyId, new Date(), tx);
         return tx.lead.create({
-          data: { companyId, code, name, email, phone: b.phone || null, sourceCode: 'WEBSITE', statusCode: 'NEW', ownerId: owner?.id ?? null, notes },
+          data: {
+            companyId,
+            code,
+            name,
+            email,
+            phone: b.phone || null,
+            sourceCode: 'WEBSITE',
+            statusCode: 'NEW',
+            ownerId: owner?.id ?? null,
+            notes,
+            // processing basis: the person's own request (contact) or consent (newsletter), with the notice they saw
+            consentAt: new Date(),
+            consentText: (b.consentText || (b.kind === 'newsletter' ? 'Subscribed to the newsletter on the website' : 'Sent a message through the website contact form (reply to their request)')).slice(0, 500),
+          },
           select: { id: true, code: true },
         });
       });

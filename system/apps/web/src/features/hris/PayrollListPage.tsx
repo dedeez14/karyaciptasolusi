@@ -4,7 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, ApiError, type Paged } from '@/lib/api';
 import { fmtDate, fmtMoney, isoDate, plural } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Badge, Button, Card, type Column, DataTable, DatePicker, EmptyState, Field, Modal, PageHeader, Pagination, StatusBadge, Textarea, toast } from '@/components/ui';
+import { AsyncSelect, Badge, Button, Card, type Column, DataTable, DatePicker, EmptyState, Field, Modal, PageHeader, Pagination, Select, StatusBadge, Textarea, toast } from '@/components/ui';
 
 export interface PayrollRun {
   id: string;
@@ -16,6 +16,8 @@ export interface PayrollRun {
   totalGross: string;
   totalDeduction: string;
   totalNet: string;
+  totalEmployerCost?: string;
+  kind?: 'REGULAR' | 'THR';
   notes: string | null;
   journalEntryId: string | null;
   paidAt?: string | null;
@@ -34,10 +36,12 @@ function GenerateModal({ open, onClose }: { open: boolean; onClose: () => void }
     payDate: isoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
     branchId: '',
     notes: '',
+    kind: 'REGULAR' as 'REGULAR' | 'THR',
+    holidayDate: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const gen = useMutation({
-    mutationFn: () => api.post<PayrollRun>('/hris/payroll', { ...form, branchId: form.branchId || null, notes: form.notes || null }),
+    mutationFn: () => api.post<PayrollRun>('/hris/payroll', { ...form, branchId: form.branchId || null, notes: form.notes || null, holidayDate: form.kind === 'THR' ? form.holidayDate || null : null }),
     onSuccess: (r) => {
       toast.success(`Payroll ${r.number} generated as draft`);
       qc.invalidateQueries({ queryKey: ['payroll'] });
@@ -66,6 +70,21 @@ function GenerateModal({ open, onClose }: { open: boolean; onClose: () => void }
       }
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Type" className="sm:col-span-2">
+          <Select
+            value={form.kind}
+            onChange={(e) => setForm({ ...form, kind: e.target.value as 'REGULAR' | 'THR' })}
+            options={[
+              { value: 'REGULAR', label: 'Monthly salary', hint: 'Salary, allowances, BPJS and PPh 21 (TER; December = annual recalculation)' },
+              { value: 'THR', label: 'THR (religious holiday allowance)', hint: '1 month wage after 12 months of service, pro rata from 1 month; pay at least 7 days before the holiday' },
+            ]}
+          />
+        </Field>
+        {form.kind === 'THR' && (
+          <Field label="Holiday date" required error={errors.holidayDate} help="Service is counted up to this date" className="sm:col-span-2">
+            <DatePicker value={form.holidayDate} onChange={(v) => setForm({ ...form, holidayDate: v })} />
+          </Field>
+        )}
         <Field label="Period start" required error={errors.periodStart}>
           <DatePicker clearable={false} value={form.periodStart} onChange={(v) => setForm({ ...form, periodStart: v })} />
         </Field>
@@ -82,7 +101,7 @@ function GenerateModal({ open, onClose }: { open: boolean; onClose: () => void }
           <Textarea value={form.notes} maxLength={1000} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </Field>
         <p className="text-xs text-slate-500 sm:col-span-2">
-          Payslips are calculated from each active employee&apos;s base salary, salary components and approved unpaid leave. You can review the draft before confirming.
+          Payslips are calculated from each active employee&apos;s base salary, salary components and approved unpaid leave, with BPJS and PPh 21 (rates in Settings &gt; Payroll &amp; BPJS). You can review the draft before confirming.
         </p>
       </div>
     </Modal>
@@ -98,7 +117,15 @@ export default function PayrollListPage() {
   const list = useQuery({ queryKey: ['payroll', 'list', page], queryFn: () => api.get<Paged<PayrollRun>>('/hris/payroll', { page, pageSize: 20 }), placeholderData: keepPreviousData });
 
   const columns: Column<PayrollRun>[] = [
-    { key: 'number', header: 'Run', render: (r) => <span className="font-medium text-brand-700">{r.number}</span> },
+    {
+      key: 'number',
+      header: 'Run',
+      render: (r) => (
+        <span className="font-medium text-brand-700">
+          {r.number} {r.kind === 'THR' && <Badge tone="amber">THR</Badge>}
+        </span>
+      ),
+    },
     { key: 'period', header: 'Period', render: (r) => `${fmtDate(r.periodStart)} – ${fmtDate(r.periodEnd)}` },
     { key: 'payDate', header: 'Pay date', render: (r) => fmtDate(r.payDate) },
     { key: 'employees', header: 'Employees', align: 'right', render: (r) => r._count?.payslips ?? 0 },

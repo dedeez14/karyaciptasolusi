@@ -13,6 +13,12 @@ const NUMERIC = new Set(['money', 'number', 'qty', 'integer', 'percent']);
 /** "2026-11-01 to 2026-11-12" -> "1 Nov 2026 to 12 Nov 2026" */
 const prettyPeriod = (t: string) => t.replace(/(\d{4}-\d{2}-\d{2})/g, (d) => fmtDate(d));
 
+/** reports that can produce a DJP Coretax import file (XML, official template) */
+const CORETAX: Record<string, { path: string; label: string } | undefined> = {
+  'vat-output': { path: 'efaktur', label: 'Coretax e-Faktur XML (month of "From")' },
+  'withholding-tax': { path: 'bppu', label: 'Coretax bukti potong PPh 23 / 4(2) XML' },
+};
+
 export default function ReportViewPage() {
   const { key = '' } = useParams();
   const navigate = useNavigate();
@@ -98,6 +104,20 @@ export default function ReportViewPage() {
                 'divider',
                 { label: 'Save PDF to File Manager', icon: 'folder-input', onClick: () => doExport('pdf', true) },
                 { label: 'Save Excel to File Manager', icon: 'folder-input', onClick: () => doExport('xlsx', true) },
+                // DJP Coretax import files for the month of the "From" date
+                ...(CORETAX[key ?? ''] && (applied.from || applied.to)
+                  ? [
+                      'divider' as const,
+                      {
+                        label: CORETAX[key ?? '']!.label,
+                        icon: 'file-code',
+                        onClick: () =>
+                          download(`/coretax/${CORETAX[key ?? '']!.path}`, { month: String(applied.from ?? applied.to).slice(0, 7) })
+                            .then(() => toast.success('File ready: upload it in Coretax'))
+                            .catch((e) => toast.error(e)),
+                      },
+                    ]
+                  : []),
               ]}
             />
           </div>

@@ -495,6 +495,17 @@ model Tax {
   code              String    @db.VarChar(20)
   name              String    @db.VarChar(100)
   rate              Decimal   @db.Decimal(9, 4)
+  /// VAT (PPN on document lines) | WHT (income tax withheld on payments: PPh 23, PPh 4(2), PPh final)
+  kind              String    @default("VAT") @db.VarChar(10)
+  /// tax base as a fraction of the net price: 11/12 for "DPP nilai lain" (PMK 131/2024), 1/1 otherwise
+  baseNumerator     Int       @default(1)
+  baseDenominator   Int       @default(1)
+  /// Coretax transaction code of a VAT (01 normal, 04 DPP nilai lain, ...)
+  trxCode           String?   @db.VarChar(4)
+  /// Coretax tax object code of a withholding tax (e.g. 24-104-14)
+  objectCode        String?   @db.VarChar(20)
+  /// withholding: rate is doubled when the other party has no NPWP / NIK (PPh 23)
+  noNpwpSurcharge   Boolean   @default(false)
   salesAccountId    String?   @db.Uuid
   purchaseAccountId String?   @db.Uuid
   isActive          Boolean   @default(true)
@@ -771,20 +782,22 @@ model Project {
 // ----------------------------------------------------------------------------
 
 model Account {
-  id          String      @id @default(uuid()) @db.Uuid
-  companyId   String      @db.Uuid
-  parentId    String?     @db.Uuid
-  code        String      @db.VarChar(20)
-  name        String      @db.VarChar(150)
-  type        AccountType
-  isGroup     Boolean     @default(false)
-  isActive    Boolean     @default(true)
-  description String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  createdById String?     @db.Uuid
-  updatedById String?     @db.Uuid
-  deletedAt   DateTime?
+  id           String      @id @default(uuid()) @db.Uuid
+  companyId    String      @db.Uuid
+  parentId     String?     @db.Uuid
+  code         String      @db.VarChar(20)
+  name         String      @db.VarChar(150)
+  type         AccountType
+  isGroup      Boolean     @default(false)
+  /// statement of cash flows: OPERATING | INVESTING | FINANCING (empty = derived from the account code / type)
+  cashFlowCode String?     @db.VarChar(20)
+  isActive     Boolean     @default(true)
+  description  String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  createdById  String?     @db.Uuid
+  updatedById  String?     @db.Uuid
+  deletedAt    DateTime?
 
   parent   Account?      @relation("AccountTree", fields: [parentId], references: [id])
   children Account[]     @relation("AccountTree")
@@ -951,6 +964,11 @@ model Lead {
   mapsUrl        String?   @db.VarChar(500)
   /// place found by the Google Maps lead finder
   mapPlaceId     String?   @db.Uuid
+  /// UU PDP: when and to what the person agreed (website form), and the processing purpose
+  consentAt      DateTime?
+  consentText    String?   @db.VarChar(500)
+  /// personal data removed on request or after the retention period
+  anonymizedAt   DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   createdById    String?   @db.Uuid
@@ -1066,20 +1084,24 @@ model LeaveType {
 }
 
 model SalaryComponent {
-  id          String    @id @default(uuid()) @db.Uuid
-  companyId   String    @db.Uuid
-  code        String    @db.VarChar(20)
-  name        String    @db.VarChar(100)
-  kind        String    @db.VarChar(20) // EARNING | DEDUCTION
-  calcType    String    @default("FIXED") @db.VarChar(20) // FIXED | PERCENT_BASE
-  amount      Decimal   @default(0) @db.Decimal(18, 2)
-  accountId   String?   @db.Uuid
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdById String?   @db.Uuid
-  updatedById String?   @db.Uuid
-  deletedAt   DateTime?
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  code           String    @db.VarChar(20)
+  name           String    @db.VarChar(100)
+  kind           String    @db.VarChar(20) // EARNING | DEDUCTION
+  calcType       String    @default("FIXED") @db.VarChar(20) // FIXED | PERCENT_BASE
+  amount         Decimal   @default(0) @db.Decimal(18, 2)
+  accountId      String?   @db.Uuid
+  /// earning counts as taxable income for PPh 21 (reimbursements in kind / at cost are not)
+  taxable        Boolean   @default(true)
+  /// fixed allowance: part of the wage for BPJS, overtime and THR (tunjangan tetap)
+  fixedAllowance Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  deletedAt      DateTime?
 
   @@unique([companyId, code])
   @@map("salary_components")
@@ -1112,6 +1134,16 @@ model Employee {
   endDate        DateTime? @db.Date
   baseSalary     Decimal   @default(0) @db.Decimal(18, 2)
   userId         String?   @unique @db.Uuid
+  /// PTKP status for PPh 21: TK/0..TK/3, K/0..K/3 (TER category A/B/C follows from it)
+  ptkpCode       String?   @db.VarChar(10)
+  bpjsKesNo      String?   @db.VarChar(30)
+  bpjsTkNo       String?   @db.VarChar(30)
+  /// enrolment in each programme (JP stops at pension age; some staff are covered elsewhere)
+  bpjsKes        Boolean   @default(true)
+  bpjsJht        Boolean   @default(true)
+  bpjsJp         Boolean   @default(true)
+  /// GROSS = employee bears PPh 21, GROSS_UP = company pays it as a tax allowance
+  taxMethod      String    @default("GROSS") @db.VarChar(10)
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -1197,6 +1229,10 @@ model PayrollRun {
   totalGross        Decimal   @default(0) @db.Decimal(18, 2)
   totalDeduction    Decimal   @default(0) @db.Decimal(18, 2)
   totalNet          Decimal   @default(0) @db.Decimal(18, 2)
+  /// company BPJS contributions (not paid to employees)
+  totalEmployerCost Decimal   @default(0) @db.Decimal(18, 2)
+  /// REGULAR monthly payroll or THR (religious holiday allowance)
+  kind              String    @default("REGULAR") @db.VarChar(10)
   notes             String?
   journalEntryId    String?   @db.Uuid
   /// salary payment (net pay transferred)
@@ -1224,6 +1260,9 @@ model Payslip {
   totalDeduction Decimal @default(0) @db.Decimal(18, 2)
   netPay         Decimal @default(0) @db.Decimal(18, 2)
   lines          Json // [{code,name,kind,amount}]
+  /// PPh 21 and BPJS working (category, TER rate, bases, employer contributions)
+  statutory      Json?
+  employerCost   Decimal @default(0) @db.Decimal(18, 2)
 
   payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
 
@@ -1334,6 +1373,14 @@ model Payment {
   paymentMethodId String?          @db.Uuid
   amount          Decimal          @db.Decimal(18, 2)
   reference       String?          @db.VarChar(100)
+  /// income tax withheld on this payment (PPh 23 / 4(2) / final): IN = withheld by the customer, OUT = withheld by us
+  whtTaxId        String?          @db.Uuid
+  whtBase         Decimal          @default(0) @db.Decimal(18, 2)
+  whtRate         Decimal          @default(0) @db.Decimal(9, 4)
+  whtAmount       Decimal          @default(0) @db.Decimal(18, 2)
+  /// number and date of the withholding slip (bukti potong)
+  whtSlipNo       String?          @db.VarChar(60)
+  whtSlipDate     DateTime?        @db.Date
   notes           String?
   status          DocStatus        @default(CONFIRMED)
   createdAt       DateTime         @default(now())
@@ -1686,6 +1733,8 @@ model FixedAsset {
   salvageValue            Decimal   @default(0) @db.Decimal(18, 2)
   usefulLifeMonths        Int
   methodCode              String    @default("STRAIGHT_LINE") @db.VarChar(30) // lookup DEPRECIATION_METHOD
+  /// fiscal depreciation group (UU PPh Pasal 11, PMK 72/2023): lookup TAX_ASSET_GROUP
+  taxGroupCode            String?   @db.VarChar(20)
   assetAccountId          String?   @db.Uuid
   accumDepAccountId       String?   @db.Uuid
   depExpenseAccountId     String?   @db.Uuid
@@ -2390,4 +2439,63 @@ model ProjectMilestone {
 
   @@index([companyId, projectId])
   @@map("project_milestones")
+}
+
+/// UU 27/2022 (PDP): requests from data subjects (access, correction, deletion, ...) and how they were handled
+model DataSubjectRequest {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  number         String    @db.VarChar(40)
+  /// ACCESS | CORRECTION | DELETION | PORTABILITY | WITHDRAW_CONSENT | OBJECTION | RESTRICTION
+  typeCode       String    @db.VarChar(30)
+  requesterName  String    @db.VarChar(150)
+  requesterEmail String?   @db.VarChar(150)
+  /// the record the request is about: LEAD | CUSTOMER | EMPLOYEE | USER | OTHER
+  subjectType    String    @db.VarChar(20)
+  subjectId      String?   @db.Uuid
+  receivedAt     DateTime  @default(now())
+  dueAt          DateTime
+  /// RECEIVED | VERIFYING | IN_PROGRESS | DONE | REJECTED
+  statusCode     String    @default("RECEIVED") @db.VarChar(20)
+  details        String?
+  response       String?
+  closedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  deletedAt      DateTime?
+
+  @@unique([companyId, number])
+  @@map("data_subject_requests")
+}
+
+/// UU 27/2022 (PDP): personal data breaches; data subjects and the authority are told within 3 x 24 hours
+model DataBreach {
+  id                  String    @id @default(uuid()) @db.Uuid
+  companyId           String    @db.Uuid
+  number              String    @db.VarChar(40)
+  title               String    @db.VarChar(200)
+  discoveredAt        DateTime
+  notifyBy            DateTime
+  /// what data and whose
+  dataCategories      String?
+  subjectsAffected    Int?
+  cause               String?
+  actionsTaken        String?
+  /// LOW | MEDIUM | HIGH
+  severityCode        String    @default("MEDIUM") @db.VarChar(10)
+  /// OPEN | CONTAINED | NOTIFIED | CLOSED
+  statusCode          String    @default("OPEN") @db.VarChar(20)
+  subjectsNotifiedAt  DateTime?
+  authorityNotifiedAt DateTime?
+  closedAt            DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  createdById         String?   @db.Uuid
+  updatedById         String?   @db.Uuid
+  deletedAt           DateTime?
+
+  @@unique([companyId, number])
+  @@map("data_breaches")
 }

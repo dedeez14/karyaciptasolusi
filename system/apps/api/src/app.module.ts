@@ -31,6 +31,7 @@ import { HrisController } from './modules/hris/hris.controller';
 import { HrisService } from './modules/hris/hris.service';
 import { CrmController } from './modules/crm/crm.controller';
 import { ReportController } from './modules/reports/report.controller';
+import { CoretaxController } from './modules/reports/coretax.controller';
 import { DashboardController } from './modules/dashboard/dashboard.controller';
 import { FilesController } from './modules/files/files.controller';
 import { FilesService } from './modules/files/files.service';
@@ -60,6 +61,7 @@ import { BUDGET_CONTROLLERS, BUDGET_PROVIDERS } from './modules/budget';
 import { APPROVALS_CONTROLLERS, APPROVALS_PROVIDERS } from './modules/approvals';
 import { EXPENSES_CONTROLLERS, EXPENSES_PROVIDERS } from './modules/expenses';
 import { HELPDESK_CONTROLLERS, HELPDESK_PROVIDERS } from './modules/helpdesk';
+import { PRIVACY_CONTROLLERS, PRIVACY_PROVIDERS } from './modules/privacy';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
@@ -122,6 +124,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     HrisController,
     CrmController,
     ReportController,
+    CoretaxController,
     DashboardController,
     FilesController,
     HostingerController,
@@ -133,6 +136,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...ASSETS_CONTROLLERS,
     ...BUDGET_CONTROLLERS,
     ...APPROVALS_CONTROLLERS,
+    ...PRIVACY_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
     ...INSIGHTS_CONTROLLERS,
@@ -187,6 +191,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...ASSETS_PROVIDERS,
     ...BUDGET_PROVIDERS,
     ...APPROVALS_PROVIDERS,
+    ...PRIVACY_PROVIDERS,
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,
     ...INSIGHTS_PROVIDERS,

@@ -99,8 +99,18 @@ export default function PaymentViewPage() {
             <div className="border-t border-line pt-3">
               <dt className="text-xs text-slate-500">Amount</dt>
               <dd className="text-xl font-semibold tabular-nums">{fmtMoney(p.amount)}</dd>
-              {Number(p.amount) - allocated > 0.005 && <dd className="text-xs text-amber-700">Unapplied: {fmtMoney(Number(p.amount) - allocated)}</dd>}
+              {Number(p.amount) + Number(p.whtAmount ?? 0) - allocated > 0.005 && <dd className="text-xs text-amber-700">Unapplied: {fmtMoney(Number(p.amount) + Number(p.whtAmount ?? 0) - allocated)}</dd>}
             </div>
+            {Number(p.whtAmount ?? 0) > 0 && (
+              <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                <dt className="text-xs text-slate-500">{m.dir === 'in' ? 'Tax withheld by the customer' : 'Tax withheld (to pay to the state)'}</dt>
+                <dd className="font-semibold tabular-nums">{fmtMoney(p.whtAmount)}</dd>
+                <dd className="text-xs text-slate-500">
+                  {Number(p.whtRate)}% of {fmtMoney(p.whtBase)}
+                  {p.whtSlipNo ? ` · slip ${p.whtSlipNo}` : ' · slip number not entered yet'}
+                </dd>
+              </div>
+            )}
           </dl>
         </Card>
         <Card title="Applied to invoices" className="lg:col-span-2" bodyClass="p-0">

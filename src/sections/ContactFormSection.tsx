@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useSite } from '../lib/siteContext';
 import { BRAND } from '../lib/brand';
-import { CMS_ENABLED, EMAIL_RE, ENQUIRY_LIMITS, submitEnquiry } from '../lib/site';
+import { CMS_ENABLED, CONTACT_NOTICE, EMAIL_RE, ENQUIRY_LIMITS, submitEnquiry } from '../lib/site';
 
 const easing = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -268,6 +268,7 @@ export default function ContactFormSection() {
       subject: form.subjek || undefined,
       message: form.pesan.trim(),
       website: honeypot,
+      consentText: CONTACT_NOTICE,
     });
 
     if (res.ok) {
@@ -471,7 +472,7 @@ export default function ContactFormSection() {
                         )}
                       </motion.button>
                       <p className="text-[11px] text-[#64748B] text-center">
-                        Data Anda hanya dipakai untuk membalas pesan ini. Lihat{' '}
+                        {CONTACT_NOTICE} Lihat{' '}
                         <Link to="/kebijakan-privasi" className="underline hover:text-brand">Kebijakan Privasi</Link>.
                       </p>
                     </motion.form>

@@ -2,6 +2,8 @@ import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import { budgetVsActual } from './budget-report';
 import { vatRegister, vatSummary } from './vat-report';
+import { cashFlowStatement, comparisonRange, equityStatement } from './financial-statements';
+import { withholdingRegister, fiscalDepreciation } from './tax-reports';
 
 export interface ReportParam {
   name: string;
@@ -70,6 +72,17 @@ const range: ReportParam[] = [
   { name: 'to', label: 'To', type: 'date', required: true, default: 'today' },
 ];
 const asOfParam: ReportParam[] = [{ name: 'asOf', label: 'As of', type: 'date', required: true, default: 'today' }];
+const compareParam: ReportParam = {
+  name: 'compare',
+  label: 'Compare with',
+  type: 'select',
+  default: 'none',
+  options: [
+    { value: 'none', label: 'No comparison' },
+    { value: 'previous', label: 'Previous period' },
+    { value: 'year', label: 'Same period last year' },
+  ],
+};
 const totalsOf = (rows: Record<string, unknown>[], keys: string[]) => Object.fromEntries(keys.map((k) => [k, rows.reduce((a, r) => a + n(r[k]), 0)]));
 
 async function register(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportResult> {
@@ -234,14 +247,14 @@ async function statement(ctx: ReportCtx, kind: 'customer' | 'supplier'): Promise
   const payWhere = { ...branchOf(ctx), companyId, direction: dir as any, deletedAt: null, status: { not: 'CANCELLED' as any }, [field]: partnerId };
   const [docsBefore, paysBefore, docs, pays] = await Promise.all([
     prisma.tradeDocument.aggregate({ where: { ...docWhere, date: { lt: from(p) } }, _sum: { grandTotal: true } }),
-    prisma.payment.aggregate({ where: { ...payWhere, date: { lt: from(p) } }, _sum: { amount: true } }),
+    prisma.payment.aggregate({ where: { ...payWhere, date: { lt: from(p) } }, _sum: { amount: true, whtAmount: true } }),
     prisma.tradeDocument.findMany({ where: { ...docWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, dueDate: true, grandTotal: true } }),
-    prisma.payment.findMany({ where: { ...payWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, reference: true, amount: true } }),
+    prisma.payment.findMany({ where: { ...payWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, reference: true, amount: true, whtAmount: true } }),
   ]);
-  let bal = n(docsBefore._sum.grandTotal) - n(paysBefore._sum.amount);
+  let bal = n(docsBefore._sum.grandTotal) - n(paysBefore._sum.amount) - n(paysBefore._sum.whtAmount);
   const entries = [
     ...docs.map((d) => ({ date: d.date, doc: d.number, desc: `Invoice${d.dueDate ? ` (due ${d.dueDate.toISOString().slice(0, 10)})` : ''}`, charge: n(d.grandTotal), payment: 0 })),
-    ...pays.map((x) => ({ date: x.date, doc: x.number, desc: `Payment${x.reference ? ` - ${x.reference}` : ''}`, charge: 0, payment: n(x.amount) })),
+    ...pays.map((x) => ({ date: x.date, doc: x.number, desc: `Payment${x.reference ? ` - ${x.reference}` : ''}${n(x.whtAmount) ? ` (incl. ${n(x.whtAmount).toLocaleString('id-ID')} tax withheld)` : ''}`, charge: 0, payment: n(x.amount) + n(x.whtAmount) })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime() || a.doc.localeCompare(b.doc));
   const rows: Record<string, unknown>[] = [{ date: p.from, doc: '', desc: 'Opening balance', charge: 0, payment: 0, balance: bal }];
   for (const e of entries) {
@@ -470,32 +483,74 @@ export const REPORTS: ReportDef[] = [
     key: 'profit-loss',
     label: 'Profit & Loss',
     module: 'accounting',
-    description: 'Income statement for the period',
-    params: range,
+    description: 'Laporan Laba Rugi: income and expenses for the period, optionally next to a comparison period (SAK EP)',
+    params: [...range, compareParam],
     run: async (c) => {
-      const b = (await balances(c, from(c.p), to(c.p), { excludeClosing: true })).filter((r) => r.type === 'INCOME' || r.type === 'EXPENSE');
+      const cur = (await balances(c, from(c.p), to(c.p), { excludeClosing: true })).filter((r) => r.type === 'INCOME' || r.type === 'EXPENSE');
+      const cmp = comparisonRange(c.p);
+      const prev = cmp ? (await balances(c, cmp.from, cmp.to, { excludeClosing: true })).filter((r) => r.type === 'INCOME' || r.type === 'EXPENSE') : [];
+      const val = (r: Bal) => (r.type === 'INCOME' ? n(r.credit) - n(r.debit) : n(r.debit) - n(r.credit));
+      const pm = new Map(prev.map((r) => [r.code, val(r)]));
       const rows: Record<string, unknown>[] = [];
-      let income = 0;
-      let expense = 0;
-      rows.push({ section: 'INCOME', code: '', name: '', amount: null });
-      for (const r of b.filter((x) => x.type === 'INCOME')) {
-        const v = n(r.credit) - n(r.debit);
-        if (!v) continue;
-        income += v;
-        rows.push({ section: '', code: r.code, name: r.name, amount: v });
+      const tot = { income: [0, 0], expense: [0, 0] };
+      for (const [type, title, key] of [
+        ['INCOME', 'INCOME', 'income'],
+        ['EXPENSE', 'EXPENSES', 'expense'],
+      ] as const) {
+        rows.push({ section: title, code: '', name: '', amount: null, previous: null });
+        const accounts = new Map<string, { name: string; a: number; b: number }>();
+        for (const r of cur.filter((x) => x.type === type)) accounts.set(r.code, { name: r.name, a: val(r), b: pm.get(r.code) ?? 0 });
+        for (const r of prev.filter((x) => x.type === type && !accounts.has(x.code))) accounts.set(r.code, { name: r.name, a: 0, b: val(r) });
+        for (const [code, v] of [...accounts.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
+          if (!v.a && !v.b) continue;
+          tot[key][0] += v.a;
+          tot[key][1] += v.b;
+          rows.push({ section: '', code, name: v.name, amount: v.a, previous: cmp ? v.b : null });
+        }
+        rows.push({ section: `Total ${title.charAt(0) + title.slice(1).toLowerCase()}`, code: '', name: '', amount: tot[key][0], previous: cmp ? tot[key][1] : null });
       }
-      rows.push({ section: 'Total Income', code: '', name: '', amount: income });
-      rows.push({ section: 'EXPENSES', code: '', name: '', amount: null });
-      for (const r of b.filter((x) => x.type === 'EXPENSE')) {
-        const v = n(r.debit) - n(r.credit);
-        if (!v) continue;
-        expense += v;
-        rows.push({ section: '', code: r.code, name: r.name, amount: v });
-      }
-      rows.push({ section: 'Total Expenses', code: '', name: '', amount: expense });
-      rows.push({ section: 'NET PROFIT / (LOSS)', code: '', name: '', amount: income - expense });
-      return { subtitle: period(c.p), columns: [{ key: 'section', label: 'Section' }, { key: 'code', label: 'Code' }, { key: 'name', label: 'Account' }, { key: 'amount', label: 'Amount', type: 'money' }], rows };
+      rows.push({ section: 'NET PROFIT / (LOSS)', code: '', name: '', amount: tot.income[0] - tot.expense[0], previous: cmp ? tot.income[1] - tot.expense[1] : null });
+      return {
+        subtitle: `${period(c.p)}${cmp ? ` · compared with ${cmp.label}` : ''}`,
+        columns: [{ key: 'section', label: 'Section' }, { key: 'code', label: 'Code' }, { key: 'name', label: 'Account' }, { key: 'amount', label: 'This period', type: 'money' }, ...(cmp ? [{ key: 'previous', label: 'Comparison', type: 'money' as const }] : [])],
+        rows,
+      };
     },
+  },
+  {
+    key: 'cash-flow',
+    label: 'Statement of Cash Flows',
+    module: 'accounting',
+    description: 'Laporan Arus Kas (indirect method): operating, investing and financing cash flows for the period (SAK EP)',
+    params: range,
+    run: (c) => cashFlowStatement(c),
+  },
+  {
+    key: 'equity-changes',
+    label: 'Statement of Changes in Equity',
+    module: 'accounting',
+    description: 'Laporan Perubahan Ekuitas: capital, retained earnings and profit from the start to the end of the period (SAK EP)',
+    params: [
+      { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' },
+      { name: 'to', label: 'To', type: 'date', required: true, default: 'today' },
+    ],
+    run: (c) => equityStatement(c),
+  },
+  {
+    key: 'withholding-tax',
+    label: 'Withholding Tax Register (PPh 23 / 4(2))',
+    module: 'accounting',
+    description: 'Income tax withheld on payments: by customers (prepaid tax) and from suppliers (to pay by the 15th and file in the SPT Masa PPh Unifikasi)',
+    params: [...range, { name: 'direction', label: 'Withheld', type: 'select', default: 'OUT', options: [{ value: 'OUT', label: 'By us (from suppliers)' }, { value: 'IN', label: 'By customers (from us)' }] }],
+    run: (c) => withholdingRegister(c),
+  },
+  {
+    key: 'fiscal-depreciation',
+    label: 'Fiscal Depreciation (Tax)',
+    module: 'accounting',
+    description: 'Depreciation for tax by group (PMK 72/2023) next to the book depreciation, and the fiscal correction for the SPT Tahunan',
+    params: [{ name: 'year', label: 'Year', type: 'select', default: String(new Date().getFullYear()), options: Array.from({ length: 6 }, (_, i) => String(new Date().getFullYear() - i)).map((y) => ({ value: y, label: y })) }],
+    run: (c) => fiscalDepreciation(c),
   },
   {
     key: 'budget-vs-actual',
@@ -536,32 +591,68 @@ export const REPORTS: ReportDef[] = [
     key: 'balance-sheet',
     label: 'Balance Sheet',
     module: 'accounting',
-    description: 'Financial position as of a date',
-    params: asOfParam,
+    description: 'Laporan Posisi Keuangan: assets, liabilities and equity as of a date, optionally next to the end of the previous year (SAK EP)',
+    params: [
+      ...asOfParam,
+      {
+        name: 'compare',
+        label: 'Compare with',
+        type: 'select',
+        default: 'none',
+        options: [
+          { value: 'none', label: 'No comparison' },
+          { value: 'yearEnd', label: 'End of the previous year' },
+          { value: 'year', label: 'Same date last year' },
+        ],
+      },
+    ],
     run: async (c) => {
-      const b = await balances(c, new Date('1970-01-01'), asOf(c.p));
-      const rows: Record<string, unknown>[] = [];
-      const block = (type: string, title: string, sign: 1 | -1) => {
-        rows.push({ section: title, code: '', name: '', amount: null });
-        let t = 0;
-        for (const r of b.filter((x) => x.type === type)) {
-          const v = sign * (n(r.debit) - n(r.credit) + n(r.opening));
-          if (!v) continue;
-          t += v;
-          rows.push({ section: '', code: r.code, name: r.name, amount: v });
+      const at = asOf(c.p);
+      const cmpAt = c.p.compare === 'yearEnd' ? new Date(Date.UTC(at.getUTCFullYear() - 1, 11, 31)) : c.p.compare === 'year' ? new Date(Date.UTC(at.getUTCFullYear() - 1, at.getUTCMonth(), at.getUTCDate())) : null;
+      const pos = async (d: Date) => {
+        const b = await balances(c, new Date('1970-01-01'), d);
+        const v = new Map<string, { name: string; type: string; v: number }>();
+        for (const r of b) {
+          const sign = r.type === 'ASSET' ? 1 : -1;
+          v.set(r.code, { name: r.name, type: r.type, v: sign * (n(r.debit) - n(r.credit) + n(r.opening)) });
         }
-        return t;
+        const pl = b.filter((x) => x.type === 'INCOME' || x.type === 'EXPENSE').reduce((a, r) => a + (n(r.credit) - n(r.debit) - n(r.opening)), 0);
+        return { v, pl };
       };
-      const assets = block('ASSET', 'ASSETS', 1);
-      rows.push({ section: 'Total Assets', code: '', name: '', amount: assets });
-      const liab = block('LIABILITY', 'LIABILITIES', -1);
-      rows.push({ section: 'Total Liabilities', code: '', name: '', amount: liab });
-      const eq = block('EQUITY', 'EQUITY', -1);
-      const pl = b.filter((x) => x.type === 'INCOME' || x.type === 'EXPENSE').reduce((a, r) => a + (n(r.credit) - n(r.debit) - n(r.opening)), 0);
-      rows.push({ section: '', code: '', name: 'Profit / (loss) not yet closed', amount: pl });
-      rows.push({ section: 'Total Equity', code: '', name: '', amount: eq + pl });
-      rows.push({ section: 'TOTAL LIABILITIES & EQUITY', code: '', name: '', amount: liab + eq + pl });
-      return { subtitle: `As of ${c.p.asOf}`, columns: [{ key: 'section', label: 'Section' }, { key: 'code', label: 'Code' }, { key: 'name', label: 'Account' }, { key: 'amount', label: 'Amount', type: 'money' }], rows };
+      const cur = await pos(at);
+      const prev = cmpAt ? await pos(cmpAt) : null;
+      const rows: Record<string, unknown>[] = [];
+      const block = (type: string, title: string) => {
+        rows.push({ section: title, code: '', name: '', amount: null, previous: null });
+        let t = 0;
+        let tp = 0;
+        const codes = new Set([...cur.v.keys(), ...(prev ? [...prev.v.keys()] : [])]);
+        for (const code of [...codes].sort()) {
+          const a = cur.v.get(code);
+          const b = prev?.v.get(code);
+          if ((a ?? b)!.type !== type) continue;
+          const va = a?.v ?? 0;
+          const vb = b?.v ?? 0;
+          if (!va && !vb) continue;
+          t += va;
+          tp += vb;
+          rows.push({ section: '', code, name: (a ?? b)!.name, amount: va, previous: prev ? vb : null });
+        }
+        return [t, tp];
+      };
+      const [assets, assetsP] = block('ASSET', 'ASSETS');
+      rows.push({ section: 'Total Assets', code: '', name: '', amount: assets, previous: prev ? assetsP : null });
+      const [liab, liabP] = block('LIABILITY', 'LIABILITIES');
+      rows.push({ section: 'Total Liabilities', code: '', name: '', amount: liab, previous: prev ? liabP : null });
+      const [eq, eqP] = block('EQUITY', 'EQUITY');
+      rows.push({ section: '', code: '', name: 'Profit / (loss) not yet closed', amount: cur.pl, previous: prev ? prev.pl : null });
+      rows.push({ section: 'Total Equity', code: '', name: '', amount: eq + cur.pl, previous: prev ? eqP + prev.pl : null });
+      rows.push({ section: 'TOTAL LIABILITIES & EQUITY', code: '', name: '', amount: liab + eq + cur.pl, previous: prev ? liabP + eqP + prev.pl : null });
+      return {
+        subtitle: `As of ${c.p.asOf}${cmpAt ? ` · compared with ${cmpAt.toISOString().slice(0, 10)}` : ''}`,
+        columns: [{ key: 'section', label: 'Section' }, { key: 'code', label: 'Code' }, { key: 'name', label: 'Account' }, { key: 'amount', label: c.p.asOf ?? 'Amount', type: 'money' }, ...(cmpAt ? [{ key: 'previous', label: cmpAt.toISOString().slice(0, 10), type: 'money' as const }] : [])],
+        rows,
+      };
     },
   },
   // ------------------------------------------------------------- CRM

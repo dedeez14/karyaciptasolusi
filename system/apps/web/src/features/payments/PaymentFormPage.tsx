@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtDate, fmtMoney, isoDate } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, Spinner, Textarea, toast, NumberInput } from '@/components/ui';
+import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, Select, Spinner, Textarea, toast, NumberInput } from '@/components/ui';
 import { dirMeta, type PaymentRow } from './common';
 
 interface OpenInvoice {
@@ -16,6 +16,15 @@ interface OpenInvoice {
   paidAmount: string;
   currencyCode: string;
   balance: string;
+  taxBase: string;
+}
+interface WhtTax {
+  id: string;
+  code: string;
+  name: string;
+  rate: string;
+  objectCode: string | null;
+  noNpwpSurcharge: boolean;
 }
 
 export default function PaymentFormPage() {
@@ -28,6 +37,11 @@ export default function PaymentFormPage() {
   const [form, setForm] = useState({ date: isoDate(), partnerId: sp.get('partnerId') ?? '', bankAccountId: '', paymentMethodId: '', amount: '', reference: '', notes: '' });
   const [alloc, setAlloc] = useState<Record<string, string>>({});
   const [amountTouched, setAmountTouched] = useState(false);
+  // income tax withheld on this payment (PPh 23 / 4(2) / final 0,5%)
+  const [wht, setWht] = useState({ taxId: '', base: '', amount: '', slipNo: '', slipDate: '' });
+  const [baseTouched, setBaseTouched] = useState(false);
+  const [whtTouched, setWhtTouched] = useState(false);
+  const whtTaxes = useQuery({ queryKey: ['payments', m.dir, 'wht-taxes'], queryFn: () => api.get<WhtTax[]>(`/payments/${m.dir}/withholding-taxes`), staleTime: 300_000 });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const preselect = sp.get('invoiceId');
 
@@ -49,8 +63,22 @@ export default function PaymentFormPage() {
   }, [preselect, invoices.data]);
 
   const allocTotal = useMemo(() => Object.values(alloc).reduce((a, v) => a + (Number(v) || 0), 0), [alloc]);
-  const amount = amountTouched ? Number(form.amount) || 0 : allocTotal;
-  const overAllocated = allocTotal - amount > 0.005;
+  // default tax base: the allocated part of each invoice before VAT
+  const allocBase = useMemo(
+    () =>
+      (invoices.data ?? []).reduce((a, inv) => {
+        const v = Number(alloc[inv.id]) || 0;
+        return a + (Number(inv.grandTotal) ? (v * Number(inv.taxBase)) / Number(inv.grandTotal) : 0);
+      }, 0),
+    [alloc, invoices.data],
+  );
+  const whtTax = whtTaxes.data?.find((t) => t.id === wht.taxId);
+  const whtBase = wht.taxId ? (baseTouched ? Number(wht.base) || 0 : Math.round(allocBase * 100) / 100) : 0;
+  const whtCalc = whtTax ? Math.round(((whtBase * Number(whtTax.rate)) / 100) * 100) / 100 : 0;
+  const whtAmount = whtTax ? (whtTouched ? Number(wht.amount) || 0 : whtCalc) : 0;
+  // cash moved = what the invoices are settled for, less the tax withheld
+  const amount = amountTouched ? Number(form.amount) || 0 : Math.max(0, Math.round((allocTotal - whtAmount) * 100) / 100);
+  const overAllocated = allocTotal - (amount + whtAmount) > 0.005;
 
   const save = useMutation({
     mutationFn: () =>
@@ -62,6 +90,7 @@ export default function PaymentFormPage() {
         amount,
         reference: form.reference,
         notes: form.notes,
+        ...(wht.taxId ? { whtTaxId: wht.taxId, whtBase, ...(whtTouched ? { whtAmount } : {}), whtSlipNo: wht.slipNo, whtSlipDate: wht.slipDate || null } : {}),
         allocations: Object.entries(alloc)
           .filter(([, v]) => Number(v) > 0)
           .map(([documentId, v]) => ({ documentId, amount: Number(v) })),
@@ -125,10 +154,10 @@ export default function PaymentFormPage() {
             <Field label="Payment method">
               <AsyncSelect resource="payment-methods" value={form.paymentMethodId || null} onChange={(v) => setForm({ ...form, paymentMethodId: v ?? '' })} />
             </Field>
-            <Field label="Amount" required error={errors.amount ?? (overAllocated ? 'Allocations exceed the payment amount' : undefined)} help={amountTouched ? undefined : 'Defaults to the total allocated below'}>
+            <Field label="Amount" required error={errors.amount ?? (overAllocated ? 'Allocations exceed the payment amount' : undefined)} help={amountTouched ? undefined : whtAmount ? 'Allocated below, less the tax withheld' : 'Defaults to the total allocated below'}>
               <NumberInput
                 fixed={2}
-                value={amountTouched ? form.amount : allocTotal ? String(allocTotal) : ''}
+                value={amountTouched ? form.amount : amount ? String(amount) : ''}
                 onChange={(v) => {
                   setAmountTouched(true);
                   setForm({ ...form, amount: v });
@@ -136,6 +165,51 @@ export default function PaymentFormPage() {
                 invalid={overAllocated}
               />
             </Field>
+            {!!whtTaxes.data?.length && (
+              <div className="rounded-xl border border-line bg-slate-50/60 p-3">
+                <Field label={m.dir === 'in' ? 'Tax withheld by the customer' : 'Tax we withhold'} help={m.dir === 'in' ? 'PPh 23 / final 0,5% the customer deducted: recorded as prepaid tax, the invoice is settled by cash + tax' : 'Paid to the state by the 15th of next month; give the supplier the withholding slip (bukti potong)'} error={errors.whtTaxId}>
+                  <Select
+                    value={wht.taxId}
+                    onChange={(e) => {
+                      setWht({ ...wht, taxId: e.target.value });
+                      setWhtTouched(false);
+                    }}
+                    placeholder="No tax withheld"
+                    options={whtTaxes.data.map((t) => ({ value: t.id, label: t.name, hint: t.objectCode ? `Object code ${t.objectCode}` : undefined }))}
+                  />
+                </Field>
+                {wht.taxId && (
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Field label="Tax base (before VAT)" error={errors.whtBase}>
+                      <NumberInput
+                        fixed={2}
+                        value={baseTouched ? wht.base : whtBase ? String(whtBase) : ''}
+                        onChange={(v) => {
+                          setBaseTouched(true);
+                          setWht({ ...wht, base: v });
+                        }}
+                      />
+                    </Field>
+                    <Field label="Tax withheld" error={errors.whtAmount} help={m.dir === 'out' && whtTax?.noNpwpSurcharge ? 'Doubled automatically when the supplier has no NPWP / NIK' : `${Number(whtTax?.rate ?? 0)}% of the base`}>
+                      <NumberInput
+                        fixed={2}
+                        value={whtTouched ? wht.amount : whtCalc ? String(whtCalc) : ''}
+                        onChange={(v) => {
+                          setWhtTouched(true);
+                          setWht({ ...wht, amount: v });
+                        }}
+                      />
+                    </Field>
+                    <Field label="Withholding slip no. (bukti potong)">
+                      <Input value={wht.slipNo} maxLength={60} onChange={(e) => setWht({ ...wht, slipNo: e.target.value })} />
+                    </Field>
+                    <Field label="Slip date">
+                      <DatePicker value={wht.slipDate} onChange={(v) => setWht({ ...wht, slipDate: v })} />
+                    </Field>
+                  </div>
+                )}
+              </div>
+            )}
             <Field label="Reference" help="e.g. transfer reference">
               <Input value={form.reference} maxLength={100} onChange={(e) => setForm({ ...form, reference: e.target.value })} />
             </Field>
@@ -201,10 +275,16 @@ export default function PaymentFormPage() {
                 <span>Allocated</span>
                 <span className="tabular-nums">{fmtMoney(allocTotal)}</span>
               </div>
-              {amount - allocTotal > 0.005 && (
+              {whtAmount > 0 && (
+                <div className="flex justify-between px-4 py-2 text-sm text-slate-600">
+                  <span>Settled by tax withheld</span>
+                  <span className="tabular-nums">{fmtMoney(whtAmount)}</span>
+                </div>
+              )}
+              {amount + whtAmount - allocTotal > 0.005 && (
                 <div className="flex justify-between px-4 py-2 text-sm text-amber-700">
                   <span>Unapplied (advance)</span>
-                  <span className="tabular-nums">{fmtMoney(amount - allocTotal)}</span>
+                  <span className="tabular-nums">{fmtMoney(amount + whtAmount - allocTotal)}</span>
                 </div>
               )}
             </div>

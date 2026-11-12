@@ -29,6 +29,8 @@ export const assetSchema = z
     salvageValue: z.coerce.number().min(0).max(1e14).default(0),
     usefulLifeMonths: z.coerce.number().int().min(1, 'Useful life is required').max(600),
     methodCode: z.string().trim().min(1).max(30).default('STRAIGHT_LINE'),
+    /** fiscal depreciation group (PMK 72/2023): K1..K4, BP, BNP, NONE */
+    taxGroupCode: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(20).nullable().optional()),
     assetAccountId: optUuid,
     accumDepAccountId: optUuid,
     depExpenseAccountId: optUuid,
@@ -296,6 +298,7 @@ export class AssetService {
   private async validate(input: z.infer<typeof assetSchema>) {
     await assertLookup(this.prisma, 'ASSET_CATEGORY', input.categoryCode, 'categoryCode');
     await assertLookup(this.prisma, 'DEPRECIATION_METHOD', input.methodCode, 'methodCode');
+    await assertLookup(this.prisma, 'TAX_ASSET_GROUP', input.taxGroupCode, 'taxGroupCode');
     await assertOwned(this.prisma, 'employee', input.custodianEmployeeId, 'custodianEmployeeId', 'Employee');
     await assertOwned(this.prisma, 'supplier', input.supplierId, 'supplierId', 'Supplier');
     await assertPostingAccount(this.prisma, input.assetAccountId, 'assetAccountId');
@@ -346,6 +349,7 @@ export class AssetService {
           code,
           name: input.name,
           categoryCode: input.categoryCode ?? null,
+          taxGroupCode: input.taxGroupCode ?? null,
           serialNumber: input.serialNumber ?? null,
           location: input.location ?? null,
           custodianEmployeeId: input.custodianEmployeeId ?? null,
@@ -451,6 +455,7 @@ export class AssetService {
           code,
           name: input.name,
           categoryCode: input.categoryCode ?? null,
+          taxGroupCode: input.taxGroupCode ?? null,
           serialNumber: input.serialNumber ?? null,
           location: input.location ?? null,
           custodianEmployeeId: input.custodianEmployeeId ?? null,

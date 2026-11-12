@@ -16,6 +16,17 @@ interface SlipLine {
   kind: 'EARNING' | 'DEDUCTION';
   amount: string;
 }
+interface Statutory {
+  category?: string;
+  ptkp?: string;
+  terRate?: number;
+  bruto?: number;
+  pph21?: number;
+  method?: 'TER' | 'ANNUAL';
+  annual?: { biayaJabatan: number; neto: number; ptkp: number; pkp: number; yearTax: number; tax: number };
+  bpjs?: { company?: Record<string, number> };
+  warnings?: string[];
+}
 interface Payslip {
   id: string;
   employeeId: string;
@@ -23,6 +34,8 @@ interface Payslip {
   totalEarning: string;
   totalDeduction: string;
   netPay: string;
+  employerCost?: string;
+  statutory?: Statutory | null;
   lines: SlipLine[];
   employee?: { id: string; code: string; fullName: string };
 }
@@ -197,6 +210,11 @@ export default function PayrollDetailPage() {
                 ]}
               />
             )}
+            {confirmed && (
+              <Button variant="outline" icon="file-code" loading={busy === 'bpmp'} title="Bukti potong PPh 21 bulanan for Coretax (XML, DJP template)" onClick={() => run_('bpmp', () => download('/coretax/bpmp', { month: run.periodEnd.slice(0, 7) }), 'File ready: upload it in Coretax (e-Bupot 21)')}>
+                Coretax PPh 21
+              </Button>
+            )}
             {confirmed && !run.paidAt && can('hris.payroll.pay') && (
               <Button icon="banknote" onClick={() => setPaying(true)}>
                 Pay salaries
@@ -226,6 +244,22 @@ export default function PayrollDetailPage() {
         <StatCard label="Deductions" value={fmtMoney(run.totalDeduction)} icon="trending-down" tone="amber" />
         <StatCard label="Net pay" value={fmtMoney(run.totalNet)} icon="wallet" tone="violet" />
       </div>
+      {Number(run.totalEmployerCost ?? 0) > 0 && (
+        <p className="mb-4 text-sm text-slate-600">
+          Company BPJS contributions (JHT, JP, JKK, JKM, Kesehatan): <b className="tabular-nums">{fmtMoney(run.totalEmployerCost)}</b> · total employment cost{' '}
+          <b className="tabular-nums">{fmtMoney(Number(run.totalGross) + Number(run.totalEmployerCost))}</b>
+        </p>
+      )}
+      {run.payslips.some((s) => s.statutory?.warnings?.length) && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="mb-1 flex items-center gap-2 font-medium">
+            <Icon name="triangle-alert" className="h-4 w-4" /> Check before confirming
+          </p>
+          <ul className="ml-6 list-disc text-xs">
+            {run.payslips.flatMap((s) => (s.statutory?.warnings ?? []).map((w) => <li key={s.id + w}>{`${s.employee?.fullName}: ${w}`}</li>))}
+          </ul>
+        </div>
+      )}
       {run.notes && <p className="mb-4 text-sm text-slate-500">{run.notes}</p>}
       {confirmed && !run.paidAt && can('hris.payroll.pay') && (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -296,6 +330,31 @@ export default function PayrollDetailPage() {
                               <span className="tabular-nums">{fmtMoney(s.netPay)}</span>
                             </li>
                           </ul>
+                          {s.statutory?.category && (
+                            <div className="mt-3 grid gap-1 rounded-lg bg-white p-3 text-xs text-slate-600 ring-1 ring-line sm:max-w-lg">
+                              <p className="font-medium text-slate-700">PPh 21 working</p>
+                              <p>
+                                PTKP {s.statutory.ptkp} · category {s.statutory.category} · taxable gross {fmtMoney(s.statutory.bruto)} (incl. company JKK, JKM and BPJS Kesehatan)
+                              </p>
+                              {s.statutory.method === 'ANNUAL' && s.statutory.annual ? (
+                                <p>
+                                  Annual: biaya jabatan {fmtMoney(s.statutory.annual.biayaJabatan)}, net {fmtMoney(s.statutory.annual.neto)}, PTKP {fmtMoney(s.statutory.annual.ptkp)}, taxable {fmtMoney(s.statutory.annual.pkp)}, tax for the year {fmtMoney(s.statutory.annual.yearTax)} → this month {fmtMoney(s.statutory.annual.tax)}
+                                </p>
+                              ) : (
+                                <p>
+                                  TER rate {s.statutory.terRate}% → PPh 21 {fmtMoney(s.statutory.pph21)}
+                                </p>
+                              )}
+                              {Number(s.employerCost ?? 0) > 0 && (
+                                <p>
+                                  Paid by the company on top: {Object.entries(s.statutory.bpjs?.company ?? {})
+                                    .filter(([, v]) => v)
+                                    .map(([k, v]) => `${k.toUpperCase()} ${fmtMoney(v)}`)
+                                    .join(' · ')}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}

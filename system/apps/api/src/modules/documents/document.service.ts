@@ -225,8 +225,9 @@ export class DocumentService {
       if (l.taxId === undefined && p && def.taxField) l.taxId = salesVat ? p[def.taxField] : null;
       if (l.taxId) taxIds.add(l.taxId);
     }
-    const taxes = await this.prisma.tax.findMany({ where: { id: { in: [...taxIds] }, companyId, deletedAt: null } });
-    if (taxes.length !== taxIds.size) throw new BadRequestException('One or more taxes are invalid');
+    // only VAT belongs on document lines; income tax withheld (PPh 23 / 4(2)) is entered on the payment
+    const taxes = await this.prisma.tax.findMany({ where: { id: { in: [...taxIds] }, companyId, deletedAt: null, kind: 'VAT' } });
+    if (taxes.length !== taxIds.size) throw new BadRequestException('One or more taxes are invalid. Lines take VAT (PPN) only; withholding tax (PPh 23 / 4(2)) is recorded on the payment.');
     const txm = new Map(taxes.map((t) => [t.id, t]));
     const uomIds = [...new Set(input.lines.map((l) => l.uomId).filter(Boolean) as string[])];
     if (uomIds.length && (await this.prisma.uom.count({ where: { id: { in: uomIds }, companyId } })) !== uomIds.length) throw new BadRequestException('Invalid unit of measure');
@@ -240,8 +241,11 @@ export class DocumentService {
       const price = def.priced ? D(l.unitPrice ?? (p && def.priceField ? p[def.priceField] : 0)) : D(l.unitPrice ?? 0);
       const subtotal = round(qty.times(price));
       const discount = round(subtotal.times(D(l.discountPct)).div(100));
-      const rate = def.taxField && l.taxId ? D(txm.get(l.taxId)!.rate) : ZERO;
-      const tax = round(subtotal.minus(discount).times(rate).div(100));
+      const tx = def.taxField && l.taxId ? txm.get(l.taxId)! : null;
+      const rate = tx ? D(tx.rate) : ZERO;
+      // PMK 131/2024: PPN 12% is charged on "DPP nilai lain" = 11/12 of the price (except luxury goods)
+      const base = tx ? subtotal.minus(discount).times(tx.baseNumerator).div(tx.baseDenominator) : ZERO;
+      const tax = round(base.times(rate).div(100));
       return {
         lineNo: i + 1,
         productId: p?.id ?? null,
@@ -362,6 +366,10 @@ export class DocumentService {
         if (def.warehouse !== 'none' && def.warehouse !== 'optional' && !doc.warehouseId) throw new BadRequestException('Warehouse is required');
         if (def.warehouse === 'transfer' && !doc.toWarehouseId) throw new BadRequestException('Destination warehouse is required');
         await this.checkSourceQuantities(tx, def, doc);
+        // UU PPN Pasal 14: a company that is not a PKP may not charge PPN (checked again here: the setting may have changed after the draft was saved)
+        if (def.taxField === 'saleTaxId' && D(doc.taxTotal).gt(0) && !(await this.settings.bool('sales.vatPayer', u.companyId, true))) {
+          throw new BadRequestException('Your company is not a VAT payer (PKP), so this document may not charge PPN (UU PPN Pasal 14). Edit it and remove the tax, or turn on "Company is a VAT payer (PKP)" in Settings > Sales once the company is PKP.');
+        }
         if (APPROVAL_DOC_TYPES.has(def.code) && !doc.isOpening) await this.approvals.assertApproved(u.companyId, this.approvalSubject(def, doc), tx);
 
         await this.post(tx, def, doc, allowNegative);

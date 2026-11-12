@@ -10,6 +10,7 @@ export interface AssetRow {
   code: string;
   name: string;
   categoryCode: string | null;
+  taxGroupCode?: string | null;
   serialNumber: string | null;
   location: string | null;
   custodianEmployeeId: string | null;
@@ -90,6 +91,7 @@ const empty = () => ({
   code: '',
   name: '',
   categoryCode: '',
+  taxGroupCode: '',
   serialNumber: '',
   location: '',
   custodianEmployeeId: null as string | null,
@@ -124,6 +126,7 @@ export function AssetFormDrawer({ open, onClose, asset, onSaved }: { open: boole
             code: asset.code,
             name: asset.name,
             categoryCode: asset.categoryCode ?? '',
+            taxGroupCode: asset.taxGroupCode ?? '',
             serialNumber: asset.serialNumber ?? '',
             location: asset.location ?? '',
             custodianEmployeeId: asset.custodianEmployeeId,
@@ -187,6 +190,9 @@ export function AssetFormDrawer({ open, onClose, asset, onSaved }: { open: boole
           </Field>
           <Field label="Category" error={errors.categoryCode}>
             <LookupSelect category="ASSET_CATEGORY" value={f.categoryCode} onChange={(v) => set('categoryCode', v)} placeholder="Select category" />
+          </Field>
+          <Field label="Tax group (fiscal depreciation)" error={errors.taxGroupCode} help="PMK 72/2023: computers and office equipment are group 1 (4 years). Used by the Fiscal Depreciation report">
+            <LookupSelect category="TAX_ASSET_GROUP" value={f.taxGroupCode} onChange={(v) => set('taxGroupCode', v)} placeholder="Select tax group" />
           </Field>
           <Field label="Serial number">
             <Input value={f.serialNumber} maxLength={100} onChange={(e) => set('serialNumber', e.target.value)} />

@@ -13,6 +13,18 @@ const runSchema = z.object({
   payDate: z.coerce.date(),
   branchId: z.preprocess((v) => (v === '' ? null : v), z.uuid().nullable().optional()),
   notes: z.string().max(1000).nullable().optional(),
+  /** REGULAR monthly payroll or THR (religious holiday allowance) */
+  kind: z.enum(['REGULAR', 'THR']).default('REGULAR'),
+  /** THR: date of the religious holiday (service is counted up to it; pay at least 7 days before) */
+  holidayDate: z.preprocess((v) => (v === '' || v === null ? undefined : v), z.coerce.date().optional()),
+});
+
+const severanceSchema = z.object({
+  employeeId: z.uuid(),
+  endDate: z.coerce.date(),
+  reason: z.string().max(30).default('MUTUAL'),
+  unusedLeaveDays: z.coerce.number().min(0).max(365).optional(),
+  contract: z.boolean().optional(),
 });
 
 @Controller('hris')
@@ -56,6 +68,11 @@ export class HrisController {
   @Get('payroll/:id')
   run(@Param('id') id: string) {
     return this.hris.getRun(id);
+  }
+
+  @Post('severance-estimate')
+  severance(@Body(new ZodPipe(severanceSchema)) body: z.infer<typeof severanceSchema>) {
+    return this.hris.severanceEstimate(body);
   }
 
   @Post('payroll')

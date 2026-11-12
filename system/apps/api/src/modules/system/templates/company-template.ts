@@ -14,8 +14,11 @@ export const COA_TEMPLATE: Acc[] = [
   ['1-1300', 'Accounts Receivable', 'ASSET', '1-1000'],
   ['1-1400', 'Inventory', 'ASSET', '1-1000'],
   ['1-1500', 'VAT In (Prepaid Tax)', 'ASSET', '1-1000'],
+  ['1-1510', 'Prepaid PPh 23 (withheld by customers)', 'ASSET', '1-1000'],
+  ['1-1520', 'Prepaid Income Tax (PPh 22 / 25)', 'ASSET', '1-1000'],
   ['1-1600', 'Prepaid Expenses', 'ASSET', '1-1000'],
   ['1-1700', 'Employee Advances', 'ASSET', '1-1000'],
+  ['1-1800', 'Advances to Suppliers', 'ASSET', '1-1000'],
   ['1-2000', 'Fixed Assets', 'ASSET', '1-0000', true],
   ['1-2100', 'Office Equipment', 'ASSET', '1-2000'],
   ['1-2200', 'Computer Equipment', 'ASSET', '1-2000'],
@@ -25,14 +28,23 @@ export const COA_TEMPLATE: Acc[] = [
   ['2-1100', 'Accounts Payable', 'LIABILITY', '2-1000'],
   ['2-1200', 'Goods Received Not Invoiced', 'LIABILITY', '2-1000'],
   ['2-1300', 'VAT Out', 'LIABILITY', '2-1000'],
+  ['2-1310', 'PPh 21 Payable', 'LIABILITY', '2-1000'],
+  ['2-1320', 'PPh 23 / 26 Payable', 'LIABILITY', '2-1000'],
+  ['2-1330', 'PPh 4(2) Final Payable', 'LIABILITY', '2-1000'],
+  ['2-1340', 'Income Tax Payable (PPh Final UMKM / PPh 29)', 'LIABILITY', '2-1000'],
   ['2-1400', 'Salaries Payable', 'LIABILITY', '2-1000'],
   ['2-1500', 'Payroll Deductions Payable', 'LIABILITY', '2-1000'],
+  ['2-1510', 'BPJS Payable', 'LIABILITY', '2-1000'],
   ['2-1600', 'Accrued Expenses', 'LIABILITY', '2-1000'],
   ['2-1700', 'Customer Deposits', 'LIABILITY', '2-1000'],
+  ['2-2000', 'Non-current Liabilities', 'LIABILITY', '2-0000', true],
+  ['2-2100', 'Long-term Loans', 'LIABILITY', '2-2000'],
+  ['2-2200', 'Employee Benefit Obligations', 'LIABILITY', '2-2000'],
   ['3-0000', 'Equity', 'EQUITY', null, true],
   ['3-1000', 'Share Capital', 'EQUITY', '3-0000'],
   ['3-2000', 'Retained Earnings', 'EQUITY', '3-0000'],
   ['3-3000', 'Current Year Earnings', 'EQUITY', '3-0000'],
+  ['3-4000', 'Dividends', 'EQUITY', '3-0000'],
   ['3-9000', 'Opening Balance Equity', 'EQUITY', '3-0000'],
   ['4-0000', 'Income', 'INCOME', null, true],
   ['4-1000', 'Sales Revenue - Goods', 'INCOME', '4-0000'],
@@ -44,6 +56,7 @@ export const COA_TEMPLATE: Acc[] = [
   ['6-0000', 'Operating Expenses', 'EXPENSE', null, true],
   ['6-1000', 'Salaries & Wages', 'EXPENSE', '6-0000'],
   ['6-1100', 'Employee Benefits', 'EXPENSE', '6-0000'],
+  ['6-1200', 'BPJS Contributions (company)', 'EXPENSE', '6-0000'],
   ['6-2000', 'Rent', 'EXPENSE', '6-0000'],
   ['6-2100', 'Utilities', 'EXPENSE', '6-0000'],
   ['6-2200', 'Internet, Hosting & Cloud', 'EXPENSE', '6-0000'],
@@ -56,6 +69,8 @@ export const COA_TEMPLATE: Acc[] = [
   ['6-2900', 'Inventory Adjustment Loss', 'EXPENSE', '6-0000'],
   ['6-3000', 'General Purchases & Services', 'EXPENSE', '6-0000'],
   ['6-9000', 'Other Expenses', 'EXPENSE', '6-0000'],
+  ['8-0000', 'Income Tax', 'EXPENSE', null, true],
+  ['8-1000', 'Income Tax Expense (PPh Final / PPh Badan)', 'EXPENSE', '8-0000'],
 ];
 
 /** functional posting key -> [label, account code] */
@@ -85,6 +100,13 @@ export const ACCOUNT_MAPPING_TEMPLATE: [string, string, string][] = [
   ['DEPRECIATION_EXPENSE', 'Depreciation expense', '6-2800'],
   ['ASSET_DISPOSAL_GAIN', 'Gain on asset disposal', '4-9000'],
   ['ASSET_DISPOSAL_LOSS', 'Loss on asset disposal', '6-9000'],
+  ['WHT_PREPAID', 'Income tax withheld by customers (prepaid)', '1-1510'],
+  ['WHT_PAYABLE', 'Income tax withheld from suppliers (payable)', '2-1320'],
+  ['PPH21_PAYABLE', 'PPh 21 withheld from employees', '2-1310'],
+  ['BPJS_PAYABLE', 'BPJS contributions payable', '2-1510'],
+  ['BPJS_EXPENSE', 'BPJS contributions paid by the company', '6-1200'],
+  ['INCOME_TAX_EXPENSE', 'Income tax expense', '8-1000'],
+  ['INCOME_TAX_PAYABLE', 'Income tax payable', '2-1340'],
 ];
 
 /** code, name, prefix, reset */
@@ -106,6 +128,8 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['CASH_OUT', 'Cash / Bank Payment', 'CV/{YYYY}/{MM}/', 'MONTHLY'],
   ['BANK_TRANSFER', 'Bank Transfer', 'BT/{YYYY}/{MM}/', 'MONTHLY'],
   ['PAYROLL', 'Payroll Run', 'PYR/{YYYY}/', 'YEARLY'],
+  ['DSR', 'Personal Data Request', 'DSR/{YYYY}/', 'YEARLY'],
+  ['BREACH', 'Data Breach', 'BRC/{YYYY}/', 'YEARLY'],
   ['PRODUCT', 'Product Code', 'PRD-', 'NEVER'],
   ['CUSTOMER', 'Customer Code', 'CUS-', 'NEVER'],
   ['SUPPLIER', 'Supplier Code', 'SUP-', 'NEVER'],
@@ -144,9 +168,15 @@ export const PAYMENT_TERM_TEMPLATE: [string, string, number][] = [
   ['NET60', 'Net 60 Days', 60],
 ];
 
-export const TAX_TEMPLATE: [string, string, number][] = [
-  ['PPN11', 'VAT (PPN) 11%', 11],
-  ['PPN12', 'VAT (PPN) 12%', 12],
+/** code, name, kind, rate, base numerator, base denominator, Coretax trx / object code, double without NPWP, [payable/output acc, prepaid/input acc] */
+export const TAX_TEMPLATE: [string, string, 'VAT' | 'WHT', number, number, number, string | null, boolean, [string, string]][] = [
+  // PMK 131/2024: 12% of "DPP nilai lain" (11/12 of the price) for everything except luxury goods
+  ['PPN12', 'PPN 12% x DPP 11/12 (general)', 'VAT', 12, 11, 12, '04', false, ['2-1300', '1-1500']],
+  ['PPN12LUX', 'PPN 12% full price (luxury goods)', 'VAT', 12, 1, 1, '01', false, ['2-1300', '1-1500']],
+  ['PPH23', 'PPh 23 2% (IT / software services)', 'WHT', 2, 1, 1, '24-104-24', true, ['2-1320', '1-1510']],
+  ['PPH23-15', 'PPh 23 15% (dividends, interest, royalties)', 'WHT', 15, 1, 1, null, true, ['2-1320', '1-1510']],
+  ['PPH42-RENT', 'PPh 4(2) 10% (land & building rent)', 'WHT', 10, 1, 1, '28-403-02', false, ['2-1330', '1-1520']],
+  ['PPHFINAL05', 'PPh Final 0,5% (UMKM, PP 55/2022)', 'WHT', 0.5, 1, 1, null, false, ['2-1340', '1-1520']],
 ];
 
 export const STAGE_TEMPLATE: [string, string, number, boolean, boolean][] = [

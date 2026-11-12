@@ -70,6 +70,7 @@ export class ResourceHooks {
 
   /** Called after an update payload is parsed (before it is saved) */
   async prepareUpdate(def: ResourceDef, before: Row, data: Row) {
+    if (def.key === 'data-requests' || def.key === 'data-breaches') await this.privacyDeadline(def, data, before);
     if (def.key === 'leave-requests' && (data.startDate || data.endDate) && !data.days) {
       const merged = { startDate: data.startDate ?? before.startDate, endDate: data.endDate ?? before.endDate };
       if (new Date(merged.endDate) < new Date(merged.startDate)) throw new BadRequestException('End date must be after start date');
@@ -77,7 +78,26 @@ export class ResourceHooks {
     }
   }
 
+  /** UU PDP deadlines: answer a data subject request / notify a breach within the configured hours (default 3 x 24) */
+  private async privacyDeadline(def: ResourceDef, data: Row, before?: Row) {
+    const companyId = RequestCtx.companyId();
+    if (def.key === 'data-requests') {
+      const received = data.receivedAt ?? before?.receivedAt ?? new Date();
+      const hours = await this.settings.num('privacy.requestResponseHours', companyId, 72);
+      data.receivedAt = received;
+      data.dueAt = new Date(new Date(received).getTime() + hours * 3_600_000);
+      if (data.statusCode && ['DONE', 'REJECTED'].includes(String(data.statusCode)) && !data.closedAt && !before?.closedAt) data.closedAt = new Date();
+    }
+    if (def.key === 'data-breaches') {
+      const found = data.discoveredAt ?? before?.discoveredAt;
+      const hours = await this.settings.num('privacy.breachNoticeHours', companyId, 72);
+      if (found) data.notifyBy = new Date(new Date(found).getTime() + hours * 3_600_000);
+      if (data.statusCode === 'CLOSED' && !data.closedAt && !before?.closedAt) data.closedAt = new Date();
+    }
+  }
+
   async beforeCreate(def: ResourceDef, data: Row) {
+    if (def.key === 'data-requests' || def.key === 'data-breaches') await this.privacyDeadline(def, data);
     switch (def.key) {
       case 'letters':
         data.number = await this.letterNumber(String(data.letterType ?? 'OTHER'), data.letterDate ? new Date(String(data.letterDate)) : new Date());

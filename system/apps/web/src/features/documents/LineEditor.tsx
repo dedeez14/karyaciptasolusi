@@ -51,11 +51,18 @@ export function useTaxRates() {
     queryKey: ['tax-rates'],
     queryFn: async () => {
       try {
-        const r = await api.get<Paged<{ id: string; rate: string }>>('/resources/taxes', { pageSize: 200 });
-        return Object.fromEntries(r.data.map((t) => [t.id, Number(t.rate)]));
+        // effective rate: PPN 12% on DPP nilai lain 11/12 = 11% of the net price (PMK 131/2024)
+        const r = await api.get<Paged<{ id: string; rate: string; baseNumerator?: number; baseDenominator?: number }>>('/resources/taxes', { pageSize: 200 });
+        return Object.fromEntries(r.data.map((t) => [t.id, (Number(t.rate) * (t.baseNumerator ?? 1)) / (t.baseDenominator || 1)]));
       } catch {
         const opts = await api.get<{ value: string; label: string }[]>('/resources/taxes/options');
-        return Object.fromEntries(opts.map((o) => [o.value, Number(/([\d.]+)\s*%/.exec(o.label)?.[1] ?? 0)]));
+        return Object.fromEntries(
+          opts.map((o) => {
+            const rate = Number(/([\d.]+)\s*%/.exec(o.label)?.[1] ?? 0);
+            const dpp = /DPP\s*(\d+)\s*\/\s*(\d+)/i.exec(o.label);
+            return [o.value, dpp ? (rate * Number(dpp[1])) / Number(dpp[2]) : rate];
+          }),
+        );
       }
     },
     staleTime: 5 * 60_000,
