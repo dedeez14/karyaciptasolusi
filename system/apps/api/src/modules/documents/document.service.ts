@@ -1,3 +1,4 @@
+import { QualityService } from '../quality/quality.service';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { DocStatus, Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -84,6 +85,7 @@ export class DocumentService {
     private readonly inventory: InventoryService,
     private readonly approvals: ApprovalService,
     private readonly lots: LotService,
+    private readonly quality: QualityService,
   ) {}
 
   def(type: string): DocTypeDef {
@@ -392,6 +394,8 @@ export class DocumentService {
 
         let updated = await tx.tradeDocument.update({ where: { id }, data: { status: 'CONFIRMED', confirmedAt: new Date(), confirmedById: u.id } });
         if (doc.sourceId) await this.refreshSourceStatus(tx, doc.sourceId);
+        // incoming quality control: inspections (and lot holds) for the received goods that have a plan
+        if (def.code === 'GR') await this.quality.onReceipt(tx, doc);
         // a credit / debit note first settles the open balance of the invoice it was made from
         if (def.returnOf && doc.sourceId) {
           const inv = await tx.tradeDocument.findUnique({ where: { id: doc.sourceId } });
@@ -715,6 +719,7 @@ export class DocumentService {
             await this.inventory.reverse(tx, id, allowNegative);
             await this.lots.reverse(tx, id);
           }
+          if (def.code === 'GR') await this.quality.onCancel(tx, id);
           await this.journal.voidBySource(tx, def.code, id);
         }
         const updated = await tx.tradeDocument.update({ where: { id }, data: { status: 'CANCELLED', cancelledAt: new Date(), paidAmount: 0, creditedAmount: 0, updatedById: RequestCtx.user().id } });

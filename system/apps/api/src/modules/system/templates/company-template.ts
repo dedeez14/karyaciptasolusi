@@ -155,6 +155,8 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['DISPOSAL', 'Stock Disposal (pemusnahan)', 'MSN/{YYYY}/', 'YEARLY'],
   ['BOM', 'Bill of Materials', 'BOM-', 'NEVER'],
   ['WORK_ORDER', 'Work Order', 'WO/{YYYY}/', 'YEARLY'],
+  ['QC_INSPECTION', 'Quality Inspection', 'QC/{YYYY}/', 'YEARLY'],
+  ['QC_NCR', 'Non-conformance Report', 'NCR/{YYYY}/', 'YEARLY'],
   ['POS', 'POS Receipt', 'POS/{YYYY}/{MM}/', 'MONTHLY'],
   ['POS_SESSION', 'POS Shift', 'SHIFT/{YYYY}/', 'YEARLY'],
   ['POS_MEMBER', 'Member Number', 'MBR-', 'NEVER'],

@@ -418,7 +418,7 @@ ${l.note}` : l.name, uom: l.uom ?? '', book: q(l.systemQty), counted: q(l.counte
         const days = r.lot.expiryDate ? Math.round((r.lot.expiryDate.getTime() - today) / 86_400_000) : null;
         const status = days === null ? 'NO_EXPIRY' : days < 0 ? 'EXPIRED' : days <= (p?.expiryAlertDays ?? 60) ? 'EXPIRING' : 'OK';
         const qty = n(r.qty);
-        return { lotId: r.lotId, lotNo: r.lot.lotNo, productId: r.lot.productId, code: p?.code ?? '', name: p?.name ?? '', uom: p?.uom?.code ?? null, warehouseId: r.warehouseId, warehouse: whs.get(r.warehouseId) ?? '-', expiryDate: r.lot.expiryDate, daysLeft: days, status, qty, value: Math.round(qty * (costs.get(`${r.lot.productId}:${r.warehouseId}`) ?? 0) * 100) / 100 };
+        return { lotId: r.lotId, lotNo: r.lot.lotNo, productId: r.lot.productId, code: p?.code ?? '', name: p?.name ?? '', uom: p?.uom?.code ?? null, warehouseId: r.warehouseId, warehouse: whs.get(r.warehouseId) ?? '-', expiryDate: r.lot.expiryDate, daysLeft: days, status, qcStatus: r.lot.qcStatus, qty, value: Math.round(qty * (costs.get(`${r.lot.productId}:${r.warehouseId}`) ?? 0) * 100) / 100 };
       })
       .filter((x) => (!q.status || q.status === 'ALL' || x.status === q.status) && (!s || x.lotNo.toLowerCase().includes(s) || x.name.toLowerCase().includes(s) || x.code.toLowerCase().includes(s)))
       .sort((a, b) => (a.daysLeft ?? 1e9) - (b.daysLeft ?? 1e9) || a.name.localeCompare(b.name));

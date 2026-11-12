@@ -2598,6 +2598,8 @@ model StockLot {
   expiryDate      DateTime? @db.Date
   manufactureDate DateTime? @db.Date
   notes           String?   @db.VarChar(300)
+  /// quality status: RELEASED (usable) | HOLD (waiting for inspection) | REJECTED (failed, see the non-conformance)
+  qcStatus        String    @default("RELEASED") @db.VarChar(10)
   createdAt       DateTime  @default(now())
 
   balances LotBalance[]
@@ -3264,4 +3266,134 @@ model WorkOrderOutput {
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@map("work_order_outputs")
+}
+
+/// Inspection plan: what to check, when (goods receipt, production) and the specification of each parameter
+model QcPlan {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  code        String    @db.VarChar(30)
+  name        String    @db.VarChar(150)
+  /// RECEIPT (incoming materials) | PRODUCTION (finished goods of a work order)
+  stage       String    @db.VarChar(12)
+  /// one product, or every product of a category (empty both = all products at that stage)
+  productId   String?   @db.Uuid
+  categoryId  String?   @db.Uuid
+  /// sampling rule shown to the inspector, e.g. "AQL 2.5, general level II" or "3 cans per batch"
+  sampling    String?   @db.VarChar(200)
+  /// lots stay on hold (cannot be issued or sold) until the inspection passes
+  holdLots    Boolean   @default(true)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  params QcPlanParam[]
+
+  @@unique([companyId, code])
+  @@map("qc_plans")
+}
+
+model QcPlanParam {
+  id      String   @id @default(uuid()) @db.Uuid
+  planId  String   @db.Uuid
+  seq     Int
+  name    String   @db.VarChar(120)
+  /// NUMBER (measured, within min / max) | CHECK (pass / fail) | TEXT (observation)
+  kind    String   @db.VarChar(10)
+  unit    String?  @db.VarChar(20)
+  min     Decimal? @db.Decimal(18, 6)
+  max     Decimal? @db.Decimal(18, 6)
+  target  Decimal? @db.Decimal(18, 6)
+  method  String?  @db.VarChar(200)
+  /// a failed critical parameter fails the inspection; others only warn
+  critical Boolean @default(true)
+
+  plan QcPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@map("qc_plan_params")
+}
+
+/// One inspection of a received or produced lot
+model QcInspection {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  number       String    @db.VarChar(40)
+  planId       String    @db.Uuid
+  stage        String    @db.VarChar(12)
+  productId    String    @db.Uuid
+  /// GR (goods receipt) | WO (work order)
+  sourceType   String    @db.VarChar(10)
+  sourceId     String    @db.Uuid
+  sourceNumber String    @db.VarChar(40)
+  lotId        String?   @db.Uuid
+  lotNo        String?   @db.VarChar(60)
+  qty          Decimal   @db.Decimal(18, 4)
+  sampleQty    Decimal   @default(0) @db.Decimal(18, 4)
+  /// PENDING | PASSED | FAILED | CONDITIONAL (accepted with deviation)
+  status       String    @default("PENDING") @db.VarChar(12)
+  inspectedAt  DateTime?
+  inspectorId  String?   @db.Uuid
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  results QcResult[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@index([sourceType, sourceId])
+  @@map("qc_inspections")
+}
+
+model QcResult {
+  id           String   @id @default(uuid()) @db.Uuid
+  inspectionId String   @db.Uuid
+  seq          Int
+  name         String   @db.VarChar(120)
+  kind         String   @db.VarChar(10)
+  unit         String?  @db.VarChar(20)
+  min          Decimal? @db.Decimal(18, 6)
+  max          Decimal? @db.Decimal(18, 6)
+  method       String?  @db.VarChar(200)
+  critical     Boolean  @default(true)
+  valueNumber  Decimal? @db.Decimal(18, 6)
+  valueText    String?  @db.VarChar(500)
+  pass         Boolean?
+
+  inspection QcInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@map("qc_results")
+}
+
+/// Non-conformance report with disposition and corrective / preventive action (CAPA)
+model QcNcr {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  number          String    @db.VarChar(40)
+  inspectionId    String?   @db.Uuid
+  productId       String    @db.Uuid
+  lotId           String?   @db.Uuid
+  lotNo           String?   @db.VarChar(60)
+  supplierId      String?   @db.Uuid
+  qty             Decimal   @default(0) @db.Decimal(18, 4)
+  description     String
+  /// REWORK | SCRAP | USE_AS_IS | RETURN (to the supplier) | SORT
+  disposition     String?   @db.VarChar(12)
+  rootCause       String?
+  correctiveAction String?
+  dueDate         DateTime? @db.Date
+  /// OPEN | CLOSED
+  status          String    @default("OPEN") @db.VarChar(10)
+  closedAt        DateTime?
+  closedById      String?   @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@map("qc_ncrs")
 }

@@ -10,6 +10,7 @@ import { D, round, sum, ZERO } from '../../common/utils/money';
 import { JournalService, PostingLine } from '../accounting/journal.service';
 import { InventoryService } from '../documents/inventory.service';
 import { LotService } from '../documents/lot.service';
+import { QualityService } from '../quality/quality.service';
 
 const n = (v: unknown) => Number(v ?? 0);
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -115,6 +116,7 @@ export class ManufacturingService {
     private readonly journal: JournalService,
     private readonly inventory: InventoryService,
     private readonly lots: LotService,
+    private readonly quality: QualityService,
   ) {}
 
   // ------------------------------------------------------------------ bills of materials
@@ -739,6 +741,8 @@ export class ManufacturingService {
             updatedById: u.id,
           },
         });
+        // final inspection of the produced lot (held until released when the plan says so)
+        await this.quality.onProduction(tx, w, produced);
         await this.audit.record('Work Order', id, 'COMPLETE', { status: w.status }, { status: 'DONE', produced: produced.toString(), scrap: scrap.toString(), cost: wip.toString(), abnormalLoss: abnormal.toString() }, tx);
         return done;
       },
@@ -756,6 +760,7 @@ export class ManufacturingService {
       await this.inventory.reverse(tx, id, allowNegative);
       await this.lots.reverse(tx, id);
       await this.journal.voidBySource(tx, 'WO', id);
+      await this.quality.onCancel(tx, id);
       await tx.workOrder.update({ where: { id }, data: { status: 'CANCELLED', wipMaterial: ZERO, wipConversion: ZERO, updatedById: RequestCtx.user().id } });
       await tx.workOrderLine.updateMany({ where: { workOrderId: id }, data: { issuedQty: ZERO } });
       await this.audit.record('Work Order', id, 'CANCEL', { status: w.status }, { status: 'CANCELLED' }, tx);

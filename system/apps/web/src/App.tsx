@@ -46,6 +46,12 @@ const WorkOrderPage = lazy(() => mfg().then((m) => ({ default: m.WorkOrderPage }
 const mfgFloor = () => import('@/features/manufacturing/MfgFloorPages');
 const ShopFloorPage = lazy(() => mfgFloor().then((m) => ({ default: m.ShopFloorPage })));
 const CapacityPage = lazy(() => mfgFloor().then((m) => ({ default: m.CapacityPage })));
+const MrpPage = lazy(() => import('@/features/manufacturing/MrpPage'));
+const qualityPages = () => import('@/features/quality/QualityPages');
+const InspectionsPage = lazy(() => qualityPages().then((m) => ({ default: m.InspectionsPage })));
+const InspectionPage = lazy(() => qualityPages().then((m) => ({ default: m.InspectionPage })));
+const QcPlansPage = lazy(() => qualityPages().then((m) => ({ default: m.PlansPage })));
+const NcrPage = lazy(() => qualityPages().then((m) => ({ default: m.NcrPage })));
 const ProductionSummaryPage = lazy(() => mfg().then((m) => ({ default: m.ProductionSummaryPage })));
 const TaskListPage = lazy(() => import('@/features/tasks/TaskListPage'));
 const MyTasksPage = lazy(() => import('@/features/tasks/MyTasksPage'));
@@ -150,6 +156,11 @@ export default function App() {
             <Route path="manufacturing/summary" element={<ProductionSummaryPage />} />
             <Route path="manufacturing/shop-floor" element={<ShopFloorPage />} />
             <Route path="manufacturing/capacity" element={<CapacityPage />} />
+            <Route path="manufacturing/mrp" element={<MrpPage />} />
+            <Route path="quality/inspections" element={<InspectionsPage />} />
+            <Route path="quality/inspections/:id" element={<InspectionPage />} />
+            <Route path="quality/plans" element={<QcPlansPage />} />
+            <Route path="quality/ncr" element={<NcrPage />} />
             <Route path="tasks" element={<TaskListPage />} />
             <Route path="tasks/my" element={<MyTasksPage />} />
             <Route path="tasks/board" element={<TaskBoardPage />} />

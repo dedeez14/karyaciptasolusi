@@ -20,6 +20,7 @@ interface LotRow {
   expiryDate: string | null;
   daysLeft: number | null;
   status: 'EXPIRED' | 'EXPIRING' | 'OK' | 'NO_EXPIRY';
+  qcStatus?: 'RELEASED' | 'HOLD' | 'REJECTED';
   qty: number;
   value: number;
 }
@@ -154,6 +155,7 @@ export default function LotsPage() {
                     <td className="px-3 py-2 whitespace-nowrap">
                       {r.expiryDate ? fmtDate(r.expiryDate) : '—'}{' '}
                       <Badge tone={STATUS[r.status].tone}>{r.daysLeft === null ? STATUS[r.status].label : r.daysLeft < 0 ? `${-r.daysLeft} days ago` : `${r.daysLeft} days`}</Badge>
+                      {r.qcStatus && r.qcStatus !== 'RELEASED' && <Badge tone={r.qcStatus === 'HOLD' ? 'amber' : 'red'}>{r.qcStatus === 'HOLD' ? 'QC hold' : 'QC rejected'}</Badge>}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {fmtNumber(r.qty)} {r.uom ?? ''}

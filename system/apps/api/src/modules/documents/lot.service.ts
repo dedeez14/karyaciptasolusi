@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Tx } from '../../common/prisma/prisma.service';
 import { D } from '../../common/utils/money';
@@ -57,8 +57,18 @@ export class LotService {
   async issue(tx: Tx, r: LineRef & { qty: Prisma.Decimal; preferredLotId?: string | null }) {
     const lots = await tx.lotBalance.findMany({
       where: { warehouseId: r.warehouseId, qty: { gt: 0 }, lot: { productId: r.productId, companyId: r.companyId } },
-      include: { lot: { select: { id: true, expiryDate: true, createdAt: true } } },
+      include: { lot: { select: { id: true, lotNo: true, expiryDate: true, createdAt: true, qcStatus: true } } },
     });
+    // lots on quality hold or rejected are not usable; refuse instead of taking them
+    const blocked = lots.filter((b) => b.lot.qcStatus !== 'RELEASED');
+    const usable = lots.filter((b) => b.lot.qcStatus === 'RELEASED');
+    const usableQty = usable.reduce((a, b) => a.plus(D(b.qty)), D(0));
+    if (blocked.length && usableQty.lt(r.qty)) {
+      const names = blocked.map((b) => `${b.lot.lotNo} (${b.lot.qcStatus === 'HOLD' ? 'on QC hold' : 'rejected'})`).join(', ');
+      throw new ConflictException(`Only ${usableQty.toString()} released by quality control; lot ${names} cannot be used yet`);
+    }
+    lots.length = 0;
+    lots.push(...usable);
     lots.sort((a, b) => {
       if (r.preferredLotId) {
         if (a.lotId === r.preferredLotId) return -1;

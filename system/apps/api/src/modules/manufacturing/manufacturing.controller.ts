@@ -1,11 +1,26 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
+import { MrpService, plannedWoSchema } from './mrp.service';
 import { bomSchema, completeSchema, finishOpSchema, issueSchema, ManufacturingService, workOrderSchema } from './manufacturing.service';
 
 @Controller('manufacturing')
 export class ManufacturingController {
-  constructor(private readonly mfg: ManufacturingService) {}
+  constructor(
+    private readonly mfg: ManufacturingService,
+    private readonly mrp: MrpService,
+  ) {}
+
+  @Get('mrp')
+  runMrp(@Query('warehouseId') warehouseId?: string) {
+    return this.mrp.run(warehouseId);
+  }
+
+  @Post('mrp/work-orders')
+  @HttpCode(200)
+  plannedOrders(@Body(new ZodPipe(plannedWoSchema)) body: z.infer<typeof plannedWoSchema>) {
+    return this.mrp.createWorkOrders(body);
+  }
 
   @Get('boms')
   boms() {
