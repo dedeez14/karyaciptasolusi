@@ -193,7 +193,7 @@ export function ImportLinesModal({ open, onClose, onImport, periodStart, periodE
         <Textarea rows={4} value={text} onChange={(e) => load(e.target.value)} placeholder={'Tanggal;Keterangan;Debet;Kredit\n06/12/2026;TRANSFER MASUK PT ABC;;2.500.000,00'} className="font-mono text-xs" />
         {table.length > 0 && (
           <>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="First row">
                 <Select value={hasHeader ? 'h' : 'd'} onChange={(e) => setHasHeader(e.target.value === 'h')} options={[{ value: 'h', label: 'Column names' }, { value: 'd', label: 'Data' }]} />
               </Field>

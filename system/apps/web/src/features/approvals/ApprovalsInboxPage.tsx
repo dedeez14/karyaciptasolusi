@@ -78,13 +78,13 @@ export default function ApprovalsInboxPage() {
   return (
     <div className="space-y-5">
       <PageHeader title="Approvals" subtitle="Documents waiting for a decision and the requests you sent" actions={can('system.approval-rule.read') && <Button variant="outline" icon="list-checks" onClick={() => navigate('/system/approval-rules')}>Approval rules</Button>} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard label="Waiting for my decision" value={counts.data?.waiting ?? '—'} icon="stamp" tone="amber" />
         <StatCard label="My requests still pending" value={counts.data?.minePending ?? '—'} icon="hourglass" tone="blue" />
       </div>
       <Tabs value={tab} onChange={(v) => ls.setFilter('tab', v === 'waiting' ? null : v)} tabs={tabs} />
       <Card bodyClass="p-0">
-        <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-3">
           <form
             className="relative"
             onSubmit={(e) => {

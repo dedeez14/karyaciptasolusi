@@ -81,7 +81,7 @@ export default function PaymentViewPage() {
           </>
         }
       />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card title="Details">
           <dl className="grid gap-3 text-sm">
             {[

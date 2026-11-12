@@ -126,7 +126,7 @@ function state(r: Row): { label: string; tone: 'green' | 'blue' | 'gray' } {
 /** Each announcement as it looks in the bar, with its schedule and whether it is showing now */
 function AnnouncementCardsView({ rows, open }: ResourceViewProps) {
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
       {rows.map((r) => {
         const t = TONE[String(r.tone)] ?? TONE.INFO;
         const s = state(r);

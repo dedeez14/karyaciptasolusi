@@ -52,7 +52,7 @@ export default function ExpenseListPage() {
           )
         }
       />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Waiting for approval" value={fmtMoney(sum.SUBMITTED?.amount ?? 0)} hint={`${sum.SUBMITTED?.count ?? 0} claims`} icon="hourglass" tone="amber" />
         <StatCard label="Approved, to be paid" value={fmtMoney(sum.APPROVED?.amount ?? 0)} hint={`${sum.APPROVED?.count ?? 0} claims`} icon="badge-check" tone="blue" />
         <StatCard label="Paid" value={fmtMoney(sum.PAID?.amount ?? 0)} hint={`${sum.PAID?.count ?? 0} claims`} icon="wallet" tone="green" />
@@ -66,7 +66,7 @@ export default function ExpenseListPage() {
         )}
       </div>
       <Card bodyClass="p-0">
-        <div className={`grid gap-2 border-b border-line p-3 sm:grid-cols-2 ${seesOthers ? 'lg:grid-cols-[1.4fr_1fr_0.8fr_0.8fr]' : 'lg:grid-cols-[1.4fr_0.8fr_0.8fr]'}`}>
+        <div className={`grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-2 ${seesOthers ? 'lg:grid-cols-[1.4fr_1fr_0.8fr_0.8fr]' : 'lg:grid-cols-[1.4fr_0.8fr_0.8fr]'}`}>
           <form
             className="relative"
             onSubmit={(e) => {

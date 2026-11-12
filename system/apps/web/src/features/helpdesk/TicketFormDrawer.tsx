@@ -80,7 +80,7 @@ export function TicketFormDrawer({ open, onClose, ticket, onSaved, defaults }: {
         <Field label="Description" error={errors.description}>
           <Textarea rows={5} value={form.description} maxLength={20000} onChange={(e) => set('description', e.target.value)} placeholder="Steps to reproduce, error message, links..." />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Priority" required error={errors.priorityCode} help="Sets the resolution target (SLA)">
             <LookupSelect category="TICKET_PRIORITY" value={form.priorityCode} onChange={(v) => set('priorityCode', v)} clearable={false} invalid={!!errors.priorityCode} />
           </Field>

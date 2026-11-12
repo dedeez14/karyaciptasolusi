@@ -120,7 +120,7 @@ export default function TicketListPage() {
         tabs={[{ value: 'open', label: 'Unresolved' }, ...(lk.TICKET_STATUS ?? []).map((o) => ({ value: o.value, label: o.label })), { value: 'all', label: 'All' }]}
       />
       <Card bodyClass="p-0">
-        <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_0.9fr_0.9fr_1.2fr_auto]">
+        <div className="grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_0.9fr_0.9fr_1.2fr_auto]">
           <form
             className="relative"
             onSubmit={(e) => {

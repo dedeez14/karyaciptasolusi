@@ -101,7 +101,7 @@ export default function JobPage() {
 
       {!imported && (
         <Card className="mb-4" title="Search settings" bodyClass="p-4">
-          <div className="grid gap-4 text-sm md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <div className="min-w-0">
               <p className="mb-1 text-xs font-medium tracking-wide text-slate-500 uppercase">Searches ({lines.length})</p>
               <ul className="max-h-40 space-y-0.5 overflow-y-auto text-slate-700">

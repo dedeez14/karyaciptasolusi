@@ -234,7 +234,7 @@ export default function BudgetPage() {
         <div className="space-y-5">
           {editable && (
             <Card title="General">
-              <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[2fr_1fr]">
                 <Field label="Name" required error={errors.name}>
                   <Input
                     value={head.name}
@@ -520,7 +520,7 @@ function VsActual({ id }: { id: string }) {
         </Field>
         <p className="pb-2 text-xs text-slate-500">Actual = posted journals. Rows with a cost center or project only count postings tagged with it.</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Income" value={fmtMoney(s.income.actual)} icon="trending-up" tone="green" hint={`Budget ${fmtMoney(s.income.budget)} · ${pct(s.income.actual, s.income.budget)}`} />
         <StatCard label="Expenses" value={fmtMoney(s.expense.actual)} icon="trending-down" tone={s.expense.actual > s.expense.budget ? 'red' : 'amber'} hint={`Budget ${fmtMoney(s.expense.budget)} · ${pct(s.expense.actual, s.expense.budget)}`} />
         <StatCard label="Result" value={fmtMoney(s.profit.actual)} icon="scale" tone={s.profit.actual >= s.profit.budget ? 'green' : 'red'} hint={`Planned ${fmtMoney(s.profit.budget)}`} />

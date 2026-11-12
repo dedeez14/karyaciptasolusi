@@ -132,7 +132,7 @@ export default function SecurityCenterPage() {
           <Spinner className="h-6 w-6 text-brand-600" />
         </div>
       ) : tab === 'overview' ? (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card title="Passwords — salting & hashing" actions={<Badge tone="green" dot>Active</Badge>}>
             <Row label="Algorithm" value={o.password.algorithm} />
             <Row label="Salt" value={o.password.salt} />
@@ -179,7 +179,7 @@ export default function SecurityCenterPage() {
           </Card>
         </div>
       ) : tab === 'integrity' ? (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card title="Verify the audit trail" subtitle="Detects any edit, deletion or insertion made directly in the database">
             <Button icon="shield-check" loading={checking} onClick={verifyChain}>
               Verify integrity now
@@ -236,7 +236,7 @@ export default function SecurityCenterPage() {
           </Card>
         </div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card title="Hash generator" subtitle="Computed locally in your browser (Web Crypto)">
             <div className="space-y-3">
               <Field label="Text">

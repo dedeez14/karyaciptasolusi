@@ -63,7 +63,7 @@ export default function OpeningBalancesPage() {
         </div>
       ) : (
         <>
-          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Tile icon="flag" label="Go-live date" value={o.goLiveDate ? fmtDate(o.goLiveDate) : 'Not set'} hint={o.journal ? `Journal ${o.journal.number}` : 'Set it with the account balances'} />
             <Tile icon="hand-coins" label="Open receivables" value={fmtMoney(o.receivables.total)} hint={`${o.receivables.count} invoice${o.receivables.count === 1 ? '' : 's'}`} />
             <Tile icon="receipt" label="Open payables" value={fmtMoney(o.payables.total)} hint={`${o.payables.count} bill${o.payables.count === 1 ? '' : 's'}`} />
@@ -408,7 +408,7 @@ function AddInvoiceModal({ kind, goLive, onClose }: { kind: 'SI' | 'PI'; goLive:
         </>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label={kind === 'SI' ? 'Customer' : 'Supplier'} required className="sm:col-span-2">
           <AsyncSelect resource={kind === 'SI' ? 'customers' : 'suppliers'} value={f.partner} onChange={(v) => setF({ ...f, partner: v })} />
         </Field>
@@ -601,7 +601,7 @@ function StockTab({ manage, goLive }: { manage: boolean; goLive: string | null }
     <div className="space-y-5">
       {manage && (
         <Card title="Add opening stock" subtitle="Quantity on hand per warehouse at go-live, valued at cost">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Date" required>
               <DatePicker value={date} onChange={setDate} />
             </Field>
@@ -611,7 +611,7 @@ function StockTab({ manage, goLive }: { manage: boolean; goLive: string | null }
           </div>
           <div className="mt-4 space-y-2">
             {lines.map((l, i) => (
-              <div key={l.key} className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_10rem_9rem_2.5rem]">
+              <div key={l.key} className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_10rem_9rem_2.5rem]">
                 <Field label={i === 0 ? 'Product' : undefined}>
                   <AsyncSelect resource="products" value={l.productId} onChange={(v) => setLine(l.key, { productId: v })} placeholder="Stock product..." />
                 </Field>

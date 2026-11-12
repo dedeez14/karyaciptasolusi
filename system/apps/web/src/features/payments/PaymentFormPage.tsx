@@ -110,7 +110,7 @@ export default function PaymentFormPage() {
           </>
         }
       />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card title="Payment" className="lg:col-span-1">
           <div className="grid gap-4">
             <Field label={m.partner} required error={errors.partnerId}>

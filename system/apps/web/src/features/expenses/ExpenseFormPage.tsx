@@ -100,7 +100,7 @@ export default function ExpenseFormPage() {
     <div className="space-y-5 pb-24">
       <PageHeader title={id ? `Edit ${existing.data?.number}` : 'New expense claim'} subtitle="Add every expense with its receipt date; attach the receipts after saving" back={() => navigate(id ? `/expenses/${id}` : '/expenses')} />
       <Card title="Claim">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {manage && (
             <Field label="Employee" error={errors.employeeId} help="Leave empty to claim for yourself">
               <AsyncSelect resource="employees" value={head.employeeId} onChange={(v) => setHead({ ...head, employeeId: v ?? '' })} invalid={!!errors.employeeId} placeholder="Myself" />
@@ -119,7 +119,7 @@ export default function ExpenseFormPage() {
       <Card title="Expenses" subtitle="Expense account is optional; finance can leave it to the default expense account" bodyClass="p-0">
         <div className="divide-y divide-slate-100">
           {lines.map((l, i) => (
-            <div key={l.key} className="grid gap-3 p-4 md:grid-cols-12">
+            <div key={l.key} className="grid grid-cols-1 gap-3 p-4 md:grid-cols-12">
               <div className="flex items-center justify-between md:col-span-12">
                 <span className="text-xs font-semibold text-slate-400 uppercase">Expense {i + 1}</span>
                 {lines.length > 1 && <Button size="icon" variant="ghost" icon="trash-2" aria-label="Remove expense" onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))} />}

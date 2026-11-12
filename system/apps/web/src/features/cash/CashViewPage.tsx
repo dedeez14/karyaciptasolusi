@@ -103,9 +103,9 @@ export default function CashViewPage() {
           </>
         }
       />
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card title="Details" className="lg:col-span-2">
-          <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
             <Item label="Type">
               <Badge color={type?.color}>
                 <Icon name={CASH_ICON[t.type]} className="h-3 w-3" />

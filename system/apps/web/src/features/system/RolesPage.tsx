@@ -202,7 +202,7 @@ function RoleEditor({ roleId, permissions, onSaved, onDeleted }: { roleId: strin
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Code" required error={errors.code}>
             <Input value={form.code} disabled={readOnly || !!roleId} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_') })} />
           </Field>

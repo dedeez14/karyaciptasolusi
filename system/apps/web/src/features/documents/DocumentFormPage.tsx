@@ -332,7 +332,7 @@ export default function DocumentFormPage() {
         </Card>
 
         <Card title="Notes & terms">
-          <div className={def.module !== 'inventory' ? 'grid gap-4 lg:grid-cols-2' : 'grid gap-4'}>
+          <div className={def.module !== 'inventory' ? 'grid grid-cols-1 gap-4 lg:grid-cols-2' : 'grid gap-4'}>
             <Field label="Notes" help="Printed on the document">
               <Textarea value={h.notes} maxLength={4000} onChange={(e) => set('notes', e.target.value)} />
             </Field>

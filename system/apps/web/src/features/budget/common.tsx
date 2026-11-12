@@ -141,7 +141,7 @@ export function NewBudgetModal({ open, onClose, copyFrom }: { open: boolean; onC
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field label="Name" required error={errors.name} className="sm:col-span-2">
           <Input value={f.name} maxLength={200} onChange={(e) => set('name', e.target.value)} invalid={!!errors.name} />
         </Field>
@@ -151,7 +151,7 @@ export function NewBudgetModal({ open, onClose, copyFrom }: { open: boolean; onC
         {!copyFrom && (
           <div className="space-y-2 sm:col-span-3">
             <span className="label">Start from</span>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
                 {
                   v: 'empty',

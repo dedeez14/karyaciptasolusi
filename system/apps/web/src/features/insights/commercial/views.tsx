@@ -15,7 +15,7 @@ const cardCls = 'card group flex flex-col p-4 text-left transition-all hover:-tr
 // ------------------------------------------------------------------ customers / suppliers
 export function PartnerCardsView({ rows, open }: ResourceViewProps) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {rows.map((r) => (
         <button key={r.id} type="button" onClick={() => open(r)} className={cn(cardCls, r.isActive === false && 'opacity-60')}>
           <div className="flex items-start gap-3">
@@ -122,7 +122,7 @@ export function WarehouseCardsView({ rows, open }: ResourceViewProps) {
     queryFn: () => api.get<{ stock: boolean; items: Record<string, { items: number; qty: number; value: number; low: number }> }>('/insights/warehouses'),
   });
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map((r) => {
         const s = q.data?.items[r.id];
         return (
@@ -350,7 +350,7 @@ export function ActivityAgendaView({ rows, open, meta, refresh }: ResourceViewPr
     </li>
   );
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
       {SECTIONS.filter((s) => groups[s.key].length).map((s) => (
         <section key={s.key}>
           <h3 className={cn('mb-2 flex items-center gap-2 text-sm font-semibold', s.tone)}>
@@ -367,7 +367,7 @@ export function ActivityAgendaView({ rows, open, meta, refresh }: ResourceViewPr
           <Button variant="ghost" size="sm" icon={showDone ? 'chevron-down' : 'chevron-right'} onClick={() => setShowDone((v) => !v)}>
             Completed ({groups.done.length})
           </Button>
-          {showDone && <ul className="mt-2 grid gap-2 lg:grid-cols-2">{groups.done.map(item)}</ul>}
+          {showDone && <ul className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">{groups.done.map(item)}</ul>}
         </section>
       )}
     </div>
@@ -384,7 +384,7 @@ export function CampaignCardsView({ rows, open }: ResourceViewProps) {
       api.get<{ leads: boolean; items: Record<string, { leads: number; pipeline: number; converted: number; opportunities: number; oppAmount: number; won: number }> }>('/insights/campaigns'),
   });
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
       {rows.map((r) => {
         const s = q.data?.items[r.id];
         const budget = Number(r.budget ?? 0);
@@ -462,7 +462,7 @@ export function ProjectCardsView({ rows, open }: ResourceViewProps) {
   const q = useQuery({ queryKey: ['insights', 'project-stats', ids], queryFn: () => api.get<{ items: Record<string, ProjectStats> }>('/insights/projects/stats', { ids }), enabled: !!ids });
   const today = new Date().toISOString().slice(0, 10);
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
       {rows.map((r) => {
         const s = q.data?.items[r.id];
         const pct = s?.tasks ? Math.round(((s.done ?? 0) / s.tasks) * 100) : 0;

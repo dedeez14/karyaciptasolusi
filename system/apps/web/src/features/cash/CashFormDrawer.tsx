@@ -70,7 +70,7 @@ export function CashFormDrawer({ open, onClose, initialType = 'PAYMENT', onSaved
             </button>
           ))}
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Date" required error={errors.date}>
             <DatePicker value={form.date} onChange={(v) => set('date', v)} clearable={false} invalid={!!errors.date} />
           </Field>

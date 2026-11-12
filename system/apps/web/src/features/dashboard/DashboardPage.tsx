@@ -95,7 +95,7 @@ export default function DashboardPage() {
               />
             ))}
           </div>
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             {q.data.monthly && (
               <Card title="Sales vs purchases (12 months)" className="xl:col-span-2">
                 <Suspense fallback={<div className="h-72" />}>

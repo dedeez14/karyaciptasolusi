@@ -94,7 +94,7 @@ export default function BudgetListPage() {
       <Card bodyClass="p-0">
         <div className="flex flex-col gap-3 border-b border-line p-3">
           <Tabs value={f.status ?? ''} onChange={(v) => ls.setFilter('status', v || null)} tabs={[{ value: '', label: 'All' }, ...statuses.map((x) => ({ value: x.value, label: x.label }))]} />
-          <div className="grid gap-2 sm:grid-cols-[1.5fr_0.5fr]">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1.5fr_0.5fr]">
             <form
               className="relative"
               onSubmit={(e) => {

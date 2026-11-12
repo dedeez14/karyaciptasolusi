@@ -91,7 +91,7 @@ export default function TaskListPage() {
         }
       />
       <Card bodyClass="p-0">
-        <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <form
             className="relative sm:col-span-2 xl:col-span-2"
             onSubmit={(e) => {

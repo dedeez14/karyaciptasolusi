@@ -100,7 +100,7 @@ export function LeaveCalendarView({ open }: ResourceViewProps) {
         </div>
       </div>
 
-      <div className="mb-4 grid gap-3 md:grid-cols-2">
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="rounded-xl border border-line bg-white p-3">
           <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase">
             <Icon name="plane" className="h-3.5 w-3.5" /> Off today ({offToday.length})

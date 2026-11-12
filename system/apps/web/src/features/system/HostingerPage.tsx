@@ -124,7 +124,7 @@ export default function HostingerPage() {
           </Card>
         ) : tab === 'vps' ? (
           rows.length ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {rows.map((vm) => {
                 const state = String(vm.state ?? vm.status ?? 'unknown');
                 const ip = vm.ipv4?.[0]?.address ?? vm.ip_address ?? vm.ipv4 ?? '';

@@ -279,7 +279,7 @@ function AddSuppressions({ onClose, onDone }: { onClose: () => void; onDone: () 
         <Field label="E-mail addresses" required help="Paste one or many, separated by new lines, commas or spaces">
           <Textarea rows={6} value={emails} onChange={(e) => setEmails(e.target.value)} className="font-mono text-xs" />
         </Field>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Reason">
             <LookupSelect category="EMAIL_SUPPRESSION_REASON" value={reason} onChange={setReason} clearable={false} />
           </Field>

@@ -197,7 +197,7 @@ function Subscriptions({ ls }: { ls: LS }) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Active subscriptions" value={s?.active ?? '—'} icon="repeat" tone="blue" />
         <StatCard label="Due for invoicing" value={s?.due ?? '—'} icon="calendar-clock" tone={s?.due ? 'amber' : 'green'} hint="Next invoice date today or earlier" />
         <StatCard label="Monthly recurring revenue" value={s ? fmtMoney(s.monthlyRecurring) : '—'} icon="trending-up" tone="green" hint="Before tax, normalised to one month" />
@@ -205,7 +205,7 @@ function Subscriptions({ ls }: { ls: LS }) {
       <Card bodyClass="p-0">
         <div className="flex flex-col gap-3 border-b border-line p-3">
           <Tabs value={f.status ?? ''} onChange={(v) => ls.setFilter('status', v || null)} tabs={[{ value: '', label: 'All' }, ...SUB_STATES.map((x) => ({ value: x, label: stateLabel(x) }))]} />
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <form
               className="relative"
               onSubmit={(e) => {

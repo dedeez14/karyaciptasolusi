@@ -135,7 +135,7 @@ export function NewSearchDrawer({ open, onClose, status }: { open: boolean; onCl
         <Field label="Name" help="To recognise this search later, e.g. 'Konveksi Bandung November'" error={errors.name}>
           <Input value={f.name} onChange={(e) => set('name', e.target.value)} maxLength={200} placeholder={queries[0] ?? ''} />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="What to look for" required help="One business type per line (or separated by commas), e.g. konveksi, sablon kaos, percetakan" error={errors.queries}>
             <Textarea rows={6} value={f.keywords} onChange={(e) => set('keywords', e.target.value)} />
           </Field>
@@ -199,7 +199,7 @@ export function NewSearchDrawer({ open, onClose, status }: { open: boolean; onCl
             Advanced settings
           </button>
           {advanced && (
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Depth" help="How far the result list is scrolled: 1 = first results only (fast), 10 = as many as Google shows (slow)" error={errors.depth}>
                 <NumberInput value={f.depth} onChange={(v) => set('depth', v)} decimals={0} />
               </Field>

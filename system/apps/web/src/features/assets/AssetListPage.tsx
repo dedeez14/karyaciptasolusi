@@ -120,7 +120,7 @@ export default function AssetListPage() {
           </>
         }
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Assets on the books" value={s?.count ?? '—'} icon="monitor-cog" tone="blue" hint="Excludes disposed assets" />
         <StatCard label="Total cost" value={s ? fmtMoney(s.cost) : '—'} icon="wallet" tone="violet" />
         <StatCard label="Accumulated depreciation" value={s ? fmtMoney(s.accumulated) : '—'} icon="trending-down" tone="amber" />
@@ -129,7 +129,7 @@ export default function AssetListPage() {
       <Card bodyClass="p-0">
         <div className="flex flex-col gap-3 border-b border-line p-3">
           <Tabs value={f.status ?? ''} onChange={(v) => ls.setFilter('status', v || null)} tabs={[{ value: '', label: 'All' }, ...statuses.map((x) => ({ value: x.value, label: x.label }))]} />
-          <div className="grid gap-2 sm:grid-cols-[1.5fr_1fr]">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1.5fr_1fr]">
             <form
               className="relative"
               onSubmit={(e) => {

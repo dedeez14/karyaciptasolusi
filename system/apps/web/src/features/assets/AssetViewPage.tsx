@@ -105,10 +105,10 @@ export default function AssetViewPage() {
           </>
         }
       />
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <Card title="Details">
-            <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
               <Item label="Category">{category(a.categoryCode)}</Item>
               <Item label="Serial number">{a.serialNumber}</Item>
               <Item label="Location">{a.location}</Item>

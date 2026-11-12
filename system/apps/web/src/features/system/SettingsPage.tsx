@@ -367,7 +367,7 @@ export default function SettingsPage() {
                           {sectionOf(s.group, s.key)!.title}
                         </h4>
                       )}
-                    <div className="grid gap-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[1fr_1.3fr] sm:gap-6">
+                    <div className="grid grid-cols-1 gap-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[1fr_1.3fr] sm:gap-6">
                       <div>
                         <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                           {s.label ?? s.key}

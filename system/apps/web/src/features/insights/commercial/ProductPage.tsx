@@ -88,7 +88,7 @@ function Body({ id, r }: { id: string; r: Row }) {
       {q.isLoading && tab !== 'overview' ? (
         <Loading />
       ) : tab === 'overview' ? (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card title="Product" className="lg:col-span-2">
             <InfoGrid
               items={[
@@ -119,7 +119,7 @@ function Body({ id, r }: { id: string; r: Row }) {
           </Card>
         </div>
       ) : tab === 'stock' && o?.stock ? (
-        <div className="grid gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
           <Card title="By warehouse" className="lg:col-span-2" bodyClass="px-5 py-2">
             <MiniTable
               rows={o.stock.warehouses}

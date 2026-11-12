@@ -241,7 +241,7 @@ export function PlaceResults({ jobId, live }: { jobId?: string; live?: boolean }
           </span>
         </div>
       )}
-      <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+      <div className="grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
         <form
           className="relative"
           onSubmit={(e) => {

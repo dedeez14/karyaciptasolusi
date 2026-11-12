@@ -308,7 +308,7 @@ export function AudienceBuilder({ value, onChange, disabled, automatic }: { valu
       </Field>
 
       {value.source === 'LEADS' && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Lead status" help="None selected = every status" className="sm:col-span-2">
             <CodeChips category="LEAD_STATUS" value={value.statusCodes ?? []} onChange={(v) => set({ statusCodes: v })} />
           </Field>
@@ -333,7 +333,7 @@ export function AudienceBuilder({ value, onChange, disabled, automatic }: { valu
       )}
 
       {value.source === 'CUSTOMERS' && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Customer group">
             <AsyncSelect resource="customer-groups" value={value.groupId ?? null} onChange={(v) => set({ groupId: v })} placeholder="All groups" />
           </Field>
@@ -344,7 +344,7 @@ export function AudienceBuilder({ value, onChange, disabled, automatic }: { valu
       )}
 
       {value.source === 'MAP_PLACES' && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Lead Finder search" help="Only places where an e-mail address was found">
             <select className="input" value={value.jobId ?? ''} onChange={(e) => set({ jobId: e.target.value || null })}>
               <option value="">All searches</option>

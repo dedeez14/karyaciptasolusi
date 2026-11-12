@@ -58,7 +58,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-2">
+    <div className="grid grid-cols-1 min-h-dvh lg:grid-cols-2">
       <div className="relative hidden overflow-hidden bg-brand-700 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-1.5 bg-accent-400" />
         <div className="flex items-center gap-3">

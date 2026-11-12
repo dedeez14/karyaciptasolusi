@@ -92,14 +92,14 @@ export default function CashListPage() {
           )
         }
       />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label={typeLabel('RECEIPT')?.label ?? 'Money in'} value={fmtMoney(totals.RECEIPT ?? 0)} icon="arrow-down-left" tone="green" hint="Filtered period" />
         <StatCard label={typeLabel('PAYMENT')?.label ?? 'Money out'} value={fmtMoney(totals.PAYMENT ?? 0)} icon="arrow-up-right" tone="red" hint="Filtered period" />
         <StatCard label={typeLabel('TRANSFER')?.label ?? 'Transfers'} value={fmtMoney(totals.TRANSFER ?? 0)} icon="arrow-left-right" tone="blue" hint="Filtered period" />
       </div>
       <Tabs value={f.type ?? ''} onChange={(v) => ls.setFilter('type', v || null)} tabs={[{ value: '', label: 'All' }, ...types.map((t) => ({ value: t.value, label: t.label }))]} />
       <Card bodyClass="p-0">
-        <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_0.8fr_0.8fr]">
+        <div className="grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_0.8fr_0.8fr]">
           <form
             className="relative"
             onSubmit={(e) => {

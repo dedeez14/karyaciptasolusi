@@ -113,7 +113,7 @@ function Body({ r, id }: { r: Row; id: string }) {
       {q.isLoading && tab !== 'overview' ? (
         <Loading />
       ) : tab === 'overview' ? (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card title="Employment" className="lg:col-span-2">
             <InfoGrid
               items={[
@@ -218,7 +218,7 @@ function Body({ r, id }: { r: Row; id: string }) {
           </div>
         </Card>
       ) : tab === 'leave' && p?.leave ? (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card title={`Balance ${p.leave.year}`}>
             {!p.leave.balance.length && <Muted>No leave types</Muted>}
             <ul className="space-y-3">
@@ -283,7 +283,7 @@ function Body({ r, id }: { r: Row; id: string }) {
           />
         </Card>
       ) : tab === 'work' && p ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {p.tasks && (
             <Card
               title="Open tasks"

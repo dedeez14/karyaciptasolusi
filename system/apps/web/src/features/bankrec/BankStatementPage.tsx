@@ -149,7 +149,7 @@ export default function BankStatementPage() {
         }
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Summary label="Bank closing balance" value={fmtMoney(d.closingBalance)} hint={`Opening ${fmtMoney(d.openingBalance)} + lines ${fmtMoney(s.linesTotal)}`} />
         <Summary
           label="Books, adjusted"
@@ -179,7 +179,7 @@ export default function BankStatementPage() {
         </p>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
         <Card title="Bank statement" subtitle={canMatch ? 'Click an open line, then tick the book entries that make it up' : undefined} className="xl:col-span-3" bodyClass="p-0">
           {d.lines.length === 0 ? (
             <EmptyState
@@ -396,7 +396,7 @@ function AddLineModal({ statement, onClose, onDone }: { statement: StatementDeta
         </>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Date" required>
           <DatePicker value={f.date} onChange={(v) => setF({ ...f, date: v })} min={statement.periodStart.slice(0, 10)} max={statement.periodEnd.slice(0, 10)} clearable={false} />
         </Field>
@@ -446,7 +446,7 @@ function EditHeaderModal({ statement, onClose, onDone }: { statement: StatementD
         </>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="From" required>
           <DatePicker value={f.periodStart} onChange={(v) => setF({ ...f, periodStart: v })} clearable={false} />
         </Field>

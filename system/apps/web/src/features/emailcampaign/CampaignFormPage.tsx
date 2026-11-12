@@ -200,7 +200,7 @@ export default function CampaignFormPage() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-4">
             <Card title="Details">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Campaign name" required error={errors.name} className="sm:col-span-2" help="Internal name, not shown to recipients">
                   <Input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Penawaran ERP - konveksi Bandung" invalid={!!errors.name} />
                 </Field>
@@ -279,7 +279,7 @@ export default function CampaignFormPage() {
                           Remove
                         </Button>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
                         <Field label="Wait (days)" required error={errors[`steps.${i}.delayDays`]} help={i === 0 ? 'after the first e-mail' : `after follow-up ${i}`}>
                           <NumberInput value={st.delayDays} onChange={(v) => setStep(i, { delayDays: v })} decimals={0} />
                         </Field>

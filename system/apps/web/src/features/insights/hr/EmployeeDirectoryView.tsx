@@ -44,7 +44,7 @@ export function EmployeeDirectoryView({ rows, open, renderValue, field }: Resour
                 <span className="rounded-full bg-slate-100 px-2 text-xs font-medium text-slate-500">{g.items.length}</span>
               </h3>
             )}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {g.items.map((r) => (
                 <button
                   key={r.id}

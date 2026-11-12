@@ -142,7 +142,7 @@ function Body({ id, r }: { id: string; r: Row }) {
       {q.isLoading ? (
         <Loading />
       ) : tab === 'overview' ? (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card title="Project" className="lg:col-span-2">
             <InfoGrid
               items={[
@@ -306,7 +306,7 @@ function BillingTab({ id }: { id: string }) {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <Card title="Hours to invoice" subtitle={`Billable hours not on an invoice yet · rate ${money(b.project.hourlyRate)} / h`} className="lg:col-span-2" bodyClass="p-0">
         {b.issues.length > 0 && (
           <div className="m-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

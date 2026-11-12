@@ -148,7 +148,7 @@ function Body({ kind, id, r }: { kind: Kind; id: string; r: Row }) {
       {q.isLoading && tab !== 'overview' && tab !== 'statement' ? (
         <Loading />
       ) : tab === 'overview' ? (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card title="Contact & terms" className="lg:col-span-1">
             <InfoGrid
               cols={1}
@@ -233,7 +233,7 @@ function Body({ kind, id, r }: { kind: Kind; id: string; r: Row }) {
       ) : tab === 'statement' ? (
         <StatementTab reportKey={stmtKey} param={kind === 'customer' ? 'customerId' : 'supplierId'} id={id} />
       ) : tab === 'crm' && s ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {s.opportunities && (
             <Card
               title="Opportunities"

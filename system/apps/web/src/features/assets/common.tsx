@@ -178,7 +178,7 @@ export function AssetFormDrawer({ open, onClose, asset, onSaved }: { open: boole
       }
     >
       <div className="space-y-6">
-        <section className="grid gap-4 sm:grid-cols-2">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Name" required error={errors.name} className="sm:col-span-2">
             <Input value={f.name} maxLength={200} onChange={(e) => set('name', e.target.value)} placeholder="e.g. MacBook Pro 14 - Design team" invalid={!!errors.name} />
           </Field>
@@ -213,7 +213,7 @@ export function AssetFormDrawer({ open, onClose, asset, onSaved }: { open: boole
               Journals have been posted for this asset, so its value, dates, method and accounts are locked.
             </p>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Acquisition date" required error={errors.acquisitionDate}>
               <DatePicker value={f.acquisitionDate} onChange={(v) => set('acquisitionDate', v)} clearable={false} disabled={locked} />
             </Field>
@@ -246,7 +246,7 @@ export function AssetFormDrawer({ open, onClose, asset, onSaved }: { open: boole
             <Icon name="book-open" className="h-4 w-4 text-brand-600" />
             Ledger accounts
           </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Fixed asset account" error={errors.assetAccountId} help="Empty = default posting account">
               <AsyncSelect resource="accounts" value={f.assetAccountId} onChange={(v) => set('assetAccountId', v)} placeholder="Default" disabled={locked} />
             </Field>
@@ -431,7 +431,7 @@ export function DisposeModal({ open, onClose, asset }: { open: boolean; onClose:
     >
       <div className="space-y-4">
         <p className="text-sm text-slate-600">Sold, scrapped or written off. Depreciation up to the previous month is posted first, then the asset is removed from the books.</p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Disposal date" required error={errors.date}>
             <DatePicker value={f.date} onChange={(v) => setF((s) => ({ ...s, date: v }))} min={asset.acquisitionDate.slice(0, 10)} clearable={false} />
           </Field>

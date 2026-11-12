@@ -83,7 +83,7 @@ function NewTaskForm({ defaults, onCreated, onCancel }: { defaults?: Props['defa
       <Field label="Description">
         <Textarea rows={4} value={form.description} onChange={(e) => set('description', e.target.value)} />
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Stage">
           <Select value={form.stageId} onChange={(e) => set('stageId', e.target.value)} options={stages.map((s) => ({ value: s.id, label: s.name }))} placeholder="First stage" />
         </Field>
@@ -183,7 +183,7 @@ function TaskDetailView({ id, onDeleted }: { id: string; onDeleted: () => void }
 
       <InlineText value={t.title} disabled={ro} onSave={(v) => patch.mutate({ title: v })} className="text-lg font-semibold text-slate-900" />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Stage">
           <Select disabled={ro} value={t.stageId} onChange={(e) => patch.mutate({ stageId: e.target.value })} options={stages.map((s) => ({ value: s.id, label: s.name }))} />
         </Field>
@@ -368,7 +368,7 @@ function TimeLog({ task, ro, onChange }: { task: TaskDetail; ro: boolean; onChan
         </div>
       )}
       {!ro && (
-        <div className="mb-3 grid gap-2 sm:grid-cols-[160px_100px_1fr_auto]">
+        <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-[160px_100px_1fr_auto]">
           <DatePicker value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} clearable={false} />
           <NumberInput decimals={2} min={0.25} max={24} placeholder="Hours" value={form.hours} onChange={(v) => setForm((f) => ({ ...f, hours: v }))} />
           <Input placeholder="What did you work on?" value={form.note} maxLength={500} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
@@ -456,7 +456,7 @@ function Attachments({ task, onChange }: { task: TaskDetail; onChange: () => voi
         }
       />
       {task.files.length ? (
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {task.files.map((f) => (
             <li key={f.id} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2">
               <span className="rounded-lg bg-brand-50 p-2 text-brand-600">

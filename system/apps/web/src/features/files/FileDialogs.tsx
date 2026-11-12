@@ -128,7 +128,7 @@ export function EditFileDialog({ file, onClose, folders, categories, onSaved }: 
           <Field label="Name" required>
             <Input value={form.name} maxLength={200} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Folder">
               <Select value={form.folderId} onChange={(e) => setForm({ ...form, folderId: e.target.value })} options={folderOptions(folders)} placeholder="(Unfiled)" />
             </Field>

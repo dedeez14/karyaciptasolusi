@@ -92,7 +92,7 @@ export default function YearEndPage() {
       {periods.length === 0 ? (
         <EmptyState icon="calendar-range" title="No fiscal periods" description="Create the financial years first." action={<Link to="/r/fiscal-periods"><Button icon="plus">Fiscal periods</Button></Link>} />
       ) : (
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <Card title="Financial years" bodyClass="p-0">
             <ul className="divide-y divide-line">
               {periods.map((r) => (
@@ -124,7 +124,7 @@ export default function YearEndPage() {
               </Card>
             ) : (
               <>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <Stat label="Income" value={fmtMoney(p.income)} />
                   <Stat label="Expenses" value={fmtMoney(p.expense)} />
                   <Stat label={n(p.result) >= 0 ? 'Profit' : 'Loss'} value={fmtMoney(p.result)} tone={n(p.result) >= 0 ? 'good' : 'bad'} />

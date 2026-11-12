@@ -222,7 +222,7 @@ export default function SubscriptionFormPage() {
           <LineEditor def={SUBSCRIPTION_LINE_DEF} lines={lines} onChange={setLines} errors={errors} />
         </Card>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card title="Automation & notes" className="lg:col-span-2">
             <div className="grid gap-4">
               <div className="flex flex-col gap-3 rounded-xl border border-line bg-slate-50/60 p-4">

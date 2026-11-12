@@ -162,7 +162,7 @@ export default function TicketViewPage() {
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <Card title="Conversation" bodyClass="p-0">
             <div className="space-y-4 p-5">
@@ -226,7 +226,7 @@ export default function TicketViewPage() {
             }
           >
             {t.files.length ? (
-              <ul className="grid gap-2 sm:grid-cols-2">
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {t.files.map((f) => (
                   <li key={f.id} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2">
                     <span className="rounded-lg bg-brand-50 p-2 text-brand-600">

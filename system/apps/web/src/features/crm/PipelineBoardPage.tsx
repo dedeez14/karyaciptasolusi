@@ -102,12 +102,12 @@ export default function PipelineBoardPage() {
           </>
         }
       />
-      <div className="mb-4 grid gap-4 sm:grid-cols-3">
+      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Summary label="Open pipeline" value={totals.open} icon="target" tone="bg-brand-500" />
         <Summary label="Weighted forecast" value={totals.weighted} icon="trending-up" tone="bg-violet-500" />
         <Summary label="Won" value={totals.won} icon="trophy" tone="bg-emerald-500" />
       </div>
-      <div className="card mb-4 grid gap-2 p-3 sm:grid-cols-[1fr_1fr_auto]">
+      <div className="card mb-4 grid grid-cols-1 gap-2 p-3 sm:grid-cols-[1fr_1fr_auto]">
         <div className="relative">
           <Icon name="search" className="absolute top-3 left-3 h-4 w-4 text-slate-400" />
           <Input className="pl-9" placeholder="Search opportunities..." value={search} onChange={(e) => setSearch(e.target.value)} />

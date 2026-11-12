@@ -168,7 +168,7 @@ function MenuForm({ menu, menus, onClose, onSaved }: { menu: Partial<MenuRow> | 
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Label" required error={errors.label}>
           <Input value={form.label ?? ''} onChange={(e) => setForm({ ...form, label: e.target.value })} />
         </Field>

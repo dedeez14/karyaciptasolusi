@@ -70,7 +70,7 @@ export default function TicketBoardPage() {
           </>
         }
       />
-      <div className="card mb-4 grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1.2fr_1fr_auto]">
+      <div className="card mb-4 grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1.2fr_1fr_auto]">
         <div className="relative">
           <Icon name="search" className="absolute top-3 left-3 h-4 w-4 text-slate-400" />
           <Input className="pl-9" placeholder="Search tickets..." value={search} onChange={(e) => setSearch(e.target.value)} />

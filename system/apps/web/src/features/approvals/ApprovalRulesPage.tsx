@@ -86,7 +86,7 @@ function RuleDrawer({ rule, open, onClose }: { rule: Rule | null; open: boolean;
         <Field label="Document type" required error={errors.docType}>
           <LookupSelect category="APPROVAL_DOC_TYPE" value={form.docType} onChange={(v) => set('docType', v)} invalid={!!errors.docType} clearable={false} />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Applies from amount" required error={errors.minAmount} help="Total in base currency; 0 = every document">
             <NumberInput fixed={2} value={form.minAmount} onChange={(v) => set('minAmount', v)} invalid={!!errors.minAmount} />
           </Field>

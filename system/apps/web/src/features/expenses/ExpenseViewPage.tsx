@@ -93,7 +93,7 @@ function PayModal({ open, onClose, onDone, claim }: { open: boolean; onClose: ()
         <Field label="Pay from" required error={errors.bankAccountId}>
           <AsyncSelect resource="bank-accounts" value={form.bankAccountId} onChange={(v) => setForm({ ...form, bankAccountId: v ?? '' })} invalid={!!errors.bankAccountId} />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Payment date" required error={errors.date}>
             <DatePicker value={form.date} onChange={(v) => setForm({ ...form, date: v })} clearable={false} />
           </Field>
@@ -260,7 +260,7 @@ export default function ExpenseViewPage() {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <Card title="Expenses" bodyClass="p-0">
             <div className="hidden overflow-x-auto md:block">
@@ -328,7 +328,7 @@ export default function ExpenseViewPage() {
             }
           >
             {c.files.length ? (
-              <ul className="grid gap-2 sm:grid-cols-2">
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {c.files.map((f) => (
                   <li key={f.id} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2">
                     <span className="rounded-lg bg-brand-50 p-2 text-brand-600">
