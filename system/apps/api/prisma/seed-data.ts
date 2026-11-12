@@ -294,6 +294,7 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['sales.orders', 'sales', 'Sales Orders', 'clipboard-list', '/documents/SO', 'sales.order.read'],
   ['sales.deliveries', 'sales', 'Deliveries', 'truck', '/documents/DO', 'sales.delivery.read'],
   ['sales.invoices', 'sales', 'Invoices', 'receipt', '/documents/SI', 'sales.invoice.read'],
+  ['sales.returns', 'sales', 'Sales Returns', 'rotate-left', '/documents/SR', 'sales.return.read'],
   ['sales.receipts', 'sales', 'Customer Receipts', 'hand-coins', '/payments/in', 'sales.payment.read'],
   ['sales.subscriptions', 'sales', 'Recurring Billing', 'repeat', '/billing/subscriptions', 'sales.subscription.read'],
   ['sales.customers', 'sales', 'Customers', 'users', '/r/customers', 'master.customer.read'],
@@ -303,6 +304,7 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['purchase.orders', 'purchase', 'Purchase Orders', 'clipboard-check', '/documents/PO', 'purchase.order.read'],
   ['purchase.receipts', 'purchase', 'Goods Receipts', 'package-check', '/documents/GR', 'purchase.receipt.read'],
   ['purchase.invoices', 'purchase', 'Purchase Invoices', 'file-spreadsheet', '/documents/PI', 'purchase.invoice.read'],
+  ['purchase.returns', 'purchase', 'Purchase Returns', 'rotate-right', '/documents/PRT', 'purchase.return.read'],
   ['purchase.payments', 'purchase', 'Supplier Payments', 'banknote', '/payments/out', 'purchase.payment.read'],
   ['purchase.suppliers', 'purchase', 'Suppliers', 'factory', '/r/suppliers', 'master.supplier.read'],
 

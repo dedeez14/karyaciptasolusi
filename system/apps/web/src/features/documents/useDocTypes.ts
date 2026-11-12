@@ -18,6 +18,8 @@ export interface DocTypeDef {
   dueDate?: boolean;
   stockItemsOnly?: boolean;
   partyLabel?: string;
+  /** return / credit note of this invoice type */
+  returnOf?: 'SI' | 'PI';
   can: { create: boolean; update: boolean; delete: boolean; confirm: boolean; cancel: boolean; print: boolean };
 }
 

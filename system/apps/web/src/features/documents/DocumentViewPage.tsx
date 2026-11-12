@@ -8,6 +8,7 @@ import { fmtDate, fmtDateTime, fmtMoney, fmtNumber, fmtByType } from '@/lib/form
 import { useSession } from '@/stores/session';
 import { Badge, Button, Card, confirm, Dropdown, EmptyState, Field, Icon, Input, Modal, PageHeader, Spinner, StatusBadge, Textarea, toast, Steps } from '@/components/ui';
 import { docPath, statusLabel, useDocType, useDocTypes, type TradeDoc } from './useDocTypes';
+import { CreditsCard } from './CreditsCard';
 import { APPROVAL_STATE, ApprovalPanel, useApproval } from '@/features/approvals/ApprovalPanel';
 
 /** document types that go through the approval workflow (lookup APPROVAL_DOC_TYPE) */
@@ -323,11 +324,16 @@ export default function DocumentViewPage() {
               {d.toWarehouseName && <Info label="To warehouse" value={d.toWarehouseName} />}
               <Info label="Reference" value={d.reference} />
               {((def.code === 'SI' && (vatPayer || !!d.taxInvoiceNumber)) || def.code === 'PI') && <TaxInvoiceInfo type={def.code} id={d.id} value={d.taxInvoiceNumber ?? null} editable={def.can.update && d.status !== 'CANCELLED'} />}
+              {def.returnOf && (Number(d.taxTotal) > 0 || !!d.taxInvoiceNumber) && <TaxInvoiceInfo type={def.code} id={d.id} value={d.taxInvoiceNumber ?? null} editable={def.can.update && d.status !== 'CANCELLED'} returnOf={def.returnOf} />}
               {d.isOpening && <Info label="Origin" value="Opening balance (go-live)" />}
               {def.priced && <Info label="Currency" value={`${d.currencyCode}${Number(d.exchangeRate) !== 1 ? ` @ ${fmtNumber(d.exchangeRate, 6)}` : ''}`} />}
               {d.confirmedAt && <Info label="Confirmed at" value={fmtDateTime(d.confirmedAt)} />}
             </dl>
           </Card>
+
+          {(def.returnOf || def.payable) && !isDraft && d.status !== 'CANCELLED' && (
+            <CreditsCard type={def.code} id={d.id} isNote={!!def.returnOf} total={Number(d.grandTotal)} used={Number(d.paidAmount)} canApply={def.can.confirm} />
+          )}
 
           <Card title="Lines" bodyClass="p-0">
             <div className="hidden overflow-x-auto md:block">
@@ -337,7 +343,7 @@ export default function DocumentViewPage() {
                     <th className="px-4 py-3">#</th>
                     <th className="px-4 py-3">Item</th>
                     <th className="px-4 py-3 text-right">Qty</th>
-                    {def.convertTo.length > 0 && !isDraft && <th className="px-4 py-3 text-right">Processed</th>}
+                    {def.convertTo.length > 0 && !def.payable && !isDraft && <th className="px-4 py-3 text-right">Processed</th>}
                     {def.priced && <th className="px-4 py-3 text-right">Price</th>}
                     {def.priced && <th className="px-4 py-3 text-right">Disc</th>}
                     {def.priced && def.taxField && <th className="px-4 py-3">Tax</th>}
@@ -358,7 +364,7 @@ export default function DocumentViewPage() {
                       <td className="px-4 py-3 text-right tabular-nums">
                         {fmtNumber(l.qty)} {l.uomCode}
                       </td>
-                      {def.convertTo.length > 0 && !isDraft && <td className="px-4 py-3 text-right text-slate-500 tabular-nums">{fmtNumber(l.processedQty)}</td>}
+                      {def.convertTo.length > 0 && !def.payable && !isDraft && <td className="px-4 py-3 text-right text-slate-500 tabular-nums">{fmtNumber(l.processedQty)}</td>}
                       {def.priced && <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(l.unitPrice)}</td>}
                       {def.priced && <td className="px-4 py-3 text-right tabular-nums">{Number(l.discountPct) ? `${fmtNumber(l.discountPct, 2)}%` : ''}</td>}
                       {def.priced && def.taxField && <td className="px-4 py-3 text-xs">{l.taxName}</td>}
@@ -484,7 +490,8 @@ export default function DocumentViewPage() {
 }
 
 /** Nomor Faktur Pajak: shown on sales / purchase invoices, editable after confirmation (it is often issued later) */
-function TaxInvoiceInfo({ type, id, value, editable }: { type: string; id: string; value: string | null; editable: boolean }) {
+function TaxInvoiceInfo({ type, id, value, editable, returnOf }: { type: string; id: string; value: string | null; editable: boolean; returnOf?: 'SI' | 'PI' }) {
+  const label = returnOf ? 'Nota retur no.' : 'Tax invoice no.';
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(value ?? '');
@@ -493,7 +500,7 @@ function TaxInvoiceInfo({ type, id, value, editable }: { type: string; id: strin
     setBusy(true);
     try {
       await api.patch(`/documents/${type}/${id}/tax-invoice-number`, { taxInvoiceNumber: text.trim() || null });
-      toast.success(text.trim() ? 'Tax invoice number saved' : 'Tax invoice number removed');
+      toast.success(text.trim() ? `${label} saved` : `${label} removed`);
       qc.invalidateQueries({ queryKey: ['documents'] });
       setOpen(false);
     } catch (e) {
@@ -504,7 +511,7 @@ function TaxInvoiceInfo({ type, id, value, editable }: { type: string; id: strin
   };
   return (
     <div>
-      <dt className="text-xs font-medium text-slate-500">Tax invoice no.</dt>
+      <dt className="text-xs font-medium text-slate-500">{label}</dt>
       <dd className="mt-0.5 flex items-center gap-2 font-medium text-slate-900">
         {value ? <span className="font-mono text-[13px]">{value}</span> : <span className="text-slate-300">—</span>}
         {editable && (
@@ -523,7 +530,7 @@ function TaxInvoiceInfo({ type, id, value, editable }: { type: string; id: strin
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Tax invoice number"
+        title={returnOf ? 'Nota retur number' : 'Tax invoice number'}
         size="sm"
         footer={
           <>
@@ -536,8 +543,17 @@ function TaxInvoiceInfo({ type, id, value, editable }: { type: string; id: strin
           </>
         }
       >
-        <Field label="Nomor Faktur Pajak" help="Leave empty to remove it. Shown on the PDF and in the VAT reports.">
-          <Input autoFocus value={text} maxLength={40} placeholder="010.000-26.00000001" onChange={(e) => setText(e.target.value)} />
+        <Field
+          label={returnOf ? 'Nomor nota retur (Coretax)' : 'Nomor Faktur Pajak'}
+          help={
+            returnOf === 'SI'
+              ? 'The nota retur is made by the buyer in Coretax (PMK 81/2024); enter its number once you receive it. It reduces the output VAT of the month of the return.'
+              : returnOf === 'PI'
+                ? 'Make the nota retur in Coretax (Retur Pajak Masukan) when the goods go back, and enter its number here.'
+                : 'Leave empty to remove it. Shown on the PDF and in the VAT reports.'
+          }
+        >
+          <Input autoFocus value={text} maxLength={40} placeholder={returnOf ? 'Nota retur number' : '17 digits from Coretax, e.g. 04002600000000123'} onChange={(e) => setText(e.target.value)} />
         </Field>
       </Modal>
     </div>

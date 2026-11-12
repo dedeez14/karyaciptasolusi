@@ -9,6 +9,7 @@ import { RequestCtx } from '../../common/context/request-context';
 import { D, round, sum, ZERO } from '../../common/utils/money';
 import { paged } from '../../common/utils/query';
 import { JournalService } from '../accounting/journal.service';
+import { recalcSettlement } from '../documents/settlement';
 
 export const paymentSchema = z.object({
   date: z.coerce.date(),
@@ -106,12 +107,9 @@ export class PaymentService {
     return rows.map((r) => ({ ...r, balance: D(r.grandTotal).minus(D(r.paidAmount)), taxBase: D(r.subtotal).minus(D(r.discountTotal)) }));
   }
 
-  private async recalcInvoice(tx: Tx, documentId: string) {
-    const agg = await tx.paymentAllocation.aggregate({ where: { documentId, payment: { status: { not: 'CANCELLED' }, deletedAt: null } }, _sum: { amount: true } });
-    const doc = await tx.tradeDocument.findUniqueOrThrow({ where: { id: documentId } });
-    const paid = D(agg._sum.amount);
-    const status = paid.gte(D(doc.grandTotal)) ? 'COMPLETED' : paid.gt(0) ? 'PARTIAL' : 'CONFIRMED';
-    await tx.tradeDocument.update({ where: { id: documentId }, data: { paidAmount: paid, status } });
+  /** payments and credit notes applied to the invoice */
+  private recalcInvoice(tx: Tx, documentId: string) {
+    return recalcSettlement(tx, documentId);
   }
 
   async create(direction: string, body: unknown) {

@@ -8,7 +8,8 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 /** documents counted for VAT: issued (not draft / cancelled), not go-live opening balances */
 const vatWhere = (ctx: ReportCtx, docType: 'SI' | 'PI') => ({
   companyId: ctx.companyId,
-  docType,
+  // returns (nota retur) reduce the VAT of the month in which the goods came back (PMK 81/2024)
+  docType: { in: docType === 'SI' ? ['SI', 'SR'] : ['PI', 'PRT'] },
   deletedAt: null,
   isOpening: false,
   status: { notIn: ['DRAFT', 'CANCELLED'] as ('DRAFT' | 'CANCELLED')[] },
@@ -33,15 +34,17 @@ export async function vatRegister(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise
   const rows = docs.map((d) => {
     const rate = n(d.exchangeRate) || 1;
     const p = pm.get((docType === 'SI' ? d.customerId : d.supplierId) ?? '');
+    const ret = d.docType === 'SR' || d.docType === 'PRT';
+    const sign = ret ? -1 : 1;
     return {
       date: d.date,
-      number: d.number,
+      number: ret ? `${d.number} (return)` : d.number,
       taxInvoiceNumber: d.taxInvoiceNumber ?? '',
       partner: p?.name ?? '',
       npwp: p?.npwp ?? '',
-      dpp: r2((n(d.subtotal) - n(d.discountTotal)) * rate),
-      ppn: r2(n(d.taxTotal) * rate),
-      missing: d.taxTotal && n(d.taxTotal) > 0 && !d.taxInvoiceNumber ? 'No tax invoice no.' : '',
+      dpp: r2(sign * (n(d.subtotal) - n(d.discountTotal)) * rate),
+      ppn: r2(sign * n(d.taxTotal) * rate),
+      missing: d.taxTotal && n(d.taxTotal) > 0 && !d.taxInvoiceNumber ? (ret ? 'No nota retur no.' : 'No tax invoice no.') : '',
     };
   });
   const withTax = rows.filter((r) => r.ppn !== 0 || ctx.p.all === 'yes');
@@ -50,7 +53,7 @@ export async function vatRegister(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise
     columns: [
       { key: 'date', label: 'Date', type: 'date' },
       { key: 'number', label: docType === 'SI' ? 'Invoice' : 'Bill' },
-      { key: 'taxInvoiceNumber', label: 'Tax invoice no.' },
+      { key: 'taxInvoiceNumber', label: 'Tax invoice / nota retur no.' },
       { key: 'partner', label: docType === 'SI' ? 'Customer' : 'Supplier' },
       { key: 'npwp', label: 'NPWP' },
       { key: 'dpp', label: 'DPP (tax base)', type: 'money' },
@@ -65,7 +68,7 @@ export async function vatRegister(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise
 /** Per month: output VAT, input VAT and the net amount to pay (positive) or carried forward (negative) */
 export async function vatSummary(ctx: ReportCtx): Promise<ReportResult> {
   const { prisma } = ctx;
-  const [sales, purchases] = await Promise.all([prisma.tradeDocument.findMany({ where: vatWhere(ctx, 'SI'), select: { date: true, taxTotal: true, exchangeRate: true } }), prisma.tradeDocument.findMany({ where: vatWhere(ctx, 'PI'), select: { date: true, taxTotal: true, exchangeRate: true } })]);
+  const [sales, purchases] = await Promise.all([prisma.tradeDocument.findMany({ where: vatWhere(ctx, 'SI'), select: { date: true, taxTotal: true, exchangeRate: true, docType: true } }), prisma.tradeDocument.findMany({ where: vatWhere(ctx, 'PI'), select: { date: true, taxTotal: true, exchangeRate: true, docType: true } })]);
   const months = new Map<string, { output: number; input: number }>();
   const add = (date: Date, key: 'output' | 'input', v: number) => {
     const m = date.toISOString().slice(0, 7);
@@ -73,8 +76,9 @@ export async function vatSummary(ctx: ReportCtx): Promise<ReportResult> {
     row[key] += v;
     months.set(m, row);
   };
-  for (const d of sales) add(d.date, 'output', n(d.taxTotal) * (n(d.exchangeRate) || 1));
-  for (const d of purchases) add(d.date, 'input', n(d.taxTotal) * (n(d.exchangeRate) || 1));
+  const signed = (d: { docType: string; taxTotal: unknown; exchangeRate: unknown }) => (d.docType === 'SR' || d.docType === 'PRT' ? -1 : 1) * n(d.taxTotal) * (n(d.exchangeRate) || 1);
+  for (const d of sales) add(d.date, 'output', signed(d));
+  for (const d of purchases) add(d.date, 'input', signed(d));
   const rows = [...months.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, v]) => {

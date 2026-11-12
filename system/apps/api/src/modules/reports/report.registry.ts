@@ -187,16 +187,18 @@ async function byProduct(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportRe
 async function aging(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportResult> {
   const { prisma, companyId, p } = ctx;
   const date = asOf(p);
-  const docs = await prisma.tradeDocument.findMany({ where: { ...branchOf(ctx), companyId, docType, deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL'] }, date: { lte: date } } });
+  // open invoices, and credit / debit notes not yet applied (they lower what the partner owes, shown as not due)
+  const docs = await prisma.tradeDocument.findMany({ where: { ...branchOf(ctx), companyId, docType: { in: [docType, docType === 'SI' ? 'SR' : 'PRT'] }, deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL'] }, date: { lte: date } } });
   const field = docType === 'SI' ? 'customerId' : 'supplierId';
   const ids = docs.map((d) => d[field]).filter(Boolean) as string[];
   const partners = docType === 'SI' ? await prisma.customer.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : await prisma.supplier.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
   const pn = new Map(partners.map((x) => [x.id, x.name]));
   const agg = new Map<string, Record<string, number | string>>();
   for (const d of docs) {
-    const bal = n(d.grandTotal) - n(d.paidAmount);
-    if (bal <= 0) continue;
-    const days = Math.floor((date.getTime() - (d.dueDate ?? d.date).getTime()) / 86_400_000);
+    const credit = d.docType === 'SR' || d.docType === 'PRT';
+    const bal = (credit ? -1 : 1) * (n(d.grandTotal) - n(d.paidAmount));
+    if (bal === 0 || (!credit && bal < 0)) continue;
+    const days = credit ? 0 : Math.floor((date.getTime() - (d.dueDate ?? d.date).getTime()) / 86_400_000);
     const bucket = days <= 0 ? 'current' : days <= 30 ? 'd30' : days <= 60 ? 'd60' : days <= 90 ? 'd90' : 'd90p';
     const k = d[field] ?? 'none';
     const row = agg.get(k) ?? { partner: pn.get(k) ?? '-', current: 0, d30: 0, d60: 0, d90: 0, d90p: 0, total: 0 };
@@ -244,16 +246,22 @@ async function statement(ctx: ReportCtx, kind: 'customer' | 'supplier'): Promise
   const dir = kind === 'customer' ? 'IN' : 'OUT';
   const field = kind === 'customer' ? 'customerId' : 'supplierId';
   const docWhere = { ...branchOf(ctx), companyId, docType, deletedAt: null, status: { notIn: ['DRAFT', 'CANCELLED'] as any }, [field]: partnerId };
+  const noteWhere = { ...docWhere, docType: kind === 'customer' ? 'SR' : 'PRT' };
   const payWhere = { ...branchOf(ctx), companyId, direction: dir as any, deletedAt: null, status: { not: 'CANCELLED' as any }, [field]: partnerId };
+  const [notesBefore, notes] = await Promise.all([
+    prisma.tradeDocument.aggregate({ where: { ...noteWhere, date: { lt: from(p) } }, _sum: { grandTotal: true } }),
+    prisma.tradeDocument.findMany({ where: { ...noteWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, reference: true, grandTotal: true } }),
+  ]);
   const [docsBefore, paysBefore, docs, pays] = await Promise.all([
     prisma.tradeDocument.aggregate({ where: { ...docWhere, date: { lt: from(p) } }, _sum: { grandTotal: true } }),
     prisma.payment.aggregate({ where: { ...payWhere, date: { lt: from(p) } }, _sum: { amount: true, whtAmount: true } }),
     prisma.tradeDocument.findMany({ where: { ...docWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, dueDate: true, grandTotal: true } }),
     prisma.payment.findMany({ where: { ...payWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, reference: true, amount: true, whtAmount: true } }),
   ]);
-  let bal = n(docsBefore._sum.grandTotal) - n(paysBefore._sum.amount) - n(paysBefore._sum.whtAmount);
+  let bal = n(docsBefore._sum.grandTotal) - n(notesBefore._sum.grandTotal) - n(paysBefore._sum.amount) - n(paysBefore._sum.whtAmount);
   const entries = [
     ...docs.map((d) => ({ date: d.date, doc: d.number, desc: `Invoice${d.dueDate ? ` (due ${d.dueDate.toISOString().slice(0, 10)})` : ''}`, charge: n(d.grandTotal), payment: 0 })),
+    ...notes.map((x) => ({ date: x.date, doc: x.number, desc: `${kind === 'customer' ? 'Credit note' : 'Debit note'} (return)${x.reference ? ` - ${x.reference}` : ''}`, charge: 0, payment: n(x.grandTotal) })),
     ...pays.map((x) => ({ date: x.date, doc: x.number, desc: `Payment${x.reference ? ` - ${x.reference}` : ''}${n(x.whtAmount) ? ` (incl. ${n(x.whtAmount).toLocaleString('id-ID')} tax withheld)` : ''}`, charge: 0, payment: n(x.amount) + n(x.whtAmount) })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime() || a.doc.localeCompare(b.doc));
   const rows: Record<string, unknown>[] = [{ date: p.from, doc: '', desc: 'Opening balance', charge: 0, payment: 0, balance: bal }];

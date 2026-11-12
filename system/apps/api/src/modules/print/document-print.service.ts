@@ -55,6 +55,8 @@ export class DocumentPrintService {
       ...(def.dueDate ? [{ label: def.code === 'SQ' ? 'Valid Until' : 'Due Date', value: fmtDate(doc.dueDate) }] : []),
       { label: 'Reference', value: doc.reference ?? '' },
       ...((def.code === 'SI' || def.code === 'PI') && doc.taxInvoiceNumber ? [{ label: 'Tax Invoice No.', value: doc.taxInvoiceNumber }] : []),
+      ...(def.returnOf ? [{ label: 'Original Invoice', value: doc.source?.number ?? doc.reference ?? '' }] : []),
+      ...(def.returnOf && doc.taxInvoiceNumber ? [{ label: 'Nota Retur No.', value: doc.taxInvoiceNumber }] : []),
       { label: 'Source', value: doc.source?.number ?? '' },
       { label: 'Payment Term', value: term?.name ?? '' },
       { label: 'Project', value: project?.name ?? '' },
@@ -134,6 +136,9 @@ export class DocumentPrintService {
       ]
         .filter(Boolean)
         .join(' ');
+    }
+    if (def.returnOf && D(doc.taxTotal).gt(0)) {
+      taxNote = [taxNote, 'PPN on returned goods is corrected with a nota retur made by the buyer in Coretax (PMK 81/2024); it reduces the output VAT of the seller in the month of the return.'].filter(Boolean).join(' ');
     }
     const paidInFull = def.payable && doc.status === 'COMPLETED';
     return {

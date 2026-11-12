@@ -1315,6 +1315,8 @@ model TradeDocument {
   taxTotal         Decimal   @default(0) @db.Decimal(18, 2)
   grandTotal       Decimal   @default(0) @db.Decimal(18, 2)
   paidAmount       Decimal   @default(0) @db.Decimal(18, 2)
+  /// invoices: part settled by credit / debit notes (included in paidAmount); credit notes: part applied to invoices
+  creditedAmount   Decimal   @default(0) @db.Decimal(18, 2)
   ownerId          String?   @db.Uuid
   confirmedById    String?   @db.Uuid
   confirmedAt      DateTime?
@@ -2550,4 +2552,20 @@ model StockCountLine {
 
   @@unique([countId, productId])
   @@map("stock_count_lines")
+}
+
+/// A credit note (sales return) or debit note (purchase return) settling part of an open invoice of the same partner
+model CreditApplication {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @db.Uuid
+  creditNoteId String   @db.Uuid
+  invoiceId    String   @db.Uuid
+  amount       Decimal  @db.Decimal(18, 2)
+  date         DateTime @db.Date
+  createdAt    DateTime @default(now())
+  createdById  String?  @db.Uuid
+
+  @@index([creditNoteId])
+  @@index([invoiceId])
+  @@map("credit_applications")
 }

@@ -12,6 +12,7 @@ import { paged } from '../../common/utils/query';
 import { JournalService, PostingLine } from '../accounting/journal.service';
 import { InventoryService } from './inventory.service';
 import { DOC_MAP, DocTypeDef } from './document.registry';
+import { recalcSettlement } from './settlement';
 import { ApprovalService } from '../approvals/approval.service';
 
 /** document types that go through the approval workflow (APPROVAL_DOC_TYPE) */
@@ -63,7 +64,8 @@ export interface OpeningOpts {
   skipPermission?: boolean;
 }
 
-const TAX_INVOICE_TYPES = new Set(['SI', 'PI']);
+/** SI / PI: Nomor Faktur Pajak; SR / PRT: number of the nota retur made in Coretax (PMK 81/2024) */
+const TAX_INVOICE_TYPES = new Set(['SI', 'PI', 'SR', 'PRT']);
 
 @Injectable()
 export class DocumentService {
@@ -198,7 +200,7 @@ export class DocumentService {
     if (!input.paymentTermId && partner?.paymentTermId) input.paymentTermId = partner.paymentTermId;
     const term = await this.assertRef('paymentTerm', input.paymentTermId, 'paymentTermId');
     // stock documents without a warehouse: use the branch's warehouse, or the only one there is (never guess between several)
-    if (def.warehouse !== 'none' && def.warehouse !== 'optional' && !input.warehouseId) {
+    if ((def.warehouse === 'required' || def.warehouse === 'transfer' || def.returnOf) && !input.warehouseId) {
       const whs = await this.prisma.warehouse.findMany({ where: { companyId, isActive: true, deletedAt: null }, orderBy: { code: 'asc' }, select: { id: true, branchId: true } });
       const branchId = input.branchId ?? RequestCtx.user().branchId;
       const inBranch = whs.filter((w) => branchId && w.branchId === branchId);
@@ -365,6 +367,10 @@ export class DocumentService {
         if (def.partner === 'supplier' && !doc.supplierId) throw new BadRequestException('Supplier is required');
         if (def.warehouse !== 'none' && def.warehouse !== 'optional' && !doc.warehouseId) throw new BadRequestException('Warehouse is required');
         if (def.warehouse === 'transfer' && !doc.toWarehouseId) throw new BadRequestException('Destination warehouse is required');
+        if (def.returnOf && !doc.warehouseId) {
+          const stockLines = await tx.product.count({ where: { id: { in: doc.lines.map((l) => l.productId).filter(Boolean) as string[] }, type: 'STOCK' } });
+          if (stockLines) throw new BadRequestException(def.returnOf === 'SI' ? 'Choose the warehouse the returned goods go back to' : 'Choose the warehouse the goods are returned from');
+        }
         await this.checkSourceQuantities(tx, def, doc);
         // UU PPN Pasal 14: a company that is not a PKP may not charge PPN (checked again here: the setting may have changed after the draft was saved)
         if (def.taxField === 'saleTaxId' && D(doc.taxTotal).gt(0) && !(await this.settings.bool('sales.vatPayer', u.companyId, true))) {
@@ -374,8 +380,20 @@ export class DocumentService {
 
         await this.post(tx, def, doc, allowNegative);
 
-        const updated = await tx.tradeDocument.update({ where: { id }, data: { status: 'CONFIRMED', confirmedAt: new Date(), confirmedById: u.id } });
+        let updated = await tx.tradeDocument.update({ where: { id }, data: { status: 'CONFIRMED', confirmedAt: new Date(), confirmedById: u.id } });
         if (doc.sourceId) await this.refreshSourceStatus(tx, doc.sourceId);
+        // a credit / debit note first settles the open balance of the invoice it was made from
+        if (def.returnOf && doc.sourceId) {
+          const inv = await tx.tradeDocument.findUnique({ where: { id: doc.sourceId } });
+          const open = inv && ['CONFIRMED', 'PARTIAL'].includes(inv.status) ? D(inv.grandTotal).minus(D(inv.paidAmount)) : ZERO;
+          const amount = D(doc.grandTotal).lt(open) ? D(doc.grandTotal) : open;
+          if (amount.gt(0)) {
+            await tx.creditApplication.create({ data: { companyId: doc.companyId, creditNoteId: id, invoiceId: doc.sourceId, amount, date: doc.date, createdById: u.id } });
+            await recalcSettlement(tx, doc.sourceId);
+          }
+          await recalcSettlement(tx, id);
+          updated = await tx.tradeDocument.findUniqueOrThrow({ where: { id } });
+        }
         await this.audit.record(def.label, id, 'CONFIRM', doc, updated, tx);
         return updated;
       },
@@ -443,6 +461,10 @@ export class DocumentService {
       const p = l.productId ? pm.get(l.productId) : undefined;
       const isStock = p?.type === 'STOCK';
       const net = D(l.lineSubtotal).minus(D(l.lineDiscount)).times(rate);
+      if (def.returnOf) {
+        await this.postReturnLine(tx, def, doc, l, p, net, rate, tm, base, party, j);
+        continue;
+      }
       if (def.stock && isStock && p) {
         const mv = { ...base, productId: p.id, productName: p.name };
         if (def.stock === 'in') {
@@ -481,11 +503,114 @@ export class DocumentService {
       }
     }
     if (def.code === 'SI') j.push({ key: 'AR', debit: sum(j.map((x) => D(x.credit))), ...party, description: doc.number });
+    // credit note: the customer owes less; debit note: we owe the supplier less
+    if (def.code === 'SR') j.push({ key: 'AR', credit: D(doc.grandTotal).times(rate), ...party, description: `Credit note ${doc.number}` });
+    if (def.code === 'PRT') j.push({ key: 'AP', debit: D(doc.grandTotal).times(rate), ...party, description: `Debit note ${doc.number}` });
     if (def.code === 'PI') j.push({ key: 'AP', credit: sum(j.map((x) => D(x.debit))), ...party, description: doc.number });
 
     if (j.length) {
       await this.journal.post(tx, { companyId: doc.companyId, branchId: doc.branchId, date: doc.date, description: `${def.label} ${doc.number}`, reference: doc.reference ?? undefined, sourceType: def.code, sourceId: doc.id, lines: j });
     }
+  }
+
+  /**
+   * One line of a return.
+   * Sales return (credit note): goods back into stock at the cost they left with (Dr Inventory / Cr COGS),
+   * Dr Sales Returns (net) and Dr VAT Out (PPN reduced in the month of the return); Cr AR is added for the document.
+   * Purchase return (debit note): goods out of stock at average cost (Cr Inventory), any difference with the
+   * returned price goes to COGS; service lines reduce the expense; Cr VAT In; Dr AP is added for the document.
+   */
+  private async postReturnLine(
+    tx: Tx,
+    def: DocTypeDef,
+    doc: FullDoc,
+    l: FullDoc['lines'][number],
+    p: { id: string; name: string; type: string; incomeAccountId: string | null; expenseAccountId: string | null } | undefined,
+    net: Prisma.Decimal,
+    rate: Prisma.Decimal,
+    tm: Map<string, { name: string; salesAccountId: string | null; purchaseAccountId: string | null }>,
+    base: Omit<Parameters<InventoryService['move']>[1], 'productId' | 'productName' | 'warehouseId' | 'qty'>,
+    party: { customerId: string | null; supplierId: string | null; projectId: string | null },
+    j: PostingLine[],
+  ) {
+    const isStock = p?.type === 'STOCK';
+    const t = l.taxId ? tm.get(l.taxId) : undefined;
+    const tax = D(l.lineTax).times(rate);
+    if (def.returnOf === 'SI') {
+      if (isStock && p) {
+        // cost of the goods when they were sold: the delivery line behind the invoice line, else the current average
+        const invLine = l.sourceLineId ? await tx.tradeDocumentLine.findUnique({ where: { id: l.sourceLineId } }) : null;
+        const outLine = invLine?.sourceLineId ? await tx.tradeDocumentLine.findUnique({ where: { id: invLine.sourceLineId } }) : null;
+        const known = [invLine?.unitCost, outLine?.unitCost].map((v) => D(v ?? 0)).find((v) => v.gt(0));
+        const r = await this.inventory.move(tx, { ...base, productId: p.id, productName: p.name, warehouseId: doc.warehouseId!, qty: D(l.qty), unitCost: known });
+        await tx.tradeDocumentLine.update({ where: { id: l.id }, data: { unitCost: r.unitCost } });
+        j.push({ key: 'INVENTORY', debit: r.totalCost, description: p.name }, { key: 'COGS', credit: r.totalCost, description: `Returned: ${p.name}`, ...party });
+      }
+      j.push({ key: 'SALES_RETURN', debit: net, description: l.description ?? p?.name ?? undefined, ...party });
+      if (tax.gt(0)) j.push({ accountId: t?.salesAccountId, key: t?.salesAccountId ? undefined : 'TAX_OUT', debit: tax, description: `${t?.name ?? 'PPN'} - nota retur` });
+      return;
+    }
+    if (isStock && p) {
+      const r = await this.inventory.move(tx, { ...base, productId: p.id, productName: p.name, warehouseId: doc.warehouseId!, qty: D(l.qty).neg() });
+      const cost = r.totalCost.abs();
+      await tx.tradeDocumentLine.update({ where: { id: l.id }, data: { unitCost: r.unitCost } });
+      j.push({ key: 'INVENTORY', credit: cost, description: p.name });
+      const diff = net.minus(cost);
+      if (diff.gt(0)) j.push({ key: 'COGS', credit: diff, description: `Return price above cost: ${p.name}` });
+      if (diff.lt(0)) j.push({ key: 'COGS', debit: diff.abs(), description: `Return price below cost: ${p.name}` });
+    } else {
+      const acc = p?.expenseAccountId ?? null;
+      j.push({ accountId: acc, key: acc ? undefined : 'PURCHASE_EXPENSE', credit: net, description: l.description ?? undefined, ...party });
+    }
+    if (tax.gt(0)) j.push({ accountId: t?.purchaseAccountId, key: t?.purchaseAccountId ? undefined : 'TAX_IN', credit: tax, description: `${t?.name ?? 'PPN'} - nota retur` });
+  }
+
+  /** Uses the remaining credit of a credit / debit note to settle another open invoice of the same partner */
+  async applyCredit(type: string, id: string, input: { invoiceId: string; amount: number }) {
+    this.assertId(id);
+    this.assertId(input.invoiceId);
+    const def = this.def(type);
+    if (!def.returnOf) throw new BadRequestException(`${def.label} is not a credit or debit note`);
+    RequestCtx.assert(`${def.permission}.confirm`);
+    const u = RequestCtx.user();
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM trade_documents WHERE id IN (${id}::uuid, ${input.invoiceId}::uuid) FOR UPDATE`;
+      const note = await this.findOwned(def, id, tx);
+      if (!['CONFIRMED', 'PARTIAL'].includes(note.status)) throw new ConflictException('Only a confirmed note with remaining credit can be applied');
+      const inv = await tx.tradeDocument.findFirst({ where: { id: input.invoiceId, companyId: u.companyId, docType: def.returnOf, deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL'] }, customerId: note.customerId, supplierId: note.supplierId } });
+      if (!inv) throw new BadRequestException('Choose an open invoice of the same partner');
+      const amount = round(D(input.amount));
+      const left = D(note.grandTotal).minus(D(note.paidAmount));
+      const due = D(inv.grandTotal).minus(D(inv.paidAmount));
+      if (amount.lte(0) || amount.gt(left)) throw new BadRequestException(`Amount must be between 0 and the remaining credit ${left}`);
+      if (amount.gt(due)) throw new BadRequestException(`Amount exceeds the balance of ${inv.number} (${due})`);
+      await tx.creditApplication.create({ data: { companyId: u.companyId, creditNoteId: id, invoiceId: inv.id, amount, date: new Date(new Date().toISOString().slice(0, 10)), createdById: u.id } });
+      await recalcSettlement(tx, inv.id);
+      await recalcSettlement(tx, id);
+      await this.audit.record(def.label, id, 'APPLY_CREDIT', undefined, { invoice: inv.number, amount: amount.toString() }, tx);
+      return { ok: true };
+    });
+  }
+
+  /** where a credit note was applied, or which notes settled an invoice */
+  async credits(type: string, id: string) {
+    this.assertId(id);
+    const def = this.def(type);
+    RequestCtx.assert(`${def.permission}.read`);
+    await this.findOwned(def, id);
+    const apps = await this.prisma.creditApplication.findMany({ where: def.returnOf ? { creditNoteId: id } : { invoiceId: id }, orderBy: { createdAt: 'asc' } });
+    const docs = new Map((await this.prisma.tradeDocument.findMany({ where: { id: { in: apps.map((a) => (def.returnOf ? a.invoiceId : a.creditNoteId)) } }, select: { id: true, number: true, docType: true, date: true } })).map((d) => [d.id, d]));
+    const open = def.returnOf
+      ? await this.prisma.tradeDocument.findMany({
+          where: { companyId: RequestCtx.companyId(), docType: def.returnOf, deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL'] }, customerId: (await this.findOwned(def, id)).customerId, supplierId: (await this.findOwned(def, id)).supplierId },
+          select: { id: true, number: true, date: true, grandTotal: true, paidAmount: true },
+          orderBy: { date: 'asc' },
+        })
+      : [];
+    return {
+      applications: apps.map((a) => ({ id: a.id, amount: a.amount, date: a.date, document: docs.get(def.returnOf ? a.invoiceId : a.creditNoteId) ?? null })),
+      openInvoices: open.map((o) => ({ ...o, balance: D(o.grandTotal).minus(D(o.paidAmount)) })),
+    };
   }
 
   /** Remaining (not yet converted) quantity of every source line for a target type */
@@ -548,12 +673,18 @@ export class DocumentService {
         if (doc.status === 'CANCELLED') throw new ConflictException('Document is already cancelled');
         const derived = await tx.tradeDocument.count({ where: { sourceId: id, deletedAt: null, status: { not: 'CANCELLED' } } });
         if (derived) throw new ConflictException('Cancel the documents created from this one first');
-        if (D(doc.paidAmount).gt(0)) throw new ConflictException('Document has payments. Cancel the payments first.');
+        let released: string[] = [];
+        if (def.returnOf) {
+          const apps = await tx.creditApplication.findMany({ where: { creditNoteId: id } });
+          released = apps.map((a) => a.invoiceId);
+          await tx.creditApplication.deleteMany({ where: { creditNoteId: id } });
+        } else if (D(doc.paidAmount).gt(0)) throw new ConflictException(D(doc.creditedAmount).gt(0) ? 'Document is settled by payments or credit notes. Cancel those first.' : 'Document has payments. Cancel the payments first.');
         if (doc.status !== 'DRAFT') {
           if (def.stock) await this.inventory.reverse(tx, id, allowNegative);
           await this.journal.voidBySource(tx, def.code, id);
         }
-        const updated = await tx.tradeDocument.update({ where: { id }, data: { status: 'CANCELLED', cancelledAt: new Date(), updatedById: RequestCtx.user().id } });
+        const updated = await tx.tradeDocument.update({ where: { id }, data: { status: 'CANCELLED', cancelledAt: new Date(), paidAmount: 0, creditedAmount: 0, updatedById: RequestCtx.user().id } });
+        for (const invoiceId of new Set(released)) await recalcSettlement(tx, invoiceId);
         if (APPROVAL_DOC_TYPES.has(def.code)) await this.approvals.reset(tx, def.code, id);
         if (doc.sourceId) await this.refreshSourceStatus(tx, doc.sourceId);
         await this.audit.record(def.label, id, 'CANCEL', doc, updated, tx);

@@ -92,6 +92,17 @@ export class DocumentController {
     return this.docs.cancel(type, id);
   }
 
+  /** credit / debit notes: where they were applied; invoices: which notes settled them */
+  @Get(':type/:id/credits')
+  credits(@Param('type') type: string, @Param('id') id: string) {
+    return this.docs.credits(type, id);
+  }
+
+  @Post(':type/:id/apply-credit')
+  applyCredit(@Param('type') type: string, @Param('id') id: string, @Body(new ZodPipe(z.object({ invoiceId: z.uuid(), amount: z.coerce.number().positive().max(1e14) }))) body: { invoiceId: string; amount: number }) {
+    return this.docs.applyCredit(type, id, body);
+  }
+
   @Post(':type/:id/convert/:target')
   convert(@Param('type') type: string, @Param('id') id: string, @Param('target') target: string) {
     return this.docs.convert(type, id, target);
