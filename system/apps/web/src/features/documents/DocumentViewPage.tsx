@@ -566,7 +566,7 @@ function TaxInvoiceInfo({ type, id, value, editable, returnOf }: { type: string;
               ? 'The nota retur is made by the buyer in Coretax (PMK 81/2024); enter its number once you receive it. It reduces the output VAT of the month of the return.'
               : returnOf === 'PI'
                 ? 'Make the nota retur in Coretax (Retur Pajak Masukan) when the goods go back, and enter its number here.'
-                : 'Leave empty to remove it. Shown on the PDF and in the VAT reports.'
+                : 'Leave empty to remove it. Shown on the PDF and in the VAT reports. An invoice mixing transaction codes (e.g. 04 goods and 08 exempt services) is exported as one faktur per code: enter both numbers, separated by a comma.'
           }
         >
           <Input autoFocus value={text} maxLength={40} placeholder={returnOf ? 'Nota retur number' : '17 digits from Coretax, e.g. 04002600000000123'} onChange={(e) => setText(e.target.value)} />

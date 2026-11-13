@@ -12,6 +12,7 @@ import {
   SIMPLE_TEMPLATE,
   STAGE_TEMPLATE,
   TAX_TEMPLATE,
+  VAT_FACILITY,
   TASK_STAGE_TEMPLATE,
 } from './templates/company-template';
 
@@ -47,7 +48,7 @@ export class CompanyBootstrapService {
     for (const [code, name, kind, rate, baseNumerator, baseDenominator, extra, noNpwpSurcharge, [out, inn]] of TAX_TEMPLATE) {
       await db.tax.upsert({
         where: { companyId_code: { companyId, code } },
-        create: { ...c, code, name, kind, rate, baseNumerator, baseDenominator, trxCode: kind === 'VAT' ? extra : null, objectCode: kind === 'WHT' ? extra : null, noNpwpSurcharge, salesAccountId: ids.get(out), purchaseAccountId: ids.get(inn) },
+        create: { ...c, code, name, kind, rate, baseNumerator, baseDenominator, trxCode: kind === 'VAT' ? extra : null, addInfo: VAT_FACILITY[code]?.[0] ?? null, facilityStamp: VAT_FACILITY[code]?.[1] ?? null, objectCode: kind === 'WHT' ? extra : null, noNpwpSurcharge, salesAccountId: ids.get(out), purchaseAccountId: ids.get(inn) },
         update: {},
       });
     }

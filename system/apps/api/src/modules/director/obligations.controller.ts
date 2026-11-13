@@ -96,8 +96,12 @@ export class ObligationsController {
           }
         }
         if (vatPayer && (await on('efaktur'))) {
-          const fakturs = await this.prisma.tradeDocument.count({ where: { companyId, docType: 'SI', deletedAt: null, status: { notIn: ['DRAFT', 'CANCELLED'] }, taxTotal: { gt: 0 }, date: { gte: period, lt: periodEnd } } });
-          if (fakturs) add(next(20), { kind: 'TAX', title: `Upload e-Faktur masa ${label}`, detail: `${fakturs} invoice dengan PPN harus di-upload dan disetujui di Coretax (PER-11/PJ/2025)`, link: '/reports/vat-output' });
+          // invoices with PPN, and those under a 07 / 08 facility (no PPN collected, but a faktur is still due)
+          const fac = (await this.prisma.tax.findMany({ where: { companyId, kind: 'VAT', trxCode: { in: ['07', '08'] } }, select: { id: true } })).map((t) => t.id);
+          const fakturs = await this.prisma.tradeDocument.count({
+            where: { companyId, docType: 'SI', deletedAt: null, isOpening: false, status: { notIn: ['DRAFT', 'CANCELLED'] }, date: { gte: period, lt: periodEnd }, OR: [{ taxTotal: { gt: 0 } }, ...(fac.length ? [{ lines: { some: { taxId: { in: fac } } } }] : [])] },
+          });
+          if (fakturs) add(next(20), { kind: 'TAX', title: `Upload e-Faktur masa ${label}`, detail: `${fakturs} invoice dengan PPN atau fasilitas PPN (kode 07 / 08) harus di-upload dan disetujui di Coretax (PER-11/PJ/2025)`, link: '/reports/vat-output' });
         }
         if (regime === 'UMKM_FINAL' && (await on('pphFinal'))) {
           // estimate: 0.5% of the month's invoiced revenue (before VAT)

@@ -414,6 +414,17 @@ export const TAX_TEMPLATE: [string, string, 'VAT' | 'WHT', number, number, numbe
   ['PPN-AGRI', 'PPN 1.1% besaran tertentu (TBS / hasil perkebunan, PMK 64/2022 jo 11/2025)', 'VAT', 1.1, 1, 1, '05', false, ['2-1300', '1-1500']],
 ];
 
+/**
+ * Coretax keterangan tambahan and cap fasilitas of the 07 / 08 taxes (converter v1.6, Jan 2026): every PP 49/2022
+ * exemption takes 10 / 10 (the stamp names the PP, not the goods or service); the 2026 house DTP takes 31 / 31 (PMK 90/2025).
+ */
+export const VAT_FACILITY: Record<string, [string, string]> = {
+  'PPN-EXEMPT': ['TD.00510', 'TD.01110'],
+  'PPN-EDU': ['TD.00510', 'TD.01110'],
+  'PPN-ANGKUTAN': ['TD.00510', 'TD.01110'],
+  'PPN-DTP-RUMAH': ['TD.00531', 'TD.01131'],
+};
+
 export const STAGE_TEMPLATE: [string, string, number, boolean, boolean][] = [
   ['NEW', 'New', 10, false, false],
   ['QUALIFIED', 'Qualified', 25, false, false],
