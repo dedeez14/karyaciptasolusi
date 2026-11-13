@@ -78,6 +78,7 @@ import { BONDED_CONTROLLERS, BONDED_PROVIDERS } from './modules/bonded';
 import { AUTOMOTIVE_CONTROLLERS, AUTOMOTIVE_PROVIDERS } from './modules/automotive';
 import { CARTON_CONTROLLERS, CARTON_PROVIDERS } from './modules/carton';
 import { PAINT_CONTROLLERS, PAINT_PROVIDERS } from './modules/paint';
+import { DISTRIBUTION_CONTROLLERS, DISTRIBUTION_PROVIDERS } from './modules/distribution';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
@@ -167,6 +168,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...AUTOMOTIVE_CONTROLLERS,
     ...CARTON_CONTROLLERS,
     ...PAINT_CONTROLLERS,
+    ...DISTRIBUTION_CONTROLLERS,
     ...POS_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
@@ -238,6 +240,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...AUTOMOTIVE_PROVIDERS,
     ...CARTON_PROVIDERS,
     ...PAINT_PROVIDERS,
+    ...DISTRIBUTION_PROVIDERS,
     ...POS_PROVIDERS,
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,

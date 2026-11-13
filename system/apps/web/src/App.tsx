@@ -104,6 +104,12 @@ const PaintColoursPage = lazy(() => paintPages().then((m) => ({ default: m.Colou
 const PaintBasesPage = lazy(() => paintPages().then((m) => ({ default: m.BasesPage })));
 const PaintLabPage = lazy(() => paintPages().then((m) => ({ default: m.LabPage })));
 const PaintSdsPage = lazy(() => paintPages().then((m) => ({ default: m.SdsPage })));
+const distPages = () => import('@/features/distribution/DistributionPages');
+const DistJourneyPage = lazy(() => distPages().then((m) => ({ default: m.JourneyPage })));
+const DistRoutesPage = lazy(() => distPages().then((m) => ({ default: m.RoutesPage })));
+const DistVisitsPage = lazy(() => distPages().then((m) => ({ default: m.VisitsPage })));
+const DistSettlementsPage = lazy(() => distPages().then((m) => ({ default: m.SettlementsPage })));
+const DistCreditPage = lazy(() => distPages().then((m) => ({ default: m.CreditPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -300,6 +306,11 @@ export default function App() {
             <Route path="paint/bases" element={<PaintBasesPage />} />
             <Route path="paint/lab" element={<PaintLabPage />} />
             <Route path="paint/sds" element={<PaintSdsPage />} />
+            <Route path="distribution/today" element={<DistJourneyPage />} />
+            <Route path="distribution/routes" element={<DistRoutesPage />} />
+            <Route path="distribution/visits" element={<DistVisitsPage />} />
+            <Route path="distribution/settlements" element={<DistSettlementsPage />} />
+            <Route path="distribution/credit" element={<DistCreditPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

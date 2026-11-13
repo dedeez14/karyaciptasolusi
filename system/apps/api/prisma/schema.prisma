@@ -699,6 +699,12 @@ model Customer {
   countryCode      String?   @db.VarChar(3)
   paymentTermId    String?   @db.Uuid
   creditLimit      Decimal   @default(0) @db.Decimal(18, 2)
+  /// distribution: no new orders / invoices / deliveries while on hold; price list for sales documents; outlet channel and location
+  creditHold       Boolean   @default(false)
+  priceListId      String?   @db.Uuid
+  channel          String?   @db.VarChar(20)
+  latitude         Decimal?  @db.Decimal(9, 6)
+  longitude        Decimal?  @db.Decimal(9, 6)
   industryCode     String?   @db.VarChar(50)
   notes            String?
   /// loyalty membership (POS): member number, points balance, consent under UU 27/2022 (PDP)
@@ -5882,4 +5888,104 @@ model InstalmentLine {
   @@index([planId])
   @@index([invoiceId])
   @@map("instalment_lines")
+}
+
+// ----------------------------------------------------------------------------
+// Distribution: salesman routes (journey plan), visits, van (canvas) sales and the daily settlement
+// ----------------------------------------------------------------------------
+
+/// Route of a salesman: the outlets visited on given weekdays, the van warehouse and the cash box of van sales
+model SalesRoute {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid
+  branchId       String?  @db.Uuid
+  code           String   @db.VarChar(20)
+  name           String   @db.VarChar(120)
+  salesmanId     String   @db.Uuid
+  /// van (canvas) stock and the cash / bank account collections go to
+  vanWarehouseId String?  @db.Uuid
+  cashAccountId  String?  @db.Uuid
+  isActive       Boolean  @default(true)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  stops RouteStop[]
+
+  @@unique([companyId, code])
+  @@map("sales_routes")
+}
+
+model RouteStop {
+  id         String @id @default(uuid()) @db.Uuid
+  routeId    String @db.Uuid
+  customerId String @db.Uuid
+  seq        Int
+  /// ISO weekdays (1 Monday ... 7 Sunday)
+  days       Json
+  /// EVERY | ODD | EVEN week of the year (fortnightly outlets)
+  weeks      String @default("EVERY") @db.VarChar(5)
+
+  route SalesRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, customerId])
+  @@map("route_stops")
+}
+
+/// A salesman's call at an outlet: check-in (GPS), what came of it (order, van sale, collection, no order)
+model SalesVisit {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  routeId     String?   @db.Uuid
+  customerId  String    @db.Uuid
+  userId      String    @db.Uuid
+  date        DateTime  @db.Date
+  checkInAt   DateTime  @default(now())
+  checkOutAt  DateTime?
+  latitude    Decimal?  @db.Decimal(9, 6)
+  longitude   Decimal?  @db.Decimal(9, 6)
+  /// metres from the outlet's recorded location
+  distanceM   Int?
+  /// OPEN | ORDER | VAN_SALE | COLLECTION | NO_ORDER | CLOSED
+  outcome     String    @default("OPEN") @db.VarChar(10)
+  reason      String?   @db.VarChar(200)
+  orderId     String?   @db.Uuid
+  invoiceId   String?   @db.Uuid
+  deliveryId  String?   @db.Uuid
+  paymentId   String?   @db.Uuid
+  sales       Decimal   @default(0) @db.Decimal(18, 2)
+  collected   Decimal   @default(0) @db.Decimal(18, 2)
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([companyId, date])
+  @@index([companyId, customerId])
+  @@map("sales_visits")
+}
+
+/// End of a van's day: sales and collections, cash counted against expected (difference to Cash Over / Short), van stock
+model VanSettlement {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  number        String   @db.VarChar(40)
+  routeId       String   @db.Uuid
+  date          DateTime @db.Date
+  sales         Decimal  @default(0) @db.Decimal(18, 2)
+  cashSales     Decimal  @default(0) @db.Decimal(18, 2)
+  collections   Decimal  @default(0) @db.Decimal(18, 2)
+  expectedCash  Decimal  @default(0) @db.Decimal(18, 2)
+  countedCash   Decimal  @default(0) @db.Decimal(18, 2)
+  difference    Decimal  @default(0) @db.Decimal(18, 2)
+  /// van stock at the end of the day: [{ productId, qty }]
+  stock         Json
+  visits        Int      @default(0)
+  productive    Int      @default(0)
+  /// POSTED | VOID
+  status        String   @default("POSTED") @db.VarChar(6)
+  notes         String?
+  createdAt     DateTime @default(now())
+  createdById   String?  @db.Uuid
+
+  @@unique([companyId, number])
+  @@map("van_settlements")
 }

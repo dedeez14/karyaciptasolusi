@@ -74,6 +74,16 @@ export interface OpeningOpts {
 /** SI / PI: Nomor Faktur Pajak; SR / PRT: number of the nota retur made in Coretax (PMK 81/2024) */
 const TAX_INVOICE_TYPES = new Set(['SI', 'PI', 'SR', 'PRT']);
 
+/** what is left of a sales order to deliver / invoice: each line's total in proportion to its quantity not yet processed */
+export function openOrderValue(lines: { qty: Prisma.Decimal; processedQty: Prisma.Decimal; lineTotal: Prisma.Decimal }[]) {
+  return lines.reduce((a, l) => {
+    const q = D(l.qty);
+    if (q.lte(0)) return a;
+    const open = q.minus(D(l.processedQty));
+    return open.gt(0) ? a.plus(D(l.lineTotal).times(open).div(q)) : a;
+  }, D(0));
+}
+
 @Injectable()
 export class DocumentService {
   constructor(
@@ -247,13 +257,19 @@ export class DocumentService {
     const uomIds = [...new Set(input.lines.map((l) => l.uomId).filter(Boolean) as string[])];
     if (uomIds.length && (await this.prisma.uom.count({ where: { id: { in: uomIds }, companyId } })) !== uomIds.length) throw new BadRequestException('Invalid unit of measure');
 
+    // distribution: the customer's price list gives the default price of sales documents
+    const custPrices = new Map<string, Prisma.Decimal>();
+    if (def.partner === 'customer' && def.priced && input.customerId && productIds.length) {
+      const c = await this.prisma.customer.findFirst({ where: { id: input.customerId, companyId }, select: { priceListId: true } });
+      if (c?.priceListId) for (const it of await this.prisma.priceListItem.findMany({ where: { priceListId: c.priceListId, productId: { in: productIds }, priceList: { isActive: true, deletedAt: null } } })) custPrices.set(it.productId, it.price);
+    }
     const lines = input.lines.map((l, i) => {
       const p = l.productId ? pm.get(l.productId) : undefined;
       if (!p && !l.description) throw new BadRequestException(`Line ${i + 1}: choose a product or enter a description`);
       if (def.stockItemsOnly && p?.type !== 'STOCK') throw new BadRequestException(`Line ${i + 1}: only stock products are allowed in a ${def.label}`);
       if (def.stock !== 'adjust' && l.qty < 0) throw new BadRequestException(`Line ${i + 1}: quantity must be positive`);
       const qty = D(l.qty);
-      const price = def.priced ? D(l.unitPrice ?? (p && def.priceField ? p[def.priceField] : 0)) : D(l.unitPrice ?? 0);
+      const price = def.priced ? D(l.unitPrice ?? (p ? (custPrices.get(p.id) ?? (def.priceField ? p[def.priceField] : 0)) : 0)) : D(l.unitPrice ?? 0);
       const subtotal = round(qty.times(price));
       const discount = round(subtotal.times(D(l.discountPct)).div(100));
       const tx = def.taxField && l.taxId ? txm.get(l.taxId)! : null;
@@ -376,6 +392,42 @@ export class DocumentService {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new NotFoundException('Document not found');
   }
 
+  /**
+   * Credit control (distribution): a customer on credit hold, with invoices overdue beyond the allowed days, or whose
+   * open receivables + open sales orders + this document go over the credit limit cannot get a sales order, invoice or
+   * delivery confirmed. A user with sales.credit.override confirms anyway (recorded in the audit trail).
+   */
+  private async assertCredit(tx: Tx, def: DocTypeDef, doc: { id: string; companyId: string; customerId: string | null; sourceId: string | null; grandTotal: Prisma.Decimal; exchangeRate: Prisma.Decimal; number: string }) {
+    if (!(await this.settings.bool('sales.creditControl', doc.companyId, true))) return;
+    const c = await tx.customer.findUnique({ where: { id: doc.customerId! }, select: { name: true, creditLimit: true, creditHold: true } });
+    if (!c) return;
+    const problems: string[] = [];
+    if (c.creditHold) problems.push(`${c.name} is on credit hold`);
+    const overdueDays = await this.settings.num('sales.creditOverdueDays', doc.companyId, 0);
+    if (overdueDays > 0) {
+      const before = new Date(Date.now() - overdueDays * 86_400_000);
+      const late = await tx.tradeDocument.findMany({ where: { companyId: doc.companyId, customerId: doc.customerId, docType: 'SI', status: { in: ['CONFIRMED', 'PARTIAL'] }, deletedAt: null, dueDate: { lt: before } }, select: { number: true, grandTotal: true, paidAmount: true } });
+      const open = late.filter((x) => D(x.grandTotal).gt(D(x.paidAmount)));
+      if (open.length) problems.push(`${open.length} invoice(s) more than ${overdueDays} days overdue (${open.slice(0, 3).map((x) => x.number).join(', ')})`);
+    }
+    const limit = D(c.creditLimit);
+    if (limit.gt(0) && def.code !== 'DO') {
+      const inv = await tx.tradeDocument.findMany({ where: { companyId: doc.companyId, customerId: doc.customerId, docType: 'SI', status: { in: ['CONFIRMED', 'PARTIAL'] }, deletedAt: null }, select: { grandTotal: true, paidAmount: true, exchangeRate: true } });
+      const ar = inv.reduce((a, x) => a.plus(D(x.grandTotal).minus(D(x.paidAmount)).times(D(x.exchangeRate))), D(0));
+      // open sales orders count until invoiced (not the order this document comes from)
+      const sos = await tx.tradeDocument.findMany({ where: { companyId: doc.companyId, customerId: doc.customerId, docType: 'SO', status: { in: ['CONFIRMED', 'PARTIAL'] }, deletedAt: null, id: { notIn: [doc.id, doc.sourceId ?? doc.id] } }, select: { exchangeRate: true, lines: { select: { qty: true, processedQty: true, lineTotal: true } } } });
+      const so = sos.reduce((a, x) => a.plus(openOrderValue(x.lines).times(D(x.exchangeRate))), D(0));
+      const exposure = ar.plus(so).plus(D(doc.grandTotal).times(D(doc.exchangeRate)));
+      if (exposure.gt(limit)) problems.push(`credit limit ${limit.toFixed(0)} exceeded: open invoices ${ar.toFixed(0)} + open orders ${so.toFixed(0)} + this ${D(doc.grandTotal).times(D(doc.exchangeRate)).toFixed(0)}`);
+    }
+    if (!problems.length) return;
+    if (RequestCtx.can('sales.credit.override')) {
+      await this.audit.record(def.label, doc.id, 'CREDIT_OVERRIDE', null, { number: doc.number, problems }, tx);
+      return;
+    }
+    throw new ConflictException(`Credit check: ${problems.join('; ')}. Collect the payment first, or ask someone allowed to override the credit check.`);
+  }
+
   async confirm(type: string, id: string, opts: OpeningOpts = {}) {
     this.assertId(id);
     const def = this.def(type);
@@ -401,6 +453,7 @@ export class DocumentService {
           throw new BadRequestException('Your company is not a VAT payer (PKP), so this document may not charge PPN (UU PPN Pasal 14). Edit it and remove the tax, or turn on "Company is a VAT payer (PKP)" in Settings > Sales once the company is PKP.');
         }
         if (APPROVAL_DOC_TYPES.has(def.code) && !doc.isOpening) await this.approvals.assertApproved(u.companyId, this.approvalSubject(def, doc), tx);
+        if (['SO', 'SI', 'DO'].includes(def.code) && doc.customerId && !doc.isOpening) await this.assertCredit(tx, def, doc);
 
         await this.post(tx, def, doc, allowNegative);
 
