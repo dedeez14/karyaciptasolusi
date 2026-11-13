@@ -168,6 +168,12 @@ export class HrisService {
     const assignedOnly = await this.settings.bool('hris.assignedComponentsOnly', u.companyId, false);
     const statutoryOn = await this.settings.bool('payroll.statutory', u.companyId, true);
     const rates = await this.statutoryRates(u.companyId);
+    // plantation checkroll (BKM): approved work not paid yet, up to the end of the period; paid through the accrual account
+    const checkroll = kind === 'REGULAR'
+      ? await this.prisma.plantationWork.findMany({ where: { companyId: u.companyId, employeeId: { in: ids }, payrollRunId: null, date: { lte: input.periodEnd }, workday: { status: 'APPROVED', deletedAt: null } }, select: { id: true, employeeId: true, hk: true, amount: true } })
+      : [];
+    const checkrollAccount = checkroll.length ? await this.prisma.$transaction((tx) => this.journal.mapping(tx, u.companyId, 'CHECKROLL_ACCRUED')) : null;
+    const checkrollDays = await this.settings.num('plantation.workDaysPerMonth', u.companyId, 25);
     const isLastMonth = (e: { endDate: Date | null }) => input.periodEnd.getUTCMonth() === 11 || (!!e.endDate && e.endDate <= input.periodEnd);
 
     const slips = employees.map((e) => {
@@ -188,9 +194,19 @@ export class HrisService {
         if (c.kind === 'EARNING' && c.taxable) taxableEarnings = taxableEarnings.plus(amount);
         lines.push({ code: c.code, name: c.name, kind: c.kind as SlipLine['kind'], amount: amount.toString(), accountId: c.accountId });
       }
-      // wage for BPJS, overtime and THR: base salary + fixed allowances (tunjangan tetap)
-      const wage = Number(D(e.baseSalary).plus(fixedAllowances));
-      if (rates.minimumWage && wage < rates.minimumWage && kind === 'REGULAR') warnings.push(`Wage ${Math.round(wage).toLocaleString('id-ID')} is below the minimum wage ${rates.minimumWage.toLocaleString('id-ID')} set in Settings`);
+      const cr = checkroll.filter((w) => w.employeeId === e.id);
+      const crAmount = sum(cr.map((w) => D(w.amount)));
+      const crHk = cr.reduce((a, w) => a + Number(w.hk), 0);
+      if (cr.length) {
+        lines.push({ code: 'CHECKROLL', name: `Checkroll wages (BKM, ${crHk} HK)`, kind: 'EARNING', amount: crAmount.toString(), accountId: checkrollAccount });
+        taxableEarnings = taxableEarnings.plus(crAmount);
+      }
+      const dailyWorker = D(e.baseSalary).isZero() && cr.length > 0;
+      // wage for BPJS, overtime and THR: base salary + fixed allowances (tunjangan tetap); daily / piece-rate workers: what they earned
+      const wage = dailyWorker ? Number(crAmount.plus(fixedAllowances)) : Number(D(e.baseSalary).plus(fixedAllowances));
+      if (dailyWorker && rates.minimumWage && crHk > 0 && Number(crAmount) / crHk < rates.minimumWage / checkrollDays)
+        warnings.push(`Checkroll pay ${Math.round(Number(crAmount) / crHk).toLocaleString('id-ID')} per HK is below the minimum wage / ${checkrollDays} (${Math.round(rates.minimumWage / checkrollDays).toLocaleString('id-ID')})`);
+      if (!dailyWorker && rates.minimumWage && wage < rates.minimumWage && kind === 'REGULAR') warnings.push(`Wage ${Math.round(wage).toLocaleString('id-ID')} is below the minimum wage ${rates.minimumWage.toLocaleString('id-ID')} set in Settings`);
 
       let thr = 0;
       if (kind === 'THR') {
@@ -314,6 +330,7 @@ export class HrisService {
         lines: lines as unknown as Prisma.InputJsonValue,
         statutory: (statutory ?? (warnings.length ? { warnings } : undefined)) as unknown as Prisma.InputJsonValue,
         employerCost: D(employerCost),
+        checkrollIds: cr.map((w) => w.id),
       };
     });
     const made = slips.filter(Boolean) as NonNullable<(typeof slips)[number]>[];
@@ -334,9 +351,14 @@ export class HrisService {
           totalNet: sum(made.map((s) => s.netPay)),
           totalEmployerCost: sum(made.map((s) => s.employerCost)),
           createdById: u.id,
-          payslips: { create: made },
+          payslips: { create: made.map(({ checkrollIds: _c, ...s }) => s) },
         },
       });
+      const paidWork = made.flatMap((s) => s.checkrollIds);
+      if (paidWork.length) {
+        const n = await tx.plantationWork.updateMany({ where: { id: { in: paidWork }, payrollRunId: null }, data: { payrollRunId: run.id } });
+        if (n.count !== paidWork.length) throw new ConflictException('Checkroll wages changed while the payroll was being made: try again');
+      }
       await this.audit.record('Payroll Run', run.id, 'CREATE', undefined, run, tx);
       return run;
     });
@@ -405,6 +427,8 @@ export class HrisService {
     return this.prisma.$transaction(async (tx) => {
       if (run.status !== 'DRAFT') await this.journal.voidBySource(tx, 'PAYROLL', id);
       const r = await tx.payrollRun.update({ where: { id }, data: { status: 'CANCELLED', updatedById: RequestCtx.user().id } });
+      // checkroll wages of the run can be paid by another payroll
+      await tx.plantationWork.updateMany({ where: { payrollRunId: id }, data: { payrollRunId: null } });
       await this.audit.record('Payroll Run', id, 'CANCEL', run, r, tx);
       return r;
     });

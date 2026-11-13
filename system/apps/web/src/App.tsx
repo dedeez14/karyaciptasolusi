@@ -64,6 +64,15 @@ const CyclesPage = lazy(() => farmPages().then((m) => ({ default: m.CyclesPage }
 const CyclePage = lazy(() => farmPages().then((m) => ({ default: m.CyclePage })));
 const ContractsPage = lazy(() => farmPages().then((m) => ({ default: m.ContractsPage })));
 const PartnershipReportPage = lazy(() => farmPages().then((m) => ({ default: m.PartnershipReportPage })));
+const plantationPages = () => import('@/features/plantation/PlantationPages');
+const PlantBlocksPage = lazy(() => plantationPages().then((m) => ({ default: m.BlocksPage })));
+const PlantBlockPage = lazy(() => plantationPages().then((m) => ({ default: m.BlockPage })));
+const PlantBkmListPage = lazy(() => plantationPages().then((m) => ({ default: m.BkmListPage })));
+const PlantBkmPage = lazy(() => plantationPages().then((m) => ({ default: m.BkmPage })));
+const PlantDispatchesPage = lazy(() => plantationPages().then((m) => ({ default: m.DispatchesPage })));
+const PlantDispatchPage = lazy(() => plantationPages().then((m) => ({ default: m.DispatchPage })));
+const PlantProductionPage = lazy(() => plantationPages().then((m) => ({ default: m.ProductionPage })));
+const PlantCheckrollPage = lazy(() => plantationPages().then((m) => ({ default: m.CheckrollPage })));
 const WastePage = lazy(() => wastePages().then((m) => ({ default: m.WastePage })));
 const SiinasPage = lazy(() => wastePages().then((m) => ({ default: m.SiinasPage })));
 const InspectionsPage = lazy(() => qualityPages().then((m) => ({ default: m.InspectionsPage })));
@@ -183,6 +192,14 @@ export default function App() {
             <Route path="farm/cycles/:id" element={<CyclePage />} />
             <Route path="farm/contracts" element={<ContractsPage />} />
             <Route path="farm/partnership-report" element={<PartnershipReportPage />} />
+            <Route path="plantation/blocks" element={<PlantBlocksPage />} />
+            <Route path="plantation/blocks/:id" element={<PlantBlockPage />} />
+            <Route path="plantation/bkm" element={<PlantBkmListPage />} />
+            <Route path="plantation/bkm/:id" element={<PlantBkmPage />} />
+            <Route path="plantation/dispatches" element={<PlantDispatchesPage />} />
+            <Route path="plantation/dispatches/:id" element={<PlantDispatchPage />} />
+            <Route path="plantation/production" element={<PlantProductionPage />} />
+            <Route path="plantation/checkroll" element={<PlantCheckrollPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

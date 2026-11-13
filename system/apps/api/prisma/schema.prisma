@@ -4098,3 +4098,269 @@ model PartnerSettlement {
   @@index([cycleId])
   @@map("partner_settlements")
 }
+
+// ----------------------------------------------------------------------------
+// Plantations: estate (farm site of kind PLANTATION) -> division (afdeling) -> block,
+// daily work book (BKM / checkroll), FFB dispatch (SPB) and weighbridge
+// ----------------------------------------------------------------------------
+
+/// Division (afdeling) of a plantation estate
+model PlantationDivision {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  siteId      String    @db.Uuid
+  code        String    @db.VarChar(30)
+  name        String    @db.VarChar(150)
+  /// division assistant (asisten afdeling)
+  assistantId String?   @db.Uuid
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@unique([companyId, code])
+  @@map("plantation_divisions")
+}
+
+/// Planted block (blok) of a division
+model PlantationBlock {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  branchId        String?   @db.Uuid
+  siteId          String    @db.Uuid
+  divisionId      String    @db.Uuid
+  code            String    @db.VarChar(30)
+  name            String?   @db.VarChar(150)
+  /// OIL_PALM | RUBBER | COCOA | COFFEE | COCONUT | TEA | SUGARCANE | OTHER
+  crop            String    @default("OIL_PALM") @db.VarChar(12)
+  variety         String?   @db.VarChar(100)
+  plantingYear    Int?
+  plantingDate    DateTime? @db.Date
+  areaHa          Decimal   @default(0) @db.Decimal(12, 4)
+  /// palms / trees standing (pokok)
+  stands          Int       @default(0)
+  /// TBM (immature) | TM (mature) | INACTIVE
+  phase           String    @default("TBM") @db.VarChar(10)
+  matureDate      DateTime? @db.Date
+  /// expected average bunch weight (BJR, kg) used to estimate the weight at the collection point
+  bjrKg           Decimal   @default(0) @db.Decimal(8, 2)
+  /// land title (HGU / SHM / STDB number)
+  landTitle       String?   @db.VarChar(100)
+  /// plot boundary as GeoJSON (Polygon / MultiPolygon, WGS84) and its centre: traceability (EUDR, ISPO)
+  geometry        Json?
+  latitude        Decimal?  @db.Decimal(10, 7)
+  longitude       Decimal?  @db.Decimal(10, 7)
+  /// cost capitalised while immature (bearer plants not yet productive)
+  tbmCost         Decimal   @default(0) @db.Decimal(18, 2)
+  /// fixed asset (bearer plants, mature) created when the block is declared mature
+  fixedAssetId    String?   @db.Uuid
+  notes           String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   @db.Uuid
+  updatedById     String?   @db.Uuid
+  deletedAt       DateTime?
+
+  @@unique([companyId, code])
+  @@index([divisionId])
+  @@map("plantation_blocks")
+}
+
+/// Field activity with its wage rule (harvesting, weeding, fertilising, spraying...)
+model PlantationActivity {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  code             String    @db.VarChar(30)
+  name             String    @db.VarChar(150)
+  /// HARVEST | UPKEEP | FERTILISING | PEST | PLANTING | INFRA | TRANSPORT | GENERAL
+  kind             String    @default("UPKEEP") @db.VarChar(12)
+  /// output unit: HA | BUNCH | KG | PALM | M | TRIP | HK
+  uom              String    @default("HA") @db.VarChar(10)
+  /// DAILY: paid per work day (HK) plus a premium above the base task; PIECE: paid per unit of output
+  wageBasis        String    @default("DAILY") @db.VarChar(6)
+  dailyRate        Decimal   @default(0) @db.Decimal(18, 2)
+  pieceRate        Decimal   @default(0) @db.Decimal(18, 2)
+  /// base task per HK (basis borong) covered by the daily wage
+  baseTask         Decimal   @default(0) @db.Decimal(12, 2)
+  /// premium per unit above the base task
+  premiumRate      Decimal   @default(0) @db.Decimal(18, 2)
+  /// harvest grading penalties (per bunch / per case)
+  penaltyUnripe    Decimal   @default(0) @db.Decimal(18, 2)
+  penaltyLongStalk Decimal   @default(0) @db.Decimal(18, 2)
+  penaltyLooseLeft Decimal   @default(0) @db.Decimal(18, 2)
+  penaltyOther     Decimal   @default(0) @db.Decimal(18, 2)
+  /// cost account for mature blocks (default by kind)
+  expenseAccountId String?   @db.Uuid
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+  deletedAt        DateTime?
+
+  @@unique([companyId, code])
+  @@map("plantation_activities")
+}
+
+/// Daily work book of a foreman (Buku Kegiatan Mandor, BKM) for one division
+model PlantationWorkday {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  branchId      String?   @db.Uuid
+  number        String    @db.VarChar(40)
+  siteId        String    @db.Uuid
+  divisionId    String    @db.Uuid
+  date          DateTime  @db.Date
+  foremanId     String?   @db.Uuid
+  /// DRAFT | APPROVED | CANCELLED
+  status        String    @default("DRAFT") @db.VarChar(10)
+  /// store the materials are issued from
+  warehouseId   String?   @db.Uuid
+  totalHk       Decimal   @default(0) @db.Decimal(10, 2)
+  totalWage     Decimal   @default(0) @db.Decimal(18, 2)
+  totalMaterial Decimal   @default(0) @db.Decimal(18, 2)
+  notes         String?
+  approvedAt    DateTime?
+  approvedById  String?   @db.Uuid
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+  deletedAt     DateTime?
+
+  works     PlantationWork[]
+  materials PlantationMaterial[]
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@map("plantation_workdays")
+}
+
+/// Work of one worker on one block in a BKM
+model PlantationWork {
+  id           String   @id @default(uuid()) @db.Uuid
+  /// order of entry
+  lineNo       Int      @default(0)
+  workdayId    String   @db.Uuid
+  companyId    String   @db.Uuid
+  date         DateTime @db.Date
+  employeeId   String   @db.Uuid
+  blockId      String   @db.Uuid
+  activityId   String   @db.Uuid
+  hk           Decimal  @default(1) @db.Decimal(4, 2)
+  qty          Decimal  @default(0) @db.Decimal(14, 2)
+  /// harvesting: collection point (TPH), bunches, loose fruit and grading findings
+  tph          String?  @db.VarChar(20)
+  bunches      Int      @default(0)
+  looseFruitKg Decimal  @default(0) @db.Decimal(10, 2)
+  unripe       Int      @default(0)
+  longStalk    Int      @default(0)
+  looseLeft    Int      @default(0)
+  otherFaults  Int      @default(0)
+  wage         Decimal  @default(0) @db.Decimal(18, 2)
+  premium      Decimal  @default(0) @db.Decimal(18, 2)
+  penalty      Decimal  @default(0) @db.Decimal(18, 2)
+  amount       Decimal  @default(0) @db.Decimal(18, 2)
+  /// cost capitalised to an immature block (TBM)
+  capitalised  Boolean  @default(false)
+  /// payroll run that paid this work
+  payrollRunId String?  @db.Uuid
+  notes        String?  @db.VarChar(300)
+
+  workday PlantationWorkday @relation(fields: [workdayId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, employeeId, date])
+  @@index([blockId, date])
+  @@map("plantation_works")
+}
+
+/// Fertiliser, chemicals and other materials used on a block in a BKM
+model PlantationMaterial {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// order of entry
+  lineNo       Int      @default(0)
+  workdayId   String   @db.Uuid
+  companyId   String   @db.Uuid
+  date        DateTime @db.Date
+  blockId     String   @db.Uuid
+  activityId  String?  @db.Uuid
+  productId   String   @db.Uuid
+  qty         Decimal  @db.Decimal(14, 3)
+  amount      Decimal  @default(0) @db.Decimal(18, 2)
+  capitalised Boolean  @default(false)
+
+  workday PlantationWorkday @relation(fields: [workdayId], references: [id], onDelete: Cascade)
+
+  @@index([blockId, date])
+  @@map("plantation_materials")
+}
+
+/// FFB transport note (Surat Pengantar Buah, SPB) and its weighbridge ticket
+model FfbDispatch {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  branchId      String?   @db.Uuid
+  number        String    @db.VarChar(40)
+  date          DateTime  @db.Date
+  siteId        String    @db.Uuid
+  divisionId    String?   @db.Uuid
+  vehicleNo     String?   @db.VarChar(20)
+  driver        String?   @db.VarChar(100)
+  /// mill buying the fruit (none: own mill / not sold yet)
+  customerId    String?   @db.Uuid
+  productId     String    @db.Uuid
+  warehouseId   String    @db.Uuid
+  /// DRAFT (on the road) | WEIGHED | CANCELLED
+  status        String    @default("DRAFT") @db.VarChar(10)
+  ticketNo      String?   @db.VarChar(40)
+  weighedAt     DateTime?
+  grossKg       Decimal   @default(0) @db.Decimal(14, 2)
+  tareKg        Decimal   @default(0) @db.Decimal(14, 2)
+  netKg         Decimal   @default(0) @db.Decimal(14, 2)
+  /// sorting deduction at the mill (potongan sortasi)
+  sortingPct    Decimal   @default(0) @db.Decimal(6, 2)
+  sortingKg     Decimal   @default(0) @db.Decimal(14, 2)
+  /// grading sample behind the sorting deduction (Permentan 13/2024 Lampiran II): percentages found
+  grading       Json?
+  acceptedKg    Decimal   @default(0) @db.Decimal(14, 2)
+  /// price per kg agreed with the mill; also the fair value less costs to sell at harvest
+  pricePerKg    Decimal   @default(0) @db.Decimal(18, 2)
+  amount        Decimal   @default(0) @db.Decimal(18, 2)
+  deliveryDocId String?   @db.Uuid
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+  deletedAt     DateTime?
+
+  lines FfbDispatchLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@map("ffb_dispatches")
+}
+
+/// Fruit loaded from one block / collection point
+model FfbDispatchLine {
+  id           String  @id @default(uuid()) @db.Uuid
+  /// order of entry
+  lineNo       Int      @default(0)
+  dispatchId   String  @db.Uuid
+  blockId      String  @db.Uuid
+  tph          String? @db.VarChar(20)
+  bunches      Int     @default(0)
+  looseFruitKg Decimal @default(0) @db.Decimal(10, 2)
+  /// bunches x BJR of the block + loose fruit
+  estimatedKg  Decimal @default(0) @db.Decimal(14, 2)
+  /// accepted weight allocated back from the weighbridge in proportion to the estimate
+  actualKg     Decimal @default(0) @db.Decimal(14, 2)
+
+  dispatch FfbDispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+
+  @@index([blockId])
+  @@map("ffb_dispatch_lines")
+}

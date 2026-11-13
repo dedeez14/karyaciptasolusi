@@ -241,29 +241,32 @@ The goal is to avoid building one separate app per industry. Most lines share th
   - abnormal mortality: to loss;
   - harvest: to inventory at FV − costs to sell.
 - **Oil palm journals:**
-  - nursery → TBM per block → reclassify to TM (Permentan 131/2013: tended for more than 36 months, fruiting) → depreciate;
+  - nursery → TBM per block → reclassify to TM → depreciate. Permentan 131/2013 Lampiran is inconsistent: TBM 36–48 months in the definitions, but the harvest chapter says after about 30 months or when more than 60% of the palms carry ripe bunches of about 4 kg (guidance; configurable);
+  - tax (PMK 72/2023, read): perkebunan tanaman keras = group 4, 20 years straight line from the first month of sales (Art. 12–15); labour is **not** part of the fiscal cost (Art. 14 (2));
   - TM upkeep is expensed in accounting, but DJP may capitalise it for tax. **Conflict to flag.**
 
 ### Tax and permits
-- **PPN on agricultural produce** (PMK 64/2022 jo PMK 11/2025):
-  - 1.1% *besaran tertentu*, at the PKP's option;
-  - faktur code 05; input VAT **not creditable**;
-  - the industrial buyer (mill) collects.
+- **PPN on agricultural produce** (PMK 64/2022 jo PMK 11/2025; PMK 64/2022 text and annex read, PMK 11/2025 via the DJP press release):
+  - 1.1% of the price (10% x 11/12 x 12%) *besaran tertentu*, at the PKP's option (Art. 2), notified to the KPP (Art. 4); after switching back to the normal method the PKP can never return (Art. 5 (6));
+  - TBS is listed in Lampiran A (I. Perkebunan, kelapa sawit); faktur code 05; input VAT **not creditable** (Art. 7);
+  - an industrial buyer (mill) buying from such a PKP collects the PPN (Art. 8) **[whether PMK 11/2025 changed Art. 8 unverified]**; a non-PKP charges nothing.
 - **PP 49/2022:** VAT exemption on livestock, feed and seeds. Input VAT is not creditable.
-- **PPh 22 on purchases of produce:** 0.25% by industrial buyers and exporters. PMK 51/2025 (Art. 3 (1) f) replaced PMK 34/2017; this comes from secondary sources, and the Rp20 million threshold is **[unverified]**.
+- **PPh 22 on purchases of produce** (PMK 51/2025, official text read): 0.25% of the price excl. PPN by industrial buyers and exporters (Art. 2 (1) g, 3 (1) f), due at purchase (Art. 5 (7)); purchases up to Rp20 million excl. PPN in one tax month are exempt (Art. 4 (1) e angka 6). No PP 55 certificate exemption for this category (only for government purchases).
 - **PBB P5L** (PMK 186/2019 jo 234/2022): per block category; planting-year map.
 - **Plantations:**
   - UU 39/2014 jo UU 6/2023; HGU;
   - 20% plasma (Art. 58; PP 26/2021, Permentan 18/2021);
   - ISPO: Perpres 16/2025 replaced Perpres 44/2020; technical rules Permentan 33/2025.
-- **EUDR** (EU deforestation regulation) from 30 Dec 2026 (large / medium operators): plot geolocation and lot-to-plot traceability.
+- **EUDR** (Reg. 2023/1115 as amended by Reg. 2025/2650, read): from 30 Dec 2026 for large / medium operators, 30 Jun 2027 for micro / small. Geolocation (Art. 2 (28)): a point with at least 6 decimals; a polygon for plots above 4 ha.
+- **TBS purchase from partner smallholders:** Permentan 13/2024 replaced Permentan 01/2018: HTBS = K x (HCPO x RCPO + HPK x RPK) + shell value; K set monthly by the provincial Kepala Dinas. Grading deductions (Lampiran II): unripe 50%, overripe 25% of the share above 5%, empty 100%, long stalk 1%, loose fruit short of 10%: 30% of the shortfall, dirty loose fruit 2x, bunches under 3 kg 70%. Mill acceptance (Art. 21): 0% unripe, at least 95% ripe, stalk at most 2.5 cm, at least 3 kg per bunch.
+- **Ripeness fractions** (Permentan 131/2013 Tabel 23 from PPKS): 00 / 0 unripe, 1 under-ripe, 2–3 ripe, 4–5 overripe. No SNI for TBS found.
 - **Livestock:**
   - UU 18/2009 jo 41/2014;
   - NKV (Permentan 11/2020);
   - SKKH / SV animal movement (Permentan 17/2023, iSIKHNAS);
   - halal slaughter (PP 42/2024).
 - **Labour:**
-  - piece rate must not fall below the minimum wage (PP 36/2021);
+  - daily wage = monthly / 25 (6-day week) or / 21 (5-day week) (PP 36/2021 Art. 17); piece rates agreed (Art. 18) but pay must not fall below the minimum wage (Art. 23 (3)) [secondary transcription];
   - daily workers working 21+ days a month for 3 months become permanent (PP 35/2021 Art. 10);
   - UU 27/2026 replaced UU 13/2003, but its piece-rate and daily-worker rules are **[unverified]**, so keep them configurable.
 
@@ -305,7 +308,7 @@ The goal is to avoid building one separate app per industry. Most lines share th
    - Compliance pack: quarterly SIINas, TKDN, certificate registers, B3.
 3. **Agribusiness.**
    - Location and cycle master, daily records and KPIs.
-   - BKM / checkroll.
+   - BKM / checkroll. **Built:** blocks (GeoJSON boundary, EUDR flag), BKM with piece rates / premiums / grading penalties, payroll checkroll line, materials, TBM capitalisation -> bearer-plant asset, SPB + weighbridge with the Permentan 13/2024 grading deduction, production & cost and checkroll reports.
    - Harvest → weighbridge.
    - Biological-asset accounting, agri tax, inti-plasma, mill.
 4. **Industry add-ons:** automotive (VIN, PPnBM), carton estimator, paint lab / tinting, garment matrix, bonded zone.

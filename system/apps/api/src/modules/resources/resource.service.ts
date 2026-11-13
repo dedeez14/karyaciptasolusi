@@ -105,13 +105,15 @@ export class ResourceService {
     'work-centers': ['manufacturing.', 'maintenance.'],
     equipment: ['maintenance.', 'manufacturing.'],
     'waste-types': ['compliance.'],
-    'farm-sites': ['farm.'],
+    'farm-sites': ['farm.', 'plantation.'],
     'farm-units': ['farm.'],
+    'plantation-divisions': ['plantation.'],
+    'plantation-activities': ['plantation.'],
     'pos-outlets': 'company', 'pos-tables': 'company', 'price-lists': 'company',
     'bank-accounts': ['accounting.', 'pos.', 'sales.payment', 'purchase.payment', 'hris.expense.pay', 'hris.payroll.pay', 'hris.payroll.create'],
-    customers: ['sales.', 'pos.', 'crm.', 'support.ticket', 'task.', 'master.project', 'report.', 'farm.harvest'],
+    customers: ['sales.', 'pos.', 'crm.', 'support.ticket', 'task.', 'master.project', 'report.', 'farm.harvest', 'plantation.dispatch'],
     suppliers: ['purchase.', 'accounting.asset', 'accounting.cash', 'report.', 'manufacturing.', 'compliance.', 'farm.'],
-    employees: ['hris.', 'accounting.asset', 'task.', 'report.employee-directory'],
+    employees: ['hris.', 'accounting.asset', 'task.', 'report.employee-directory', 'plantation.'],
   };
 
   private canUseOptions(def: ResourceDef) {
