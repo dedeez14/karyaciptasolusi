@@ -65,6 +65,14 @@ const CyclePage = lazy(() => farmPages().then((m) => ({ default: m.CyclePage }))
 const ContractsPage = lazy(() => farmPages().then((m) => ({ default: m.ContractsPage })));
 const PartnershipReportPage = lazy(() => farmPages().then((m) => ({ default: m.PartnershipReportPage })));
 const plantationPages = () => import('@/features/plantation/PlantationPages');
+const millPages = () => import('@/features/mill/MillPages');
+const MillDailyListPage = lazy(() => millPages().then((m) => ({ default: m.DailyListPage })));
+const MillDailyPage = lazy(() => millPages().then((m) => ({ default: m.DailyPage })));
+const MillIntakesPage = lazy(() => millPages().then((m) => ({ default: m.IntakesPage })));
+const MillSuppliersPage = lazy(() => millPages().then((m) => ({ default: m.SuppliersPage })));
+const MillPricesPage = lazy(() => millPages().then((m) => ({ default: m.PricesPage })));
+const MillPerformancePage = lazy(() => millPages().then((m) => ({ default: m.PerformancePage })));
+const MillTanksPage = lazy(() => millPages().then((m) => ({ default: m.TanksPage })));
 const PlantBlocksPage = lazy(() => plantationPages().then((m) => ({ default: m.BlocksPage })));
 const PlantBlockPage = lazy(() => plantationPages().then((m) => ({ default: m.BlockPage })));
 const PlantBkmListPage = lazy(() => plantationPages().then((m) => ({ default: m.BkmListPage })));
@@ -200,6 +208,13 @@ export default function App() {
             <Route path="plantation/dispatches/:id" element={<PlantDispatchPage />} />
             <Route path="plantation/production" element={<PlantProductionPage />} />
             <Route path="plantation/checkroll" element={<PlantCheckrollPage />} />
+            <Route path="mill/daily" element={<MillDailyListPage />} />
+            <Route path="mill/daily/:id" element={<MillDailyPage />} />
+            <Route path="mill/intakes" element={<MillIntakesPage />} />
+            <Route path="mill/suppliers" element={<MillSuppliersPage />} />
+            <Route path="mill/prices" element={<MillPricesPage />} />
+            <Route path="mill/performance" element={<MillPerformancePage />} />
+            <Route path="mill/tanks" element={<MillTanksPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

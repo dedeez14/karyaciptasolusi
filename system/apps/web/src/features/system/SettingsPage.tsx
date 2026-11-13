@@ -55,6 +55,7 @@ const GROUPS: Record<string, { label: string; icon: string }> = {
   obligations: { label: "Obligations", icon: "calendar-clock" },
   tax: { label: "Tax", icon: "landmark" },
   payroll: { label: "Payroll & BPJS", icon: "wallet" },
+  agri: { label: "Plantation & Mill", icon: "palmtree" },
   privacy: { label: "Privacy (UU PDP)", icon: "user-lock" },
   integration: { label: "Integrations", icon: "plug" },
 };

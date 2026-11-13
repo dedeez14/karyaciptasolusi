@@ -7,6 +7,7 @@ import { useSession } from '@/stores/session';
 import { AsyncSelect, Badge, Button, Card, confirm, DatePicker, EmptyState, Field, Input, Modal, NumberInput, PageHeader, Select, Spinner, Tabs, Textarea, toast } from '@/components/ui';
 import type { Tone } from '@/components/ui/primitives';
 import { downloadCsv, esc, printHtml, PRINT_CSS } from '@/features/compliance/common';
+import { GRADING_LABELS, gradingPct } from './grading';
 
 const CROPS: Record<string, string> = {
   OIL_PALM: 'Oil palm',
@@ -2254,23 +2255,6 @@ ${d.status === 'WEIGHED' ? `<h2>Weighbridge ${esc(d.ticketNo ?? '')}</h2><table>
       {weighing && d && <WeighModal d={d} onClose={() => setWeighing(false)} onDone={() => (setWeighing(false), setLoaded(''), qc.invalidateQueries({ queryKey: ['plantation'] }))} />}
     </div>
   );
-}
-
-const GRADING_LABELS: Record<string, string> = {
-  unripe: 'Unripe',
-  overripe: 'Overripe',
-  empty: 'Empty bunches',
-  longStalk: 'Long stalk',
-  looseFruit: 'Loose fruit',
-  dirty: 'Dirty loose fruit',
-  under3kg: 'Bunches < 3 kg',
-};
-
-/** same rule as the server (Permentan 13/2024 Lampiran II) */
-function gradingPct(g: Record<string, string>) {
-  const v = (k: string) => Math.max(0, Number(g[k] || 0));
-  const loose = g.looseFruit === '' ? 0 : 0.3 * Math.max(0, 10 - v('looseFruit'));
-  return Math.min(100, Math.round((0.5 * v('unripe') + 0.25 * Math.max(0, v('overripe') - 5) + v('empty') + 0.01 * v('longStalk') + loose + 2 * v('dirty') + 0.7 * v('under3kg')) * 100) / 100);
 }
 
 function WeighModal({ d, onClose, onDone }: { d: DispatchDetail; onClose: () => void; onDone: () => void }) {

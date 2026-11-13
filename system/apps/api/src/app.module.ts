@@ -70,6 +70,7 @@ import { QUALITY_CONTROLLERS, QUALITY_PROVIDERS } from './modules/quality';
 import { COMPLIANCE_CONTROLLERS, COMPLIANCE_PROVIDERS } from './modules/compliance';
 import { FARM_CONTROLLERS, FARM_PROVIDERS } from './modules/farm';
 import { PLANTATION_CONTROLLERS, PLANTATION_PROVIDERS } from './modules/plantation';
+import { MILL_CONTROLLERS, MILL_PROVIDERS } from './modules/mill';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
@@ -151,6 +152,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...COMPLIANCE_CONTROLLERS,
     ...FARM_CONTROLLERS,
     ...PLANTATION_CONTROLLERS,
+    ...MILL_CONTROLLERS,
     ...POS_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
@@ -214,6 +216,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...COMPLIANCE_PROVIDERS,
     ...FARM_PROVIDERS,
     ...PLANTATION_PROVIDERS,
+    ...MILL_PROVIDERS,
     ...POS_PROVIDERS,
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,

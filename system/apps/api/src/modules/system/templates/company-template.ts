@@ -193,6 +193,8 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['PARTNER_SETTLE', 'Plasma Settlement (RHPP)', 'RHPP/{YYYY}/', 'YEARLY'],
   ['PLANT_BKM', 'Daily Work Book (BKM)', 'BKM/{YYYY}/{MM}/', 'MONTHLY'],
   ['FFB_SPB', 'FFB Transport Note (SPB)', 'SPB/{YYYY}/{MM}/', 'MONTHLY'],
+  ['MILL_INTAKE', 'Mill Fruit Intake (bought TBS)', 'PTB/{YYYY}/{MM}/', 'MONTHLY'],
+  ['MILL_DAILY', 'Mill Daily Processing Report', 'LHP/{YYYY}/', 'YEARLY'],
   ['POS', 'POS Receipt', 'POS/{YYYY}/{MM}/', 'MONTHLY'],
   ['POS_SESSION', 'POS Shift', 'SHIFT/{YYYY}/', 'YEARLY'],
   ['POS_MEMBER', 'Member Number', 'MBR-', 'NEVER'],

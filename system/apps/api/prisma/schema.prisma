@@ -4364,3 +4364,185 @@ model FfbDispatchLine {
   @@index([blockId])
   @@map("ffb_dispatch_lines")
 }
+
+// ----------------------------------------------------------------------------
+// Palm oil mill (PKS): fruit bought from third parties at the weighbridge, TBS price board,
+// storage tanks with their calibration table, daily processing report (OER / KER, joint cost)
+// ----------------------------------------------------------------------------
+
+/// Storage tank (CPO) or bulk store (kernel silo / bunker) of the mill
+model MillTank {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  code        String    @db.VarChar(30)
+  name        String    @db.VarChar(150)
+  /// CPO (measured by sounding) | KERNEL | OTHER (stock entered in kg)
+  kind        String    @default("CPO") @db.VarChar(8)
+  productId   String    @db.Uuid
+  warehouseId String    @db.Uuid
+  capacityKg  Decimal   @default(0) @db.Decimal(14, 2)
+  /// calibration table (tabel tera): [{ cm, litres }] ascending
+  calibration Json?
+  /// reference temperature of the calibration table (°C)
+  calibrationTempC Decimal @default(0) @db.Decimal(5, 2)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+
+  @@unique([companyId, code])
+  @@map("mill_tanks")
+}
+
+/// TBS purchase price from a date by kind of supplier (price board / Disbun price for partner smallholders)
+model MillTbsPrice {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  effectiveDate DateTime  @db.Date
+  /// MITRA (partner smallholder, Permentan 13/2024) | SWADAYA (independent smallholder) | AGENT (dealer / collector) | ESTATE (other company)
+  supplierType  String    @db.VarChar(8)
+  pricePerKg    Decimal   @db.Decimal(18, 2)
+  /// Permentan 13/2024 formula inputs (partner smallholders): HTBS = K x (HCPO x RCPO + HPK x RPK) + shell value
+  kIndex        Decimal?  @db.Decimal(8, 4)
+  cpoPrice      Decimal?  @db.Decimal(18, 2)
+  kernelPrice   Decimal?  @db.Decimal(18, 2)
+  cpoYield      Decimal?  @db.Decimal(6, 3)
+  kernelYield   Decimal?  @db.Decimal(6, 3)
+  shellValue    Decimal?  @db.Decimal(18, 2)
+  /// palm age band or region the price applies to (free text, e.g. "10-20 th, Riau")
+  scope         String?   @db.VarChar(100)
+  reference     String?   @db.VarChar(150)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+  deletedAt     DateTime?
+
+  @@index([companyId, supplierType, effectiveDate])
+  @@map("mill_tbs_prices")
+}
+
+/// Fruit bought at the mill weighbridge from a third party (smallholder, dealer, other estate)
+model MillIntake {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  branchId      String?   @db.Uuid
+  number        String    @db.VarChar(40)
+  date          DateTime  @db.Date
+  weighedAt     DateTime
+  supplierId    String    @db.Uuid
+  supplierType  String    @db.VarChar(8)
+  /// origin of the fruit (village / plot / STDB) for traceability
+  origin        String?   @db.VarChar(150)
+  vehicleNo     String?   @db.VarChar(20)
+  driver        String?   @db.VarChar(100)
+  ticketNo      String?   @db.VarChar(40)
+  bunches       Int       @default(0)
+  grossKg       Decimal   @db.Decimal(14, 2)
+  tareKg        Decimal   @db.Decimal(14, 2)
+  netKg         Decimal   @db.Decimal(14, 2)
+  grading       Json?
+  sortingPct    Decimal   @default(0) @db.Decimal(6, 2)
+  sortingKg     Decimal   @default(0) @db.Decimal(14, 2)
+  acceptedKg    Decimal   @db.Decimal(14, 2)
+  pricePerKg    Decimal   @db.Decimal(18, 2)
+  priceId       String?   @db.Uuid
+  amount        Decimal   @db.Decimal(18, 2)
+  productId     String    @db.Uuid
+  warehouseId   String    @db.Uuid
+  /// POSTED | CANCELLED
+  status        String    @default("POSTED") @db.VarChar(10)
+  /// goods receipt that put the fruit in stock (Dr Inventory / Cr GRNI)
+  receiptDocId  String?   @db.Uuid
+  /// supplier invoice that settled it
+  invoiceDocId  String?   @db.Uuid
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@index([supplierId, date])
+  @@map("mill_intakes")
+}
+
+/// Daily processing report of the mill
+model MillDaily {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  branchId         String?   @db.Uuid
+  number           String    @db.VarChar(40)
+  date             DateTime  @db.Date
+  /// DRAFT | POSTED | CANCELLED
+  status           String    @default("DRAFT") @db.VarChar(10)
+  tbsProductId     String    @db.Uuid
+  tbsWarehouseId   String    @db.Uuid
+  /// fruit at the loading ramp at the start of the day (restan), received and processed
+  tbsOpeningKg     Decimal   @default(0) @db.Decimal(14, 2)
+  tbsReceivedKg    Decimal   @default(0) @db.Decimal(14, 2)
+  tbsProcessedKg   Decimal   @default(0) @db.Decimal(14, 2)
+  processingHours  Decimal   @default(0) @db.Decimal(6, 2)
+  breakdownHours   Decimal   @default(0) @db.Decimal(6, 2)
+  /// processing cost charged to the products (labour, fuel, power, maintenance of the mill), credited to overhead applied
+  conversionCost   Decimal   @default(0) @db.Decimal(18, 2)
+  tbsCost          Decimal   @default(0) @db.Decimal(18, 2)
+  /// quality and losses: { cpoFfa, cpoMoisture, cpoDirt, cpoDobi, kernelMoisture, kernelDirt, kernelBroken, lossFibre, lossEfb, lossNut, lossEffluent, lossKernel }
+  quality          Json?
+  notes            String?
+  postedAt         DateTime?
+  postedById       String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+  deletedAt        DateTime?
+
+  outputs   MillDailyOutput[]
+  soundings MillSounding[]
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@map("mill_dailies")
+}
+
+/// Product made on the day: main products (CPO, kernel) share the joint cost by sales value, by-products at net realisable value
+model MillDailyOutput {
+  id          String  @id @default(uuid()) @db.Uuid
+  dailyId     String  @db.Uuid
+  lineNo      Int     @default(0)
+  productId   String  @db.Uuid
+  warehouseId String  @db.Uuid
+  /// MAIN | BY
+  kind        String  @default("MAIN") @db.VarChar(4)
+  qty         Decimal @db.Decimal(14, 2)
+  /// sales price per kg (main) or net realisable value per kg (by-product)
+  price       Decimal @default(0) @db.Decimal(18, 2)
+  cost        Decimal @default(0) @db.Decimal(18, 2)
+
+  daily MillDaily @relation(fields: [dailyId], references: [id], onDelete: Cascade)
+
+  @@index([dailyId])
+  @@map("mill_daily_outputs")
+}
+
+/// Closing stock of a tank at the end of the day (sounding)
+model MillSounding {
+  id          String   @id @default(uuid()) @db.Uuid
+  dailyId     String   @db.Uuid
+  tankId      String   @db.Uuid
+  heightCm    Decimal? @db.Decimal(8, 2)
+  temperatureC Decimal? @db.Decimal(5, 2)
+  volumeL     Decimal? @db.Decimal(14, 2)
+  density     Decimal? @db.Decimal(8, 5)
+  kg          Decimal  @db.Decimal(14, 2)
+  ffa         Decimal? @db.Decimal(5, 2)
+
+  daily MillDaily @relation(fields: [dailyId], references: [id], onDelete: Cascade)
+
+  @@unique([dailyId, tankId])
+  @@map("mill_soundings")
+}
