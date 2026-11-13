@@ -159,6 +159,8 @@ export function permissionCatalog(): PermissionDef[] {
     ['sales.subscription.update', 'Edit subscriptions'],
     ['sales.subscription.delete', 'Delete subscriptions'],
     ['sales.subscription.run', 'Generate invoices from subscriptions now'],
+    ['sales.instalment.read', 'View instalment plans and what falls due'],
+    ['sales.instalment.manage', 'Make, reschedule and cancel instalment plans, invoice instalments and late fees'],
     ['accounting.asset.read', 'View fixed assets'],
     ['accounting.asset.create', 'Register fixed assets'],
     ['accounting.asset.update', 'Edit fixed assets'],

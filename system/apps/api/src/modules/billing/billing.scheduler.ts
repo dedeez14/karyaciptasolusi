@@ -5,6 +5,7 @@ import { SettingsService } from '../../common/settings/settings.service';
 import { NotificationBus } from '../../common/events/notification-bus';
 import { SubscriptionService } from './subscription.service';
 import { ReminderService } from './reminder.service';
+import { InstalmentService } from './instalment.service';
 import { forEachCompany } from './job-context';
 
 /** Daily jobs of the billing module (server local time). Each company is processed as the audited "system" actor. */
@@ -17,6 +18,7 @@ export class BillingScheduler {
     private readonly settings: SettingsService,
     private readonly subs: SubscriptionService,
     private readonly reminders: ReminderService,
+    private readonly instalments: InstalmentService,
     private readonly bus: NotificationBus,
   ) {}
 
@@ -28,6 +30,17 @@ export class BillingScheduler {
       const r = await this.subs.runDue();
       if (r.created) this.bus.emit(companyId);
       return r.processed ? `${r.created} invoice(s) created, ${r.failed} failed` : null;
+    });
+  }
+
+  /** 06:15 - invoice the instalments of billing plans that are due */
+  @Cron('15 6 * * *', { name: 'instalment-billing' })
+  async instalmentBilling() {
+    await forEachCompany(this.prisma, this.logger, 'instalment-billing', async (companyId) => {
+      if (!(await this.settings.bool('sales.recurringAutoRun', companyId, true))) return null;
+      const r = await this.instalments.runDue();
+      if (r.created) this.bus.emit(companyId);
+      return r.created || r.failed ? `${r.created} instalment invoice(s) created, ${r.failed} failed` : null;
     });
   }
 

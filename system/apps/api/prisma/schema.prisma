@@ -5819,3 +5819,67 @@ model WipAccrual {
   @@index([companyId, asOf])
   @@map("wip_accruals")
 }
+
+/// Instalment plan of a customer: BILLING (each instalment invoiced when due: fees, rent, school) or SALE (one invoice
+/// for goods / property delivered, paid in instalments: the schedule follows the receivable)
+model InstalmentPlan {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  branchId       String?   @db.Uuid
+  number         String    @db.VarChar(40)
+  name           String    @db.VarChar(200)
+  customerId     String    @db.Uuid
+  projectId      String?   @db.Uuid
+  /// BILLING | SALE
+  kind           String    @db.VarChar(8)
+  /// BILLING: service / income product and the tax of each instalment invoice
+  productId      String?   @db.Uuid
+  taxId          String?   @db.Uuid
+  /// SALE: the invoice of the goods or property (its PPN is due in full at delivery)
+  saleInvoiceId  String?   @db.Uuid
+  /// BILLING: before tax; SALE: the invoice total
+  totalAmount    Decimal   @db.Decimal(18, 2)
+  downPayment    Decimal   @default(0) @db.Decimal(18, 2)
+  count          Int
+  intervalMonths Int       @default(1)
+  firstDueDate   DateTime  @db.Date
+  /// BILLING: invoice this many days before the due date
+  leadDays       Int       @default(0)
+  autoConfirm    Boolean   @default(true)
+  /// late fee: % per month of the overdue amount, pro rata by day, after the grace days, capped at % of it
+  lateFeePct     Decimal   @default(0) @db.Decimal(6, 3)
+  lateFeeCapPct  Decimal?  @db.Decimal(6, 2)
+  graceDays      Int       @default(0)
+  /// ACTIVE | CANCELLED
+  status         String    @default("ACTIVE") @db.VarChar(10)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+
+  lines InstalmentLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@map("instalment_plans")
+}
+
+model InstalmentLine {
+  id             String   @id @default(uuid()) @db.Uuid
+  planId         String   @db.Uuid
+  /// 0 = down payment
+  seq            Int
+  dueDate        DateTime @db.Date
+  amount         Decimal  @db.Decimal(18, 2)
+  /// BILLING: the invoice of this instalment
+  invoiceId      String?  @db.Uuid
+  /// late fees already invoiced for this instalment
+  lateFeeCharged Decimal  @default(0) @db.Decimal(18, 2)
+
+  plan InstalmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([invoiceId])
+  @@map("instalment_lines")
+}
