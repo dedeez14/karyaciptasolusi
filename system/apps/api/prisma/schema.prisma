@@ -6214,3 +6214,203 @@ model LandedCostCharge {
   @@index([sourceLineId])
   @@map("landed_cost_charges")
 }
+
+// ----------------------------------------------------------------------------
+// Construction: contracts with BoQ / budget (RAB / RAP), advance, progress certificates billed as termin less advance
+// recovery and retention, handover (PHO / FHO), subcontracts, PPh final 4(2) (PP 9/2022)
+// ----------------------------------------------------------------------------
+
+model ConstructionContract {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  branchId        String?   @db.Uuid
+  /// one contract per project: costs booked to the project are the contract's costs
+  projectId       String    @db.Uuid
+  customerId      String    @db.Uuid
+  contractNo      String    @db.VarChar(60)
+  contractDate    DateTime  @db.Date
+  title           String    @db.VarChar(200)
+  /// sum of the BoQ (before PPN); addenda change the BoQ
+  contractValue   Decimal   @default(0) @db.Decimal(18, 2)
+  vat             Boolean   @default(true)
+  /// client is a PPN collector (government): faktur code 02, DPP 11/12
+  govCollector    Boolean   @default(false)
+  /// WORK | INTEGRATED | CONSULTANCY
+  serviceKind     String    @default("WORK") @db.VarChar(12)
+  /// SMALL (SBU kecil / SKK) | OTHER (SBU menengah / besar) | NONE (no SBU / SKK)
+  qualification   String    @default("SMALL") @db.VarChar(6)
+  /// PPh final 4(2) rate, PP 9/2022 Art. 3
+  pphRate         Decimal   @default(1.75) @db.Decimal(6, 3)
+  advancePct      Decimal   @default(0) @db.Decimal(6, 3)
+  advanceAmount   Decimal   @default(0) @db.Decimal(18, 2)
+  advanceInvoiceId String?  @db.Uuid
+  retentionPct    Decimal   @default(5) @db.Decimal(6, 3)
+  maintenanceDays Int       @default(180)
+  startDate       DateTime? @db.Date
+  finishDate      DateTime? @db.Date
+  /// provisional handover (BAST 1): PPN on the retention falls due, retention invoiced (due at the end of maintenance)
+  phoDate         DateTime? @db.Date
+  retentionInvoiceId String? @db.Uuid
+  /// final handover (BAST 2) after the maintenance period
+  fhoDate         DateTime? @db.Date
+  /// ACTIVE | PHO | FHO | CANCELLED
+  status          String    @default("ACTIVE") @db.VarChar(10)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   @db.Uuid
+  updatedById     String?   @db.Uuid
+
+  boq          BoqItem[]
+  certificates ProgressCertificate[]
+  subcontracts Subcontract[]
+
+  @@unique([projectId])
+  @@index([companyId, status])
+  @@map("construction_contracts")
+}
+
+model BoqItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  contractId     String   @db.Uuid
+  sortOrder      Int      @default(0)
+  code           String   @db.VarChar(30)
+  description    String   @db.VarChar(300)
+  unit           String   @db.VarChar(20)
+  qty            Decimal  @db.Decimal(18, 4)
+  unitPrice      Decimal  @db.Decimal(18, 2)
+  /// budget (RAP): cost per unit planned
+  budgetUnitCost Decimal  @default(0) @db.Decimal(18, 2)
+  /// MATERIAL | LABOUR | EQUIPMENT | SUBCON | OVERHEAD | MIXED
+  costType       String   @default("MIXED") @db.VarChar(10)
+  /// quantity certified so far (approved certificates)
+  certifiedQty   Decimal  @default(0) @db.Decimal(18, 4)
+
+  contract ConstructionContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@map("boq_items")
+}
+
+/// progress certificate (opname / monthly certificate): cumulative quantities per BoQ item
+model ProgressCertificate {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  contractId       String    @db.Uuid
+  number           String    @db.VarChar(40)
+  seq              Int
+  date             DateTime  @db.Date
+  periodTo         DateTime  @db.Date
+  /// DRAFT | APPROVED (invoiced) | CANCELLED
+  status           String    @default("DRAFT") @db.VarChar(10)
+  cumulativeValue  Decimal   @default(0) @db.Decimal(18, 2)
+  previousValue    Decimal   @default(0) @db.Decimal(18, 2)
+  thisValue        Decimal   @default(0) @db.Decimal(18, 2)
+  advanceRecovery  Decimal   @default(0) @db.Decimal(18, 2)
+  retention        Decimal   @default(0) @db.Decimal(18, 2)
+  netAmount        Decimal   @default(0) @db.Decimal(18, 2)
+  ppn              Decimal   @default(0) @db.Decimal(18, 2)
+  invoiceId        String?   @db.Uuid
+  clientRef        String?   @db.VarChar(80)
+  notes            String?
+  approvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+
+  contract ConstructionContract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  lines    ProgressCertificateLine[]
+
+  @@unique([companyId, number])
+  @@index([contractId])
+  @@map("progress_certificates")
+}
+
+model ProgressCertificateLine {
+  id            String  @id @default(uuid()) @db.Uuid
+  certificateId String  @db.Uuid
+  boqItemId     String  @db.Uuid
+  prevQty       Decimal @default(0) @db.Decimal(18, 4)
+  cumQty        Decimal @default(0) @db.Decimal(18, 4)
+  thisQty       Decimal @default(0) @db.Decimal(18, 4)
+  thisValue     Decimal @default(0) @db.Decimal(18, 2)
+
+  certificate ProgressCertificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+
+  @@index([certificateId])
+  @@index([boqItemId])
+  @@map("progress_certificate_lines")
+}
+
+model Subcontract {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @db.Uuid
+  contractId   String   @db.Uuid
+  supplierId   String   @db.Uuid
+  scope        String   @db.VarChar(300)
+  value        Decimal  @db.Decimal(18, 2)
+  retentionPct Decimal  @default(5) @db.Decimal(6, 3)
+  /// subcontractor is a PKP: its claims carry PPN
+  vat          Boolean  @default(true)
+  /// PPh final 4(2) we withhold on payment (PP 9/2022), by its SBU
+  pphRate      Decimal  @default(1.75) @db.Decimal(6, 3)
+  /// cumulative progress claimed (%)
+  claimedPct   Decimal  @default(0) @db.Decimal(7, 3)
+  retentionHeld Decimal @default(0) @db.Decimal(18, 2)
+  retentionReleaseId String? @db.Uuid
+  /// ACTIVE | CLOSED | CANCELLED
+  status       String   @default("ACTIVE") @db.VarChar(10)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdById  String?  @db.Uuid
+
+  contract ConstructionContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  claims   SubcontractClaim[]
+
+  @@index([contractId])
+  @@map("subcontracts")
+}
+
+model SubcontractClaim {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  subcontractId String   @db.Uuid
+  number        String   @db.VarChar(40)
+  date          DateTime @db.Date
+  prevPct       Decimal  @db.Decimal(7, 3)
+  cumPct        Decimal  @db.Decimal(7, 3)
+  thisValue     Decimal  @db.Decimal(18, 2)
+  retention     Decimal  @db.Decimal(18, 2)
+  netAmount     Decimal  @db.Decimal(18, 2)
+  supplierRef   String?  @db.VarChar(80)
+  invoiceId     String?  @db.Uuid
+  /// APPROVED (invoiced) | CANCELLED
+  status        String   @default("APPROVED") @db.VarChar(10)
+  createdAt     DateTime @default(now())
+  createdById   String?  @db.Uuid
+
+  subcontract Subcontract @relation(fields: [subcontractId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, number])
+  @@index([subcontractId])
+  @@map("subcontract_claims")
+}
+
+/// PPh final 4(2) we pay ourselves (clients that do not withhold) for a month
+model ConstructionTaxSelfPay {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  /// YYYY-MM of the payments received
+  period      String   @db.VarChar(7)
+  base        Decimal  @db.Decimal(18, 2)
+  amount      Decimal  @db.Decimal(18, 2)
+  /// POSTED | CANCELLED
+  status      String   @default("POSTED") @db.VarChar(10)
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@index([companyId, period])
+  @@map("construction_tax_self_pay")
+}

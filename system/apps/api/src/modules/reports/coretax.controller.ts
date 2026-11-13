@@ -26,7 +26,22 @@ const n2 = (v: unknown) => (Math.round(Number(v ?? 0) * 100) / 100).toFixed(2).r
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** our unit codes -> Coretax unit list (UM.0001..UM.0039) */
-const UNIT: Record<string, string> = { KG: 'UM.0003', LTR: 'UM.0007', M: 'UM.0013', UNIT: 'UM.0018', PKG: 'UM.0019', SET: 'UM.0019', PCS: 'UM.0021', BOX: 'UM.0022', YEAR: 'UM.0023', MON: 'UM.0024', WEEK: 'UM.0025', DAY: 'UM.0026', HR: 'UM.0027', PRJ: 'UM.0030' };
+const UNIT: Record<string, string> = {
+  KG: 'UM.0003',
+  LTR: 'UM.0007',
+  M: 'UM.0013',
+  UNIT: 'UM.0018',
+  PKG: 'UM.0019',
+  SET: 'UM.0019',
+  PCS: 'UM.0021',
+  BOX: 'UM.0022',
+  YEAR: 'UM.0023',
+  MON: 'UM.0024',
+  WEEK: 'UM.0025',
+  DAY: 'UM.0026',
+  HR: 'UM.0027',
+  PRJ: 'UM.0030',
+};
 
 function month(v: string | undefined) {
   if (!v || !/^\d{4}-\d{2}$/.test(v)) throw new BadRequestException('Choose a month (YYYY-MM)');
@@ -86,7 +101,27 @@ export class CoretaxController {
       const npwp = digits(c?.taxId ? this.crypto.decrypt(c.taxId) : '');
       const hasTin = npwp.length === 16;
       const rate = Number(d.exchangeRate) || 1;
-      const taxed = d.lines.filter((l) => l.taxId && Number(l.lineTax) > 0);
+      // Coretax takes no negative items: deduction lines (advance recovered on a termin) are netted into the first item of the same tax
+      const taxedAll = d.lines.filter((l) => l.taxId && Number(l.lineTax) !== 0);
+      const taxed = taxedAll
+        .filter((l) => Number(l.lineTax) > 0)
+        .map((l) => ({ ...l }))
+        .map((l, _, arr) => {
+          if (arr.findIndex((x) => x.taxId === l.taxId) !== arr.indexOf(l)) return l;
+          const neg = taxedAll.filter((x) => x.taxId === l.taxId && Number(x.lineTax) < 0);
+          if (!neg.length) return l;
+          const less = (k: 'lineSubtotal' | 'lineDiscount' | 'lineTax') => neg.reduce((a, x) => a + Number(x[k]), 0);
+          const sub = Number(l.lineSubtotal) + less('lineSubtotal');
+          const qty = Number(l.qty) || 1;
+          return {
+            ...l,
+            description: `${l.description ?? 'Item'} (net of ${neg.map((x) => x.description ?? 'deduction').join(', ')})`,
+            lineSubtotal: sub as never,
+            lineDiscount: (Number(l.lineDiscount) + less('lineDiscount')) as never,
+            lineTax: (Number(l.lineTax) + less('lineTax')) as never,
+            unitPrice: (sub / qty) as never,
+          };
+        });
       const trx = tm.get(taxed[0]?.taxId ?? '')?.trxCode ?? '04';
       const goods = taxed
         .map((l) => {
@@ -126,7 +161,7 @@ export class CoretaxController {
         el('BuyerTin', hasTin ? npwp : '0000000000000000'),
         el('BuyerDocument', hasTin ? 'TIN' : 'Other ID'),
         el('BuyerCountry', 'IDN'),
-        el('BuyerDocumentNumber', hasTin ? '-' : c?.code ?? '-'),
+        el('BuyerDocumentNumber', hasTin ? '-' : (c?.code ?? '-')),
         el('BuyerName', c?.name ?? ''),
         el('BuyerAdress', [c?.address ? this.crypto.decrypt(c.address) : '', c?.city].filter(Boolean).join(', ')),
         el('BuyerEmail', c?.email ?? ''),
@@ -149,7 +184,10 @@ export class CoretaxController {
     RequestCtx.assert('report.withholding-tax.view');
     const { y, m: mm, from, to } = month(m);
     const s = await this.seller();
-    const pays = await this.prisma.payment.findMany({ where: { companyId: s.companyId, direction: 'OUT', deletedAt: null, status: { not: 'CANCELLED' }, whtAmount: { gt: 0 }, date: { gte: from, lte: to } }, orderBy: { date: 'asc' } });
+    const pays = await this.prisma.payment.findMany({
+      where: { companyId: s.companyId, direction: 'OUT', deletedAt: null, status: { not: 'CANCELLED' }, whtAmount: { gt: 0 }, date: { gte: from, lte: to } },
+      orderBy: { date: 'asc' },
+    });
     if (!pays.length) throw new BadRequestException('No tax withheld from suppliers in this month');
     const [suppliers, taxes] = await Promise.all([
       this.prisma.supplier.findMany({ where: { id: { in: pays.map((p) => p.supplierId!).filter(Boolean) } }, select: { id: true, taxId: true } }),
@@ -189,10 +227,15 @@ export class CoretaxController {
     RequestCtx.assert('hris.payroll.read');
     const { y, m: mm, from, to } = month(m);
     const s = await this.seller();
-    const slips = await this.prisma.payslip.findMany({ where: { payrollRun: { companyId: s.companyId, deletedAt: null, status: { not: 'CANCELLED' }, periodEnd: { gte: from, lte: to } } }, include: { payrollRun: { select: { payDate: true } } } });
+    const slips = await this.prisma.payslip.findMany({
+      where: { payrollRun: { companyId: s.companyId, deletedAt: null, status: { not: 'CANCELLED' }, periodEnd: { gte: from, lte: to } } },
+      include: { payrollRun: { select: { payDate: true } } },
+    });
     if (!slips.length) throw new BadRequestException('No payroll in this month');
     const emps = await this.prisma.employee.findMany({ where: { id: { in: slips.map((x) => x.employeeId) } }, select: { id: true, identityNo: true, taxNo: true, ptkpCode: true, positionId: true } });
-    const positions = new Map((await this.prisma.position.findMany({ where: { id: { in: emps.map((e) => e.positionId!).filter(Boolean) } }, select: { id: true, name: true } })).map((p) => [p.id, p.name]));
+    const positions = new Map(
+      (await this.prisma.position.findMany({ where: { id: { in: emps.map((e) => e.positionId!).filter(Boolean) } }, select: { id: true, name: true } })).map((p) => [p.id, p.name]),
+    );
     // several slips in a month (salary + THR) are one monthly slip with the combined gross
     const by = new Map<string, { gross: number; rate: number; date: Date }>();
     for (const x of slips) {

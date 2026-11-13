@@ -379,6 +379,12 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['distribution.claims', 'distribution', 'Principal Claims', 'file-signature', '/distribution/claims', 'distribution.read'],
   ['sales.customers', 'sales', 'Customers', 'users', '/r/customers', 'master.customer.read'],
 
+  ['construction', null, 'Construction', 'hard-hat', null, null],
+  ['construction.contracts', 'construction', 'Contracts & BoQ', 'file-signature', '/construction/contracts', 'construction.read'],
+  ['construction.certificates', 'construction', 'Progress Certificates', 'clipboard-check', '/construction/certificates', 'construction.read'],
+  ['construction.subcontracts', 'construction', 'Subcontracts', 'users', '/construction/subcontracts', 'construction.read'],
+  ['construction.finaltax', 'construction', 'PPh Final 4(2)', 'receipt', '/construction/final-tax', 'construction.read'],
+
   ['purchase', null, 'Purchase', 'shopping-bag', null, null],
   ['purchase.requests', 'purchase', 'Purchase Requests', 'file-question', '/documents/PR', 'purchase.request.read'],
   ['purchase.orders', 'purchase', 'Purchase Orders', 'clipboard-check', '/documents/PO', 'purchase.order.read'],

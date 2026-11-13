@@ -267,7 +267,9 @@ export class DocumentService {
       const p = l.productId ? pm.get(l.productId) : undefined;
       if (!p && !l.description) throw new BadRequestException(`Line ${i + 1}: choose a product or enter a description`);
       if (def.stockItemsOnly && p?.type !== 'STOCK') throw new BadRequestException(`Line ${i + 1}: only stock products are allowed in a ${def.label}`);
-      if (def.stock !== 'adjust' && l.qty < 0) throw new BadRequestException(`Line ${i + 1}: quantity must be positive`);
+      // invoices may carry deduction lines of service products (advance recovered, retention held): a negative quantity
+      const deduction = (def.code === 'SI' || def.code === 'PI') && !!p && p.type !== 'STOCK';
+      if (def.stock !== 'adjust' && l.qty < 0 && !deduction) throw new BadRequestException(`Line ${i + 1}: quantity must be positive`);
       const qty = D(l.qty);
       const price = def.priced ? D(l.unitPrice ?? (p ? (custPrices.get(p.id) ?? (def.priceField ? p[def.priceField] : 0)) : 0)) : D(l.unitPrice ?? 0);
       const subtotal = round(qty.times(price));
@@ -307,6 +309,7 @@ export class DocumentService {
     const discountTotal = sum(lines.map((l) => l.lineDiscount));
     const taxTotal = sum(lines.map((l) => l.lineTax));
     const luxuryTaxTotal = sum(lines.map((l) => l.lineLuxuryTax));
+    if (subtotal.minus(discountTotal).plus(taxTotal).lt(0)) throw new BadRequestException('The deductions are more than the invoice: the total cannot be negative');
     let dueDate = input.dueDate ?? null;
     if (!dueDate && def.dueDate) dueDate = new Date(input.date.getTime() + (term?.days ?? 0) * 86_400_000);
     const company = await this.prisma.company.findUniqueOrThrow({ where: { id: companyId }, select: { currencyCode: true } });
@@ -784,6 +787,17 @@ export class DocumentService {
         if (def.code === 'GR' || def.code === 'PI') {
           const lc = await tx.landedCost.findFirst({ where: { status: { not: 'CANCELLED' }, ...(def.code === 'GR' ? { lines: { some: { receiptId: id } } } : { chargeLines: { some: { sourceDocId: id } } }) }, select: { number: true } });
           if (lc) throw new ConflictException(`Landed cost ${lc.number} uses this document: cancel it first`);
+        }
+        // construction: invoices of certificates, advances, retention and subcontractor claims are cancelled from their module
+        if (!opts.skipPermission && def.code === 'SI') {
+          const cert = await tx.progressCertificate.findFirst({ where: { invoiceId: id, status: 'APPROVED' }, select: { number: true } });
+          if (cert) throw new ConflictException(`Invoice of progress certificate ${cert.number}: cancel the certificate in Construction`);
+          const con = await tx.constructionContract.findFirst({ where: { OR: [{ advanceInvoiceId: id }, { retentionInvoiceId: id }], status: { not: 'CANCELLED' } }, select: { contractNo: true, retentionInvoiceId: true } });
+          if (con) throw new ConflictException(con.retentionInvoiceId === id ? `Retention invoice of contract ${con.contractNo}: undo the handover in Construction` : `Advance invoice of contract ${con.contractNo}: it is recovered from the certificates`);
+        }
+        if (!opts.skipPermission && def.code === 'PI') {
+          const cl = await tx.subcontractClaim.findFirst({ where: { invoiceId: id, status: 'APPROVED' }, select: { number: true } });
+          if (cl) throw new ConflictException(`Invoice of subcontractor claim ${cl.number}: cancel the claim in Construction`);
         }
         if (doc.status !== 'DRAFT') {
           if (def.stock) {

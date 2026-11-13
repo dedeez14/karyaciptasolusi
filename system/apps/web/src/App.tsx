@@ -115,6 +115,13 @@ const DistClaimsPage = lazy(() => distPages().then((m) => ({ default: m.ClaimsPa
 const lcPages = () => import('@/features/landedcost/LandedCostPages');
 const LandedCostsPage = lazy(() => lcPages().then((m) => ({ default: m.LandedCostsPage })));
 const LandedCostFormPage = lazy(() => lcPages().then((m) => ({ default: m.LandedCostFormPage })));
+const consPages = () => import('@/features/construction/ConstructionPages');
+const ConsContractsPage = lazy(() => consPages().then((m) => ({ default: m.ContractsPage })));
+const ConsContractPage = lazy(() => consPages().then((m) => ({ default: m.ContractPage })));
+const ConsCertificatesPage = lazy(() => consPages().then((m) => ({ default: m.CertificatesPage })));
+const ConsCertificatePage = lazy(() => consPages().then((m) => ({ default: m.CertificatePage })));
+const ConsSubcontractsPage = lazy(() => consPages().then((m) => ({ default: m.SubcontractsPage })));
+const ConsFinalTaxPage = lazy(() => consPages().then((m) => ({ default: m.FinalTaxPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -320,6 +327,12 @@ export default function App() {
             <Route path="distribution/claims" element={<DistClaimsPage />} />
             <Route path="purchase/landed-costs" element={<LandedCostsPage />} />
             <Route path="purchase/landed-costs/:id" element={<LandedCostFormPage />} />
+            <Route path="construction/contracts" element={<ConsContractsPage />} />
+            <Route path="construction/contracts/:id" element={<ConsContractPage />} />
+            <Route path="construction/certificates" element={<ConsCertificatesPage />} />
+            <Route path="construction/certificates/:id" element={<ConsCertificatePage />} />
+            <Route path="construction/subcontracts" element={<ConsSubcontractsPage />} />
+            <Route path="construction/final-tax" element={<ConsFinalTaxPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />
