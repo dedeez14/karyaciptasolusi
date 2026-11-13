@@ -40,6 +40,7 @@ const SELECT = {
   lastLoginAt: true,
   lastLoginIp: true,
   lockedUntil: true,
+  mfaEnabledAt: true,
   defaultCompanyId: true,
   defaultBranchId: true,
   createdAt: true,
@@ -74,7 +75,8 @@ export class UsersController {
   }
 
   private present(user: any) {
-    return { ...user, phone: this.crypto.decrypt(user.phone) };
+    const { mfaEnabledAt, ...rest } = user;
+    return { ...rest, phone: this.crypto.decrypt(user.phone), mfaEnabled: !!mfaEnabledAt };
   }
 
   @Get()
@@ -137,6 +139,7 @@ export class UsersController {
     });
     if (body.isActive === false) await this.prisma.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
     this.access.invalidateUser(id);
+    this.access.invalidateSessions();
     return this.present(user);
   }
 
@@ -150,6 +153,22 @@ export class UsersController {
     await this.prisma.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
     await this.audit.record('User', id, 'RESET_PASSWORD');
     this.access.invalidateUser(id);
+    this.access.invalidateSessions();
+    return { success: true };
+  }
+
+  /** lost phone: removes the authenticator; the user sets it up again at the next sign-in */
+  @Post(':id/reset-mfa')
+  @Permission('system.user.update')
+  async resetMfa(@Param('id') id: string) {
+    const before = await this.get(id);
+    if (before.isSuperAdmin && !RequestCtx.user().isSuperAdmin) throw new BadRequestException('Not allowed');
+    if (id === RequestCtx.user().id) throw new BadRequestException('Use My Profile to change your own two-factor sign-in');
+    await this.prisma.user.update({ where: { id }, data: { mfaSecret: null, mfaPendingSecret: null, mfaEnabledAt: null, mfaLastStep: null, mfaRecoveryCodes: null } });
+    await this.prisma.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    await this.audit.record('User', id, 'MFA_RESET');
+    this.access.invalidateUser(id);
+    this.access.invalidateSessions();
     return { success: true };
   }
 
@@ -160,6 +179,7 @@ export class UsersController {
     await this.prisma.user.update({ where: { id }, data: { failedLoginCount: 0, lockedUntil: null } });
     await this.audit.record('User', id, 'UNLOCK');
     this.access.invalidateUser(id);
+    this.access.invalidateSessions();
     return { success: true };
   }
 
@@ -174,6 +194,7 @@ export class UsersController {
       await this.audit.record('User', id, 'DELETE', before, undefined, tx);
     });
     this.access.invalidateUser(id);
+    this.access.invalidateSessions();
     return { success: true };
   }
 }

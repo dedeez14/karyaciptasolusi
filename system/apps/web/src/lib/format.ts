@@ -1,5 +1,7 @@
 let locale = 'id-ID';
 export const setLocale = (l: string) => (locale = l || 'id-ID');
+/** the company's number / date locale (Settings > General), for Intl calls outside these helpers */
+export const getLocale = () => locale;
 
 export const fmtMoney = (v: unknown, dp = 2) => {
   const n = Number(v ?? 0);
@@ -51,6 +53,21 @@ export const fmtByType = (v: unknown, type?: string) => {
     case 'boolean':
       return v ? 'Yes' : 'No';
     default:
+      // dates that arrive without a type (report columns, audit values) are still shown readably
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return /T00:00:00(\.000)?Z$/.test(v) ? fmtDate(v) : fmtDateTime(v);
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return fmtDate(v);
+      if (v instanceof Date) return fmtDateTime(v);
       return String(v);
   }
+};
+
+/** '1 record', '3 records' (pass the plural when it is irregular: plural(1, 'person', 'people')) */
+export const plural = (n: number, one: string, many = `${one}s`) => `${Number(n).toLocaleString()} ${Number(n) === 1 ? one : many}`;
+
+/** "EXPENSE_PAYMENT" -> "Expense payment" (codes that have no label of their own) */
+export const humanize = (code: string | null | undefined) => {
+  if (!code) return '';
+  if (!/^[A-Z0-9_]+$/.test(code) || !code.includes('_')) return code.length > 3 && /^[A-Z]+$/.test(code) ? code.charAt(0) + code.slice(1).toLowerCase() : code;
+  const s = code.toLowerCase().replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
 };

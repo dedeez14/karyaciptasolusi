@@ -42,7 +42,7 @@ export default function ReportCenterPage() {
                   </span>
                   {m.label}
                 </h2>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {g.items.map((r) => (
                     <Link key={r.key} to={`/reports/${r.key}`} className="card group flex items-start gap-3 p-4 transition hover:border-brand-300 hover:shadow-md">
                       <span className="rounded-lg p-2" style={{ background: `${m.color}1a`, color: m.color }}>

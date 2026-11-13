@@ -1,59 +1,18 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import CountUp from 'react-countup';
-import { Briefcase, Code, Users, Calendar, Plus } from 'lucide-react';
+import { BarChart3, Plus } from 'lucide-react';
+import { useSite } from '../lib/siteContext';
+import { iconFor } from '../lib/icons';
 
 const easing = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
-const stats = [
-  {
-    icon: Briefcase,
-    value: 5,
-    prefix: '',
-    suffix: '',
-    label: 'Bidang',
-    sub: 'Layanan Utama',
-    accent: 'from-[#2563EB] to-[#1D4ED8]',
-    borderAccent: '#2563EB',
-    topBorder: 'linear-gradient(90deg, #2563EB, #1D4ED8)',
-    iconBg: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-  },
-  {
-    icon: Code,
-    value: 30,
-    prefix: '',
-    suffix: '+',
-    label: 'Proyek',
-    sub: 'Terselesaikan',
-    accent: 'from-[#0F4C81] to-[#1E6BAF]',
-    borderAccent: '#0F4C81',
-    topBorder: 'linear-gradient(90deg, #0F4C81, #1E6BAF)',
-    iconBg: 'linear-gradient(135deg, #0F4C81, #1E6BAF)',
-  },
-  {
-    icon: Users,
-    value: 12,
-    prefix: '',
-    suffix: '+',
-    label: 'Klien',
-    sub: 'Terpercaya',
-    accent: 'from-[#1D4ED8] to-[#2563EB]',
-    borderAccent: '#1D4ED8',
-    topBorder: 'linear-gradient(90deg, #1D4ED8, #2563EB)',
-    iconBg: 'linear-gradient(135deg, #1D4ED8, #2563EB)',
-  },
-  {
-    icon: Calendar,
-    value: 1,
-    prefix: '',
-    suffix: '+',
-    label: 'Tahun',
-    sub: 'Pengalaman',
-    accent: 'from-[#1E6BAF] to-[#0F4C81]',
-    borderAccent: '#1E6BAF',
-    topBorder: 'linear-gradient(90deg, #1E6BAF, #0F4C81)',
-    iconBg: 'linear-gradient(135deg, #1E6BAF, #0F4C81)',
-  },
+/* Palet kartu bergiliran (navy family; aksen gold pada garis atas kartu pertama & ketiga) */
+const palettes = [
+  { rgb: 'var(--brand)', top: 'linear-gradient(90deg, rgb(var(--brand)), rgb(var(--gold)))', iconBg: 'linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-dark)))' },
+  { rgb: 'var(--brand-dark)', top: 'linear-gradient(90deg, rgb(var(--brand-dark)), rgb(var(--brand-light)))', iconBg: 'linear-gradient(135deg, rgb(var(--brand-dark)), rgb(var(--brand-light)))' },
+  { rgb: 'var(--brand-light)', top: 'linear-gradient(90deg, rgb(var(--brand-light)), rgb(var(--gold)))', iconBg: 'linear-gradient(135deg, rgb(var(--brand-light)), rgb(var(--brand)))' },
+  { rgb: 'var(--brand-darker)', top: 'linear-gradient(90deg, rgb(var(--brand-darker)), rgb(var(--brand)))', iconBg: 'linear-gradient(135deg, rgb(var(--brand-darker)), rgb(var(--brand-light)))' },
 ];
 
 /* Suffix pulse animation component */
@@ -78,6 +37,8 @@ function PulsingSuffix({ color, delay }: { color: string; delay: number }) {
 }
 
 export default function StatsSection() {
+  const { site } = useSite();
+  const stats = site.stats;
   const [inView, setInView] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -102,17 +63,22 @@ export default function StatsSection() {
         className="absolute inset-0"
         style={{
           backgroundImage:
-            'radial-gradient(circle, #2563EB 1px, transparent 1px)',
+            'radial-gradient(circle, rgb(var(--brand)) 1px, transparent 1px)',
           backgroundSize: '32px 32px',
           opacity: 0.06,
         }}
       />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
-          {stats.map((stat, i) => (
+        <div className={`grid grid-cols-2 gap-5 lg:gap-6 ${stats.length === 3 ? 'lg:grid-cols-3' : stats.length >= 4 ? 'lg:grid-cols-4' : ''}`}>
+          {stats.map((stat, i) => {
+            const pal = palettes[i % palettes.length];
+            const Icon = iconFor(stat.icon, BarChart3);
+            /* "+" ditampilkan sebagai ikon berdenyut, bukan teks, agar tidak dobel */
+            const plus = stat.suffix === '+';
+            return (
             <motion.div
-              key={stat.label}
+              key={`${i}-${stat.label}`}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -123,27 +89,27 @@ export default function StatsSection() {
               }}
               className="warm-card relative bg-white rounded-2xl p-6 overflow-hidden group cursor-default"
               style={{
-                border: `1px solid ${stat.borderAccent}18`,
-                boxShadow: `0 1px 3px ${stat.borderAccent}10, 0 4px 16px ${stat.borderAccent}08`,
+                border: `1px solid rgb(${pal.rgb} / 0.1)`,
+                boxShadow: `0 1px 3px rgb(${pal.rgb} / 0.06), 0 4px 16px rgb(${pal.rgb} / 0.03)`,
               }}
             >
               {/* Gradient accent top border */}
               <div
                 className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"
-                style={{ background: stat.topBorder }}
+                style={{ background: pal.top }}
               />
 
               {/* Hover glow effect */}
               <motion.div
                 className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
                 style={{
-                  background: `radial-gradient(ellipse at 50% 0%, ${stat.borderAccent}12 0%, transparent 70%)`,
+                  background: `radial-gradient(ellipse at 50% 0%, rgb(${pal.rgb} / 0.07) 0%, transparent 70%)`,
                 }}
               />
 
               {/* Large background watermark number */}
               <span
-                className="absolute -right-2 -bottom-4 text-7xl font-bold text-[#2563EB]/[0.04] select-none group-hover:text-[#2563EB]/[0.08] transition-colors duration-500"
+                className="absolute -right-2 -bottom-4 text-7xl font-bold text-brand/[0.04] select-none group-hover:text-brand/[0.08] transition-colors duration-500"
                 style={{ fontFamily: "'Space Grotesk', sans-serif" }}
               >
                 {stat.value}
@@ -153,11 +119,11 @@ export default function StatsSection() {
                 {/* Rotating icon container */}
                 <motion.div
                   className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-                  style={{ background: stat.iconBg }}
+                  style={{ background: pal.iconBg }}
                   whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
                   transition={{ duration: 0.5, ease: easing }}
                 >
-                  <stat.icon size={22} className="text-white" />
+                  <Icon size={22} className="text-white" />
                 </motion.div>
 
                 {/* Number with CountUp and pulsing suffix */}
@@ -171,17 +137,18 @@ export default function StatsSection() {
                         start={0}
                         end={stat.value}
                         prefix={stat.prefix}
-                        suffix={stat.suffix}
+                        suffix={plus ? '' : stat.suffix}
                         duration={2.5}
                       />
                     ) : (
-                      `${stat.prefix}0${stat.suffix}`
+                      `${stat.prefix}0${plus ? '' : stat.suffix}`
                     )}
                   </span>
                   {/* Show pulsing "+" for stats that have suffix */}
-                  {stat.suffix === '+' && inView && (
-                    <PulsingSuffix color={stat.borderAccent} delay={i * 0.12 + 2.5} />
+                  {plus && inView && (
+                    <PulsingSuffix color="rgb(var(--gold-dark))" delay={i * 0.12 + 2.5} />
                   )}
+                  {plus && <span className="sr-only">+</span>}
                 </div>
 
                 <p className="text-[#0F172A] font-semibold text-sm">
@@ -193,10 +160,11 @@ export default function StatsSection() {
               {/* Bottom gradient line on hover */}
               <motion.div
                 className="absolute bottom-0 left-4 right-4 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                style={{ background: stat.topBorder }}
+                style={{ background: pal.top }}
               />
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

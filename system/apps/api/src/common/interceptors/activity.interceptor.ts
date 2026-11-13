@@ -5,13 +5,14 @@ import { Observable, tap } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestCtx } from '../context/request-context';
 import { ACTIVITY } from '../decorators';
+import { NotificationBus } from '../events/notification-bus';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /** Writes a non-blocking activity trail for every state-changing (or explicitly tagged) request. */
 @Injectable()
 export class ActivityInterceptor implements NestInterceptor {
-  constructor(private readonly prisma: PrismaService, private readonly reflector: Reflector) {}
+  constructor(private readonly prisma: PrismaService, private readonly reflector: Reflector, private readonly bus: NotificationBus) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest<Request>();
@@ -41,7 +42,10 @@ export class ActivityInterceptor implements NestInterceptor {
     };
     return next.handle().pipe(
       tap({
-        next: () => write(context.switchToHttp().getResponse<Response>().statusCode),
+        next: () => {
+          write(context.switchToHttp().getResponse<Response>().statusCode);
+          if (MUTATING.has(req.method)) this.bus.emit(RequestCtx.get()?.user?.companyId); // real-time notifications
+        },
         error: (err) => write(err?.status ?? 500),
       }),
     );

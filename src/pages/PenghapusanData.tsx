@@ -2,12 +2,12 @@ import { Link } from 'react-router-dom';
 import { MessageCircle, Mail, ArrowRight } from 'lucide-react';
 import LegalPage, { type LegalSection } from '../components/LegalPage';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { useSite } from '../lib/siteContext';
 
-const UPDATED = '18 Agustus 2026';
+const UPDATED = '12 November 2026';
 
-const WA_TEXT = encodeURIComponent(
-  'Halo PT Karya Cipta Solusi, saya ingin mengajukan penghapusan data pribadi saya.\n\nNama lengkap: \nEmail yang pernah saya gunakan: \nNomor WhatsApp: \nData yang ingin dihapus: semua data saya',
-);
+const WA_TEXT =
+  'Halo PT Karya Cipta Solusi, saya ingin mengajukan penghapusan data pribadi saya.\n\nNama lengkap: \nEmail yang pernah saya gunakan: \nNomor WhatsApp: \nData yang ingin dihapus: semua data saya';
 const MAIL_SUBJECT = encodeURIComponent('Permintaan Penghapusan Data Pribadi');
 const MAIL_BODY = encodeURIComponent(
   'Kepada PT Karya Cipta Solusi,\n\nSaya mengajukan permintaan penghapusan data pribadi saya dengan rincian berikut:\n\nNama lengkap: \nEmail yang pernah digunakan: \nNomor telepon/WhatsApp: \nData yang ingin dihapus: semua data saya\n\nTerima kasih.',
@@ -42,7 +42,7 @@ const sections: LegalSection[] = [
   {
     heading: 'Menghapus Data yang Tersimpan di Perangkat Anda Sendiri',
     paragraphs: [
-      'Beberapa data, seperti penanda bahwa Anda telah menutup pemberitahuan cookie dan salinan isian formulir, tersimpan di penyimpanan lokal peramban pada perangkat Anda, bukan di server kami. Data semacam ini sepenuhnya berada dalam kendali Anda dan dapat dihapus kapan saja melalui pengaturan peramban, umumnya pada menu Riwayat atau Privasi, dengan memilih opsi untuk menghapus data situs (cookies dan data situs) untuk karyaciptasolusi.com.',
+      'Beberapa data, seperti penanda bahwa Anda telah menutup pemberitahuan cookie, tersimpan di penyimpanan lokal peramban pada perangkat Anda, bukan di server kami. Data semacam ini sepenuhnya berada dalam kendali Anda dan dapat dihapus kapan saja melalui pengaturan peramban, umumnya pada menu Riwayat atau Privasi, dengan memilih opsi untuk menghapus data situs (cookies dan data situs) untuk karyaciptasolusi.com.',
     ],
   },
   {
@@ -54,6 +54,8 @@ const sections: LegalSection[] = [
 ];
 
 export default function PenghapusanData() {
+  const { site, waLink } = useSite();
+  const { company } = site;
   usePageMeta({
     title: 'Permintaan Penghapusan Data Pengguna | PT Karya Cipta Solusi',
     description:
@@ -85,7 +87,7 @@ export default function PenghapusanData() {
 
         <div className="grid sm:grid-cols-2 gap-4">
           <a
-            href={`https://wa.me/6283898911244?text=${WA_TEXT}`}
+            href={waLink(WA_TEXT)}
             target="_blank"
             rel="noopener noreferrer"
             className="group flex flex-col p-6 rounded-2xl border border-[#E2E8F0] bg-white hover:border-[#22C55E]/50 hover:shadow-lg transition-all duration-300"
@@ -98,24 +100,24 @@ export default function PenghapusanData() {
               Cara tercepat. Pesan sudah kami siapkan formatnya, Anda tinggal melengkapi data.
             </p>
             <span className="mt-auto inline-flex items-center gap-1.5 text-sm font-bold text-[#16A34A]">
-              0838-9891-1244
+              {company.phone}
               <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </span>
           </a>
 
           <a
-            href={`mailto:pt.karyaciptasolusi@gmail.com?subject=${MAIL_SUBJECT}&body=${MAIL_BODY}`}
-            className="group flex flex-col p-6 rounded-2xl border border-[#E2E8F0] bg-white hover:border-[#2563EB]/50 hover:shadow-lg transition-all duration-300"
+            href={`mailto:${company.email}?subject=${MAIL_SUBJECT}&body=${MAIL_BODY}`}
+            className="group flex flex-col p-6 rounded-2xl border border-[#E2E8F0] bg-white hover:border-brand/50 hover:shadow-lg transition-all duration-300"
           >
-            <div className="w-11 h-11 rounded-xl bg-[#1D4ED8] flex items-center justify-center mb-4">
+            <div className="w-11 h-11 rounded-xl bg-brand flex items-center justify-center mb-4">
               <Mail size={21} className="text-white" />
             </div>
             <p className="font-bold text-[#0F172A] mb-1">Ajukan lewat Email</p>
             <p className="text-sm text-[#475569] leading-relaxed mb-4">
               Cocok bila Anda ingin menyimpan bukti tertulis atas permintaan Anda.
             </p>
-            <span className="mt-auto inline-flex items-center gap-1.5 text-sm font-bold text-[#1D4ED8] break-all">
-              pt.karyaciptasolusi@gmail.com
+            <span className="mt-auto inline-flex items-center gap-1.5 text-sm font-bold text-brand break-all">
+              {company.email}
               <ArrowRight size={14} className="flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
             </span>
           </a>
@@ -125,7 +127,7 @@ export default function PenghapusanData() {
       <div className="mb-11 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-5">
         <p className="text-sm text-[#334155] leading-relaxed">
           Ingin tahu lebih dulu data apa saja yang kami kumpulkan dan untuk apa? Silakan baca{' '}
-          <Link to="/kebijakan-privasi" className="font-bold text-[#1D4ED8] hover:underline">
+          <Link to="/kebijakan-privasi" className="font-bold text-brand hover:underline">
             Kebijakan Privasi
           </Link>{' '}
           kami.

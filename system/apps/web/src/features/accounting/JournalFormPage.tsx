@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney, isoDate } from '@/lib/format';
 import { useSession } from '@/stores/session';
-import { AsyncSelect, Button, Card, EmptyState, Field, Input, PageHeader, toast } from '@/components/ui';
+import { AsyncSelect, Button, Card, DatePicker, EmptyState, Field, Input, PageHeader, toast, NumberInput } from '@/components/ui';
 
 interface JLine {
   key: number;
@@ -76,7 +76,7 @@ export default function JournalFormPage() {
         <Card title="Header">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <Field label="Date" required error={errors.date}>
-              <Input type="date" value={head.date} onChange={(e) => setHead({ ...head, date: e.target.value })} />
+              <DatePicker clearable={false} value={head.date} onChange={(v) => setHead({ ...head, date: v })} />
             </Field>
             <Field label="Description" required error={errors.description} className="sm:col-span-2">
               <Input value={head.description} maxLength={500} onChange={(e) => setHead({ ...head, description: e.target.value })} />
@@ -90,7 +90,7 @@ export default function JournalFormPage() {
           {errors.lines && <p className="mb-2 text-sm text-red-600">{errors.lines}</p>}
           <div className="space-y-3">
             {lines.map((l, i) => (
-              <div key={l.key} className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-12 md:border-0 md:p-0 dark:border-slate-700">
+              <div key={l.key} className="grid grid-cols-2 gap-2 rounded-lg border border-line p-3 md:grid-cols-12 md:border-0 md:p-0">
                 <div className="col-span-2 md:col-span-3">
                   {i === 0 && <label className="label hidden md:block">Account</label>}
                   <AsyncSelect resource="accounts" value={l.accountId} onChange={(v) => update(l.key, { accountId: v })} placeholder="Account..." />
@@ -105,11 +105,11 @@ export default function JournalFormPage() {
                 </div>
                 <div className="md:col-span-1">
                   {i === 0 && <label className="label hidden md:block">Debit</label>}
-                  <Input type="number" inputMode="decimal" step="0.01" min={0} placeholder="Debit" className="text-right" value={l.debit} onChange={(e) => update(l.key, { debit: e.target.value, credit: e.target.value ? '' : l.credit })} />
+                  <NumberInput fixed={2} placeholder="Debit" aria-label="Debit" value={l.debit} onChange={(v) => update(l.key, { debit: v, credit: v ? '' : l.credit })} />
                 </div>
                 <div className="md:col-span-2">
                   {i === 0 && <label className="label hidden md:block">Credit</label>}
-                  <Input type="number" inputMode="decimal" step="0.01" min={0} placeholder="Credit" className="text-right" value={l.credit} onChange={(e) => update(l.key, { credit: e.target.value, debit: e.target.value ? '' : l.debit })} />
+                  <NumberInput fixed={2} placeholder="Credit" aria-label="Credit" value={l.credit} onChange={(v) => update(l.key, { credit: v, debit: v ? '' : l.debit })} />
                 </div>
                 <div className="col-span-2 flex items-end justify-end md:col-span-1">
                   <Button variant="ghost" size="icon" icon="trash-2" className="text-red-500" disabled={lines.length <= 2} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))} aria-label="Remove line" />

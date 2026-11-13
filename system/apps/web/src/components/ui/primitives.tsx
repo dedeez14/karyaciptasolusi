@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { forwardRef, useId, useLayoutEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import { Icon } from './Icon';
 
 export const cn = clsx;
@@ -7,12 +7,12 @@ export const cn = clsx;
 // ---------------------------------------------------------------- Button
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline';
 const variants: Record<Variant, string> = {
-  primary: 'bg-brand-700 text-white hover:bg-brand-800 shadow-xs',
-  secondary: 'bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
-  outline: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
-  ghost: 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
-  danger: 'bg-red-600 text-white hover:bg-red-700 shadow-xs',
-  success: 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs',
+  primary: 'bg-brand-600 text-white shadow-[0_1px_2px_rgb(16_24_40/0.1)] hover:bg-brand-700',
+  secondary: 'bg-brand-50 text-brand-700 hover:bg-brand-100',
+  outline: 'border border-line bg-white text-slate-700 shadow-[0_1px_2px_rgb(16_24_40/0.05)] hover:bg-slate-50 hover:text-slate-900',
+  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+  danger: 'bg-red-600 text-white shadow-xs hover:bg-red-700',
+  success: 'bg-emerald-600 text-white shadow-xs hover:bg-emerald-700',
 };
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -26,16 +26,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ variant = 'p
     type={type}
     disabled={disabled || loading}
     className={cn(
-      'inline-flex items-center justify-center gap-2 rounded-lg font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-      size === 'sm' && 'h-8 px-3 text-xs',
-      size === 'md' && 'h-9 px-4 text-sm',
+      'inline-flex shrink-0 items-center justify-center gap-2 rounded-lg font-medium whitespace-nowrap transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+      size === 'sm' && 'h-8 px-3 text-[13px]',
+      size === 'md' && 'h-10 px-4 text-sm',
       size === 'icon' && 'h-9 w-9 text-sm',
       variants[variant],
       className,
     )}
     {...rest}
   >
-    {loading ? <Spinner className="h-4 w-4" /> : icon ? <Icon name={icon} className="h-4 w-4" /> : null}
+    {loading ? <Spinner className="h-4 w-4" /> : icon ? <Icon name={icon} className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> : null}
     {children}
   </button>
 ));
@@ -47,38 +47,26 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }>(({ className, invalid, rows = 3, ...rest }, ref) => (
   <textarea ref={ref} rows={rows} className={cn('input', invalid && 'input-error', className)} {...rest} />
 ));
-export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean; options: { value: string; label: string }[]; placeholder?: string }>(
-  ({ className, invalid, options, placeholder, ...rest }, ref) => (
-    <select ref={ref} className={cn('input pr-8', invalid && 'input-error', className)} {...rest}>
-      {placeholder !== undefined && <option value="">{placeholder}</option>}
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
-  ),
-);
 export function Checkbox({ label, checked, onChange, disabled }: { label?: ReactNode; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <label className={cn('inline-flex cursor-pointer items-center gap-2 text-sm select-none', disabled && 'cursor-not-allowed opacity-60')}>
-      <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand-700 accent-brand-700" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" className="h-4 w-4 rounded border-slate-300 accent-brand-600" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       {label}
     </label>
   );
 }
 export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode; disabled?: boolean }) {
   return (
-    <label className={cn('inline-flex cursor-pointer items-center gap-2 text-sm select-none', disabled && 'opacity-60')}>
+    <label className={cn('inline-flex cursor-pointer items-center gap-2.5 text-sm select-none', disabled && 'opacity-60')}>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cn('relative h-5 w-9 rounded-full transition-colors', checked ? 'bg-brand-700' : 'bg-slate-300 dark:bg-slate-700')}
+        className={cn('relative h-6 w-11 rounded-full transition-colors', checked ? 'bg-brand-600' : 'bg-slate-200')}
       >
-        <span className={cn('absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform', checked && 'translate-x-4')} />
+        <span className={cn('absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform', checked && 'translate-x-5')} />
       </button>
       {label}
     </label>
@@ -86,16 +74,36 @@ export function Switch({ checked, onChange, label, disabled }: { checked: boolea
 }
 
 export function Field({ label, error, required, help, children, className }: { label?: ReactNode; error?: string; required?: boolean; help?: string; children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const labelId = useId();
+  const control = () => ref.current?.querySelector<HTMLElement>('input:not([type=hidden]),textarea,select,button');
+  // name the control after its label (screen readers) - custom selects keep their current value in the name
+  useLayoutEffect(() => {
+    if (!label) return;
+    const c = control();
+    if (!c || c.getAttribute('aria-labelledby')) return;
+    if (c.tagName === 'BUTTON') {
+      if (!c.id) c.id = `${labelId}-control`;
+      c.setAttribute('aria-labelledby', `${labelId} ${c.id}`);
+    } else c.setAttribute('aria-labelledby', labelId);
+  });
   return (
-    <div className={className}>
+    <div className={className} ref={ref}>
       {label && (
-        <label className="label">
+        <label id={labelId} className="label" onClick={() => control()?.focus()}>
           {label}
           {required && <span className="ml-0.5 text-red-500">*</span>}
         </label>
       )}
       {children}
-      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : help ? <p className="mt-1 text-xs text-slate-400">{help}</p> : null}
+      {error ? (
+        <p className="mt-1.5 flex items-center gap-1 text-xs text-red-600">
+          <Icon name="circle-alert" className="h-3.5 w-3.5" />
+          {error}
+        </p>
+      ) : help ? (
+        <p className="mt-1.5 text-xs text-slate-500">{help}</p>
+      ) : null}
     </div>
   );
 }
@@ -105,32 +113,40 @@ export function Spinner({ className }: { className?: string }) {
   return <span className={cn('inline-block animate-spin rounded-full border-2 border-current border-t-transparent', className ?? 'h-5 w-5')} aria-label="Loading" />;
 }
 
-export function Card({ title, actions, children, className, bodyClass }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyClass?: string }) {
+export function Card({ title, subtitle, actions, children, className, bodyClass }: { title?: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyClass?: string }) {
   return (
     <section className={cn('card', className)}>
       {(title || actions) && (
-        <header className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-          <h3 className="text-sm font-semibold">{title}</h3>
-          <div className="flex items-center gap-2">{actions}</div>
+        <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+          <div className="min-w-0">
+            <h3 className="truncate text-[15px] font-semibold">{title}</h3>
+            {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">{actions}</div>
         </header>
       )}
-      <div className={cn('p-4', bodyClass)}>{children}</div>
+      <div className={cn('p-5', bodyClass)}>{children}</div>
     </section>
   );
 }
 
 const tones = {
-  gray: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  blue: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-  green: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-  amber: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-  red: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300',
-  violet: 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
+  gray: 'bg-slate-100 text-slate-700 ring-slate-200',
+  blue: 'bg-brand-50 text-brand-700 ring-brand-200',
+  green: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  amber: 'bg-amber-50 text-amber-700 ring-amber-200',
+  red: 'bg-red-50 text-red-700 ring-red-200',
+  violet: 'bg-violet-50 text-violet-700 ring-violet-200',
 };
+const dots = { gray: 'bg-slate-400', blue: 'bg-brand-500', green: 'bg-emerald-500', amber: 'bg-amber-500', red: 'bg-red-500', violet: 'bg-violet-500' };
 export type Tone = keyof typeof tones;
-export function Badge({ tone = 'gray', children, color }: { tone?: Tone; children: ReactNode; color?: string | null }) {
+export function Badge({ tone = 'gray', children, color, dot }: { tone?: Tone; children: ReactNode; color?: string | null; dot?: boolean }) {
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap', !color && tones[tone])} style={color ? { backgroundColor: `${color}1a`, color } : undefined}>
+    <span
+      className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ring-1 ring-inset', !color && tones[tone])}
+      style={color ? { backgroundColor: `${color}14`, color, boxShadow: `inset 0 0 0 1px ${color}33` } : undefined}
+    >
+      {dot && <span className={cn('h-1.5 w-1.5 rounded-full', !color && dots[tone])} style={color ? { backgroundColor: color } : undefined} />}
       {children}
     </span>
   );
@@ -149,30 +165,37 @@ const STATUS_TONE: Record<string, Tone> = {
   REJECTED: 'red',
 };
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  return <Badge tone={STATUS_TONE[status] ?? 'gray'}>{label ?? status.charAt(0) + status.slice(1).toLowerCase()}</Badge>;
+  return (
+    <Badge tone={STATUS_TONE[status] ?? 'gray'} dot>
+      {label ?? status.charAt(0) + status.slice(1).toLowerCase()}
+    </Badge>
+  );
 }
 
 export function EmptyState({ icon = 'inbox', title, description, action }: { icon?: string; title: string; description?: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
-      <div className="mb-3 rounded-full bg-slate-100 p-3 text-slate-400 dark:bg-slate-800">
-        <Icon name={icon} className="h-6 w-6" />
+    <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+      <div className="relative mb-4">
+        <div className="absolute inset-0 scale-150 rounded-full bg-brand-100/50 blur-xl" />
+        <div className="relative rounded-2xl border border-line bg-white p-3.5 text-brand-600 shadow-card">
+          <Icon name={icon} className="h-6 w-6" />
+        </div>
       </div>
-      <p className="font-medium">{title}</p>
+      <p className="font-semibold text-slate-900">{title}</p>
       {description && <p className="mt-1 max-w-sm text-sm text-slate-500">{description}</p>}
-      {action && <div className="mt-4">{action}</div>}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   );
 }
 
 export function PageHeader({ title, subtitle, actions, back }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; back?: () => void }) {
   return (
-    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-center gap-2">
-        {back && <Button variant="ghost" size="icon" icon="arrow-left" onClick={back} aria-label="Back" />}
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        {back && <Button variant="outline" size="icon" icon="arrow-left" onClick={back} aria-label="Back" className="mt-0.5" />}
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold sm:text-xl">{title}</h1>
-          {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+          <h1 className="text-xl font-semibold break-words sm:truncate sm:text-2xl">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
         </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -180,32 +203,42 @@ export function PageHeader({ title, subtitle, actions, back }: { title: ReactNod
   );
 }
 
+const statTone: Record<Tone, string> = {
+  blue: 'bg-brand-600',
+  green: 'bg-emerald-500',
+  amber: 'bg-amber-400',
+  red: 'bg-rose-500',
+  violet: 'bg-violet-500',
+  gray: 'bg-slate-500',
+};
 export function StatCard({ label, value, hint, icon, tone = 'blue' }: { label: string; value: ReactNode; hint?: ReactNode; icon?: string; tone?: Tone }) {
   return (
-    <div className="card flex items-start gap-3 p-4">
-      {icon && (
-        <div className={cn('rounded-lg p-2', tones[tone])}>
-          <Icon name={icon} className="h-5 w-5" />
+    <div className="card group relative overflow-hidden p-5 transition-shadow hover:shadow-pop">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-slate-500">{label}</p>
+          <p className="mt-2 truncate text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
         </div>
-      )}
-      <div className="min-w-0">
-        <p className="text-xs font-medium text-slate-500">{label}</p>
-        <p className="mt-0.5 truncate text-lg font-semibold">{value}</p>
-        {hint && <p className="text-xs text-slate-400">{hint}</p>}
+        {icon && (
+          <div className={cn('rounded-xl p-2.5 text-white shadow-sm', statTone[tone])}>
+            <Icon name={icon} className="h-5 w-5" />
+          </div>
+        )}
       </div>
+      {hint && <p className="mt-3 truncate text-xs text-slate-500">{hint}</p>}
     </div>
   );
 }
 
 export function Tabs<T extends string>({ value, onChange, tabs }: { value: T; onChange: (v: T) => void; tabs: { value: T; label: ReactNode }[] }) {
   return (
-    <div className="scrollbar-thin flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
+    <div className="scrollbar-thin inline-flex max-w-full gap-1 overflow-x-auto rounded-xl border border-line bg-white p-1 shadow-card">
       {tabs.map((t) => (
         <button
           key={t.value}
           type="button"
           onClick={() => onChange(t.value)}
-          className={cn('-mb-px border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap', value === t.value ? 'border-brand-700 text-brand-700 dark:text-brand-500' : 'border-transparent text-slate-500 hover:text-slate-700')}
+          className={cn('rounded-lg px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors', value === t.value ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')}
         >
           {t.label}
         </button>

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { download, openInNewTab } from '@/lib/download';
+import { download } from '@/lib/download';
+import { previewFile } from '@/components/ui/preview';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Button, Card, confirm, DataTable, EmptyState, PageHeader, Spinner, StatusBadge, toast } from '@/components/ui';
@@ -63,7 +64,7 @@ export default function PaymentViewPage() {
         back={() => navigate(`/payments/${m.dir}`)}
         actions={
           <>
-            <Button variant="outline" icon="eye" loading={busy === 'preview'} onClick={() => run('preview', () => openInNewTab(`/payments/${m.dir}/${p.id}/pdf`))}>
+            <Button variant="outline" icon="eye" loading={busy === 'preview'} onClick={() => run('preview', () => previewFile({ path: `/payments/${m.dir}/${p.id}/pdf`, title: p.number }))}>
               Preview
             </Button>
             <Button variant="outline" icon="download" loading={busy === 'pdf'} onClick={() => run('pdf', () => download(`/payments/${m.dir}/${p.id}/pdf`))}>
@@ -80,7 +81,7 @@ export default function PaymentViewPage() {
           </>
         }
       />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card title="Details">
           <dl className="grid gap-3 text-sm">
             {[
@@ -95,11 +96,21 @@ export default function PaymentViewPage() {
                 <dd className="font-medium whitespace-pre-line">{v || <span className="text-slate-300">—</span>}</dd>
               </div>
             ))}
-            <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
+            <div className="border-t border-line pt-3">
               <dt className="text-xs text-slate-500">Amount</dt>
               <dd className="text-xl font-semibold tabular-nums">{fmtMoney(p.amount)}</dd>
-              {Number(p.amount) - allocated > 0.005 && <dd className="text-xs text-amber-700">Unapplied: {fmtMoney(Number(p.amount) - allocated)}</dd>}
+              {Number(p.amount) + Number(p.whtAmount ?? 0) - allocated > 0.005 && <dd className="text-xs text-amber-700">Unapplied: {fmtMoney(Number(p.amount) + Number(p.whtAmount ?? 0) - allocated)}</dd>}
             </div>
+            {Number(p.whtAmount ?? 0) > 0 && (
+              <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                <dt className="text-xs text-slate-500">{m.dir === 'in' ? 'Tax withheld by the customer' : 'Tax withheld (to pay to the state)'}</dt>
+                <dd className="font-semibold tabular-nums">{fmtMoney(p.whtAmount)}</dd>
+                <dd className="text-xs text-slate-500">
+                  {Number(p.whtRate)}% of {fmtMoney(p.whtBase)}
+                  {p.whtSlipNo ? ` · slip ${p.whtSlipNo}` : ' · slip number not entered yet'}
+                </dd>
+              </div>
+            )}
           </dl>
         </Card>
         <Card title="Applied to invoices" className="lg:col-span-2" bodyClass="p-0">

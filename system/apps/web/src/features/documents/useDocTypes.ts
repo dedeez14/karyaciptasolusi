@@ -18,6 +18,8 @@ export interface DocTypeDef {
   dueDate?: boolean;
   stockItemsOnly?: boolean;
   partyLabel?: string;
+  /** return / credit note of this invoice type */
+  returnOf?: 'SI' | 'PI';
   can: { create: boolean; update: boolean; delete: boolean; confirm: boolean; cancel: boolean; print: boolean };
 }
 
@@ -38,7 +40,10 @@ export interface DocLine {
   lineTotal?: string;
   sourceLineId?: string | null;
   processedQty?: string;
-  product?: { id: string; code: string; name: string; type: string } | null;
+  product?: { id: string; code: string; name: string; type: string; trackLots?: boolean } | null;
+  lotNo?: string | null;
+  expiryDate?: string | null;
+  lotId?: string | null;
   uomCode?: string | null;
   taxName?: string | null;
 }
@@ -53,6 +58,8 @@ export interface DocLink {
 }
 
 export interface TradeDoc {
+  /** lots moved per line id (lot-tracked products) */
+  lots?: Record<string, { lotId: string; lotNo: string; expiryDate: string | null; qty: string }[]>;
   id: string;
   docType: string;
   number: string;
@@ -71,15 +78,24 @@ export interface TradeDoc {
   currencyCode: string;
   exchangeRate: string;
   reference: string | null;
+  /** Nomor Faktur Pajak (SI / PI) */
+  taxInvoiceNumber?: string | null;
+  /** go-live opening balance document */
+  isOpening?: boolean;
   notes: string | null;
   terms: string | null;
   subtotal: string;
   discountTotal: string;
   taxTotal: string;
+  /** PPnBM (motor vehicles) included in the grand total */
+  luxuryTaxTotal?: string;
   grandTotal: string;
   paidAmount: string;
   balance: string;
   partnerName: string | null;
+  partnerEmail?: string | null;
+  /** approval workflow state (lists only; absent when the document needs no approval) */
+  approval?: { status: 'NOT_REQUESTED' | 'PENDING' | 'APPROVED' | 'REJECTED'; level: number | null } | null;
   warehouseName?: string | null;
   toWarehouseName?: string | null;
   confirmedAt?: string | null;

@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { EmptyState } from '@/components/ui/primitives';
+import { isStaleChunkError, reloadForNewVersion } from './stale-chunk';
 
 /** Keeps the shell usable when one page crashes; resets on navigation (key). */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -16,10 +17,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
   render() {
     if (this.state.error) {
       // stale chunk after an update -> reload once to fetch the new version
-      if (/dynamically imported module|Loading chunk/i.test(this.state.error.message) && !sessionStorage.getItem('kcs.reloaded')) {
-        sessionStorage.setItem('kcs.reloaded', '1');
-        window.location.reload();
-      }
+      if (isStaleChunkError(this.state.error)) reloadForNewVersion();
       return (
         <EmptyState
           icon="triangle-alert"

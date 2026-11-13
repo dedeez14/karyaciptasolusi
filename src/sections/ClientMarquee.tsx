@@ -1,16 +1,36 @@
 import { motion } from 'framer-motion';
+import { useSite } from '../lib/siteContext';
+import type { ClientItem } from '../lib/siteTypes';
 
-const clients = [
-  { name: 'Kemendikdasmen', logo: '/images/clients/kemendikdasmen.png' },
-  { name: 'FDS Group', logo: '/images/clients/fdsgroup.png' },
-  { name: 'Taufiq Accounting & Tax Report', logo: '/images/clients/tatreport.png' },
-  { name: 'Hisabuna', logo: '/images/clients/hisabuna.svg' },
-  { name: 'Ask Creative', logo: '/images/clients/askcreative.png' },
-  { name: 'Taman Midi Anggun', logo: '/images/clients/tamanmidianggun.png' },
-  { name: 'Latvo', logo: '/images/clients/latvo.png' },
-];
+function ClientLogo({ client, dup = false }: { client: ClientItem; dup?: boolean }) {
+  const inner = client.logo ? (
+    <img
+      src={client.logo}
+      alt={client.name}
+      title={client.name}
+      loading="lazy"
+      decoding="async"
+      className="h-9 sm:h-11 w-auto object-contain flex-shrink-0 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 select-none"
+      draggable={false}
+    />
+  ) : (
+    <span className="text-sm sm:text-base font-bold text-[#475569] hover:text-brand transition-colors" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+      {client.name}
+    </span>
+  );
+  return client.url ? (
+    <a href={client.url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0" aria-label={client.name} tabIndex={dup ? -1 : undefined}>
+      {inner}
+    </a>
+  ) : (
+    inner
+  );
+}
+
 
 export default function ClientMarquee() {
+  const { site } = useSite();
+  const clients = site.clients;
   return (
     <section className="relative py-12 overflow-hidden bg-[#F8FAFC] border-y border-[#E2E8F0]">
       <div className="text-center mb-8">
@@ -28,16 +48,9 @@ export default function ClientMarquee() {
           className="flex gap-14 sm:gap-20 items-center whitespace-nowrap pr-14 sm:pr-20"
         >
           {[...clients, ...clients].map((client, i) => (
-            <img
-              key={`${client.name}-${i}`}
-              src={client.logo}
-              alt={client.name}
-              title={client.name}
-              loading="lazy"
-              decoding="async"
-              className="h-9 sm:h-11 w-auto object-contain flex-shrink-0 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 select-none"
-              draggable={false}
-            />
+            <div key={`${client.name}-${i}`} className="flex-shrink-0" aria-hidden={i >= clients.length ? true : undefined}>
+              <ClientLogo client={client} dup={i >= clients.length} />
+            </div>
           ))}
         </motion.div>
       </div>

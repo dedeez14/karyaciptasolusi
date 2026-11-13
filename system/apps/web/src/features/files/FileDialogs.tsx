@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { fmtBytes, fmtDateTime } from '@/lib/format';
-import { download } from '@/lib/download';
-import { Badge, Button, Field, Icon, Input, Modal, Select, Spinner, Textarea, toast } from '@/components/ui';
-import { folderOptions, SOURCE_LABEL, type FileRow, type Folder } from './fileTypes';
+import { download, fileUrl } from '@/lib/download';
+import { Badge, Button, Field, Icon, Input, LookupSelect, Modal, previewFile, Select, Spinner, Textarea, toast } from '@/components/ui';
+import { folderOptions, type FileRow, type Folder } from './fileTypes';
+import { useLookupLabel } from '@/hooks/useLookups';
 
 type Opt = { value: string; label: string };
 
 export function FolderDialog({ open, onClose, folder, folders, parentId, onSaved }: { open: boolean; onClose: () => void; folder: Folder | null; folders: Folder[]; parentId: string | null; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: '', parentId: '', color: '#2563eb', description: '' });
+  const [form, setForm] = useState({ name: '', parentId: '', color: '#1d4f7a', description: '' });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (open) setForm({ name: folder?.name ?? '', parentId: folder?.parentId ?? parentId ?? '', color: folder?.color ?? '#2563eb', description: folder?.description ?? '' });
+    if (open) setForm({ name: folder?.name ?? '', parentId: folder?.parentId ?? parentId ?? '', color: folder?.color ?? '#1d4f7a', description: folder?.description ?? '' });
   }, [open, folder, parentId]);
   const save = async () => {
     setBusy(true);
@@ -53,7 +54,7 @@ export function FolderDialog({ open, onClose, folder, folders, parentId, onSaved
         </Field>
         <Field label="Color">
           <div className="flex gap-2">
-            {['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#64748b'].map((c) => (
+            {['#1d4f7a', '#f8b810', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#64748b'].map((c) => (
               <button key={c} type="button" onClick={() => setForm({ ...form, color: c })} className="h-7 w-7 rounded-full ring-offset-2" style={{ background: c, boxShadow: form.color === c ? `0 0 0 2px white, 0 0 0 4px ${c}` : undefined }} aria-label={c} />
             ))}
           </div>
@@ -67,6 +68,8 @@ export function FolderDialog({ open, onClose, folder, folders, parentId, onSaved
 }
 
 export function EditFileDialog({ file, onClose, folders, categories, onSaved }: { file: FileRow | null; onClose: () => void; folders: Folder[]; categories: Opt[]; onSaved: () => void }) {
+  const sourceLabel = useLookupLabel('FILE_SOURCE');
+  void categories;
   const [form, setForm] = useState({ name: '', folderId: '', categoryCode: '', tags: '', description: '' });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -110,13 +113,13 @@ export function EditFileDialog({ file, onClose, folders, categories, onSaved }: 
     >
       {file && (
         <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/50">
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs">
             <span className="text-slate-500">Size</span>
             <span>{fmtBytes(file.size)}</span>
             <span className="text-slate-500">Type</span>
             <span>{file.mimeType}</span>
             <span className="text-slate-500">Source</span>
-            <span>{SOURCE_LABEL[file.source]}</span>
+            <span>{sourceLabel(file.source)}</span>
             <span className="text-slate-500">Uploaded</span>
             <span>
               {fmtDateTime(file.createdAt)} {file.uploadedBy && `by ${file.uploadedBy}`}
@@ -125,12 +128,12 @@ export function EditFileDialog({ file, onClose, folders, categories, onSaved }: 
           <Field label="Name" required>
             <Input value={form.name} maxLength={200} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Folder">
               <Select value={form.folderId} onChange={(e) => setForm({ ...form, folderId: e.target.value })} options={folderOptions(folders)} placeholder="(Unfiled)" />
             </Field>
             <Field label="Category">
-              <Select value={form.categoryCode} onChange={(e) => setForm({ ...form, categoryCode: e.target.value })} options={categories} placeholder="—" />
+              <LookupSelect category="FILE_CATEGORY" value={form.categoryCode} onChange={(v) => setForm({ ...form, categoryCode: v })} placeholder="—" />
             </Field>
           </div>
           <Field label="Tags" help="Comma separated">
@@ -150,16 +153,20 @@ export function PreviewDialog({ file, onClose }: { file: FileRow | null; onClose
   const [error, setError] = useState('');
   useEffect(() => {
     if (!file) return;
+    // PDFs open in the in-app PDF viewer (works in the installed app on phones, which cannot show a PDF in a frame)
+    if (file.fileType === 'pdf') {
+      void previewFile({ path: `/files/${file.id}/download`, title: file.name });
+      onClose();
+      return;
+    }
     let objectUrl: string | null = null;
     setUrl(null);
     setError('');
-    api
-      .blob(`/files/${file.id}/download`, { inline: 1 })
-      .then(({ blob }) => {
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-      })
-      .catch((e) => setError(e.message));
+    const load =
+      file.fileType === 'image'
+        ? api.blob(`/files/${file.id}/download`, { inline: 1 }).then(({ blob }) => (objectUrl = URL.createObjectURL(blob)))
+        : fileUrl(`/files/${file.id}/download`);
+    load.then(setUrl).catch((e) => setError(e.message));
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
@@ -196,7 +203,7 @@ export function PreviewDialog({ file, onClose }: { file: FileRow | null; onClose
           ) : file.fileType === 'image' ? (
             <img src={url} alt={file.name} className="max-h-[70vh] max-w-full rounded object-contain" />
           ) : (
-            <iframe src={url} title={file.name} className="h-[70vh] w-full rounded border border-slate-200 bg-white dark:border-slate-700" sandbox="allow-same-origin" />
+            <iframe key={url} src={url} title={file.name} className="h-[70vh] w-full rounded border border-line bg-white" />
           )}
         </div>
       )}

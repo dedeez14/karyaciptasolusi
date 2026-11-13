@@ -10,3 +10,6 @@ coverage/
 .DS_Store
 apps/api/storage/
 *.tsbuildinfo
+# Font Awesome Pro (commercial license: never publish in this public repository)
+apps/web/public/icons/fa-*.svg
+apps/web/src/components/ui/fa.generated.json

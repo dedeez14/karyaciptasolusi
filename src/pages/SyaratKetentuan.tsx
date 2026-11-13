@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom';
 import LegalPage, { type LegalSection } from '../components/LegalPage';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { useSite } from '../lib/siteContext';
+import type { CompanyInfo } from '../lib/siteTypes';
 
 const UPDATED = '18 Agustus 2026';
 
-const sections: LegalSection[] = [
+function buildSections(c: CompanyInfo): LegalSection[] {
+  return [
   {
     heading: '1. Penerimaan Ketentuan',
     paragraphs: [
@@ -91,12 +94,15 @@ const sections: LegalSection[] = [
   {
     heading: '13. Menghubungi Kami',
     paragraphs: [
-      'Pertanyaan mengenai syarat dan ketentuan ini dapat disampaikan melalui email pt.karyaciptasolusi@gmail.com atau WhatsApp 0838-9891-1244.',
+      `Pertanyaan mengenai syarat dan ketentuan ini dapat disampaikan melalui email ${c.email} atau WhatsApp ${c.phone}.`,
     ],
   },
-];
+  ];
+}
 
 export default function SyaratKetentuan() {
+  const { site } = useSite();
+  const sections = buildSections(site.company);
   usePageMeta({
     title: 'Syarat & Ketentuan | PT Karya Cipta Solusi',
     description:
@@ -115,11 +121,11 @@ export default function SyaratKetentuan() {
       <div className="mb-10 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-5">
         <p className="text-sm text-[#334155] leading-relaxed">
           Dokumen terkait:{' '}
-          <Link to="/kebijakan-privasi" className="font-bold text-[#1D4ED8] hover:underline">
+          <Link to="/kebijakan-privasi" className="font-bold text-brand hover:underline">
             Kebijakan Privasi
           </Link>{' '}
           dan{' '}
-          <Link to="/penghapusan-data" className="font-bold text-[#1D4ED8] hover:underline">
+          <Link to="/penghapusan-data" className="font-bold text-brand hover:underline">
             Penghapusan Data Pengguna
           </Link>
           .

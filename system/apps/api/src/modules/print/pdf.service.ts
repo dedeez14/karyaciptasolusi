@@ -5,6 +5,9 @@ import { SettingsService } from '../../common/settings/settings.service';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { StorageService } from '../files/storage.service';
 import { amountInWords } from './amount-in-words';
+import QRCode from 'qrcode';
+import { createHash } from 'node:crypto';
+import { SignedFacts, SigningService, tokenHash } from '../security/signing.service';
 
 export interface PrintColumn {
   key: string;
@@ -24,12 +27,18 @@ export interface PrintableDocument {
   columns: PrintColumn[];
   rows: Record<string, string>[];
   totals?: { label: string; value: string; bold?: boolean }[];
+  /** totals row printed at the bottom of the table, keyed like the rows (lists and reports) */
+  footer?: Record<string, string>;
   amount?: { value: number; currency: string };
   notes?: string | null;
   terms?: string | null;
   paymentInfo?: string | null;
   signatures?: string[];
   landscape?: boolean;
+  /** facts to digitally sign; adds a verification QR code */
+  verify?: SignedFacts;
+  /** stamp duty is due (UU 10/2020: e.g. a receipt for more than Rp5.000.000): a meterai box in the company's signature */
+  stampDuty?: boolean;
 }
 
 interface Brand {
@@ -37,12 +46,55 @@ interface Brand {
   lines: string[];
   logo?: Buffer;
   color: string;
+  /** small accents (top bar) */
+  color2: string;
   footer: string;
   paper: string;
   showSignatures: boolean;
   wordsLang: 'en' | 'id';
   locale: string;
+  /** the configured signer (Settings > Documents) with the signature saved on their profile, if they allow it */
+  signer?: { name: string; title: string; image: Buffer };
 }
+
+/** content of an official company letter (see renderLetter) */
+export interface LetterContent {
+  id: string;
+  number: string;
+  /** YYYY-MM-DD */
+  date: string;
+  subject: string;
+  recipient: string | null;
+  /** PERSON (default) or PLAIN */
+  layout?: string;
+  /** LETTER_TYPE code, picks the opening sentence */
+  type?: string;
+  /** preview before saving: not signed, not registered, marked PRATINJAU */
+  draft?: boolean;
+  personName: string | null;
+  personIdNumber: string | null;
+  personAddress: string | null;
+  personPosition: string | null;
+  body: string;
+  place: string;
+  signerName: string;
+  signerTitle: string;
+}
+
+/** formal documents: centred title + number instead of number / subject / addressee */
+const TITLED_LETTERS = new Set(['PERMANENT_CONTRACT', 'EMPLOYMENT', 'INCOME', 'ASSIGNMENT', 'POWER_OF_ATTORNEY', 'DECLARATION', 'APPOINTMENT', 'CONTRACT', 'WARNING', 'REFERENCE', 'HANDOVER', 'STATEMENT', 'MEMO', 'MINUTES', 'PROJECT_AGREEMENT', 'NDA', 'WORK_ORDER', 'RESIGNATION', 'LEAVE_PERMIT']);
+/** documents signed by both sides: label of the other party, label of the company, stamp duty box */
+/** stamp duty on a document signed by the company alone (UU 10/2020: statements and similar letters) */
+const STAMPED_LETTERS = new Set(['DECLARATION']);
+const TWO_PARTY_LETTERS: Record<string, { other: string; company: string; stamp: boolean }> = {
+  CONTRACT: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
+  PERMANENT_CONTRACT: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
+  HANDOVER: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: false },
+  POWER_OF_ATTORNEY: { other: 'Penerima Kuasa,', company: 'Pemberi Kuasa,', stamp: true },
+  PROJECT_AGREEMENT: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
+  NDA: { other: 'Pihak Kedua,', company: 'Pihak Pertama,', stamp: true },
+  WORK_ORDER: { other: 'Penerima Pekerjaan,', company: 'Pemberi Pekerjaan,', stamp: false },
+};
 
 const GREY = '#6b7280';
 const LINE = '#e5e7eb';
@@ -54,6 +106,7 @@ export class PdfService {
     private readonly settings: SettingsService,
     private readonly crypto: CryptoService,
     private readonly storage: StorageService,
+    private readonly signing: SigningService,
   ) {}
 
   async brand(companyId: string): Promise<Brand> {
@@ -66,18 +119,36 @@ export class PdfService {
     const taxId = this.crypto.decrypt(c.taxId);
     return {
       name: c.legalName || c.name,
+      // address / phone + e-mail / website + tax number: short lines that do not break in the middle
       lines: [
         [c.address, c.city].filter(Boolean).join(', '),
-        [c.phone && `Phone ${c.phone}`, c.email, c.website].filter(Boolean).join('  |  '),
-        taxId ? `Tax ID: ${taxId}` : '',
+        [c.phone && `Phone ${c.phone}`, c.email].filter(Boolean).join('  ·  '),
+        [c.website?.replace(/^https?:\/\//, '').replace(/\/$/, ''), taxId ? `${c.countryCode === 'ID' ? 'NPWP' : 'Tax ID'} ${taxId}` : ''].filter(Boolean).join('  ·  '),
       ].filter(Boolean),
       logo,
       color: await this.settings.str('document.primaryColor', companyId, '#1e40af'),
+      color2: (await this.settings.str('document.secondaryColor', companyId, '')) || '',
       footer: await this.settings.str('document.footerText', companyId, ''),
       paper: await this.settings.str('document.paperSize', companyId, 'A4'),
       showSignatures: await this.settings.bool('document.showSignatures', companyId, true),
       wordsLang: (await this.settings.str('document.amountInWordsLanguage', companyId, 'en')) === 'id' ? 'id' : 'en',
       locale: await this.settings.str('general.locale', companyId, 'en-US'),
+      signer: await this.signer(companyId),
+    };
+  }
+
+  /** Signature of the user named in document.signerUsername - only while that user keeps it enabled */
+  private async signer(companyId: string): Promise<Brand['signer']> {
+    const username = (await this.settings.str('document.signerUsername', companyId, ''))?.trim();
+    if (!username) return undefined;
+    const u = await this.prisma.user.findFirst({ where: { username, deletedAt: null, isActive: true }, select: { fullName: true, signatureKey: true, signatureEnabled: true } });
+    if (!u?.signatureKey || !u.signatureEnabled) return undefined;
+    const image = await this.storage.get(u.signatureKey, true).catch(() => null);
+    if (!image) return undefined;
+    return {
+      name: (await this.settings.str('document.signerName', companyId, '')) || u.fullName,
+      title: (await this.settings.str('document.signerTitle', companyId, '')) || '',
+      image,
     };
   }
 
@@ -87,12 +158,18 @@ export class PdfService {
 
   async render(companyId: string, d: PrintableDocument): Promise<Buffer> {
     const b = await this.brand(companyId);
+    const party = d.verify?.p ?? d.parties?.[0]?.name;
+    const token = d.verify ? await this.signing.sign(companyId, { ...d.verify, ...(party ? { p: party.slice(0, 150) } : {}) }) : null;
+    // the QR carries a short code only (small QR that phones scan easily); the server keeps the full signed token
+    const code = token ? tokenHash(token).slice(0, 20) : null;
+    const publicUrl = (await this.settings.str('general.publicUrl', companyId, 'http://localhost:3000')).replace(/\/$/, '');
+    const verifyUrl = code ? `${publicUrl}/verify?c=${code}` : null;
     const doc = new PDFDocument({
       size: b.paper,
       layout: d.landscape ? 'landscape' : 'portrait',
-      margins: { top: 40, bottom: 50, left: 40, right: 40 },
+      margins: { top: 44, bottom: 56, left: 42, right: 42 },
       bufferPages: true,
-      info: { Title: `${d.title}${d.number ? ' ' + d.number : ''}`, Author: b.name, Creator: 'KCS ERP' },
+      info: { Title: `${d.title}${d.number ? ' ' + d.number : ''}`, Author: b.name, Creator: 'KCS ERP', ...(token ? { Subject: 'Digitally signed (Ed25519)', Keywords: `kcs-signature:${token}` } : {}) },
     });
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
@@ -100,162 +177,615 @@ export class PdfService {
 
     const L = doc.page.margins.left;
     const W = doc.page.width - L - doc.page.margins.right;
+    const accent = b.color;
+    const tint = mix(accent, '#ffffff', 0.92);
+    const soft = mix(accent, '#ffffff', 0.8);
+    const ink = '#0f172a';
+    const body = '#334155';
 
-    // ---------- Letterhead
-    let y = 40;
+    // ---------- Letterhead: logo (or monogram) + company | document title, number, status
+    let y = doc.page.margins.top;
     let textX = L;
+    let logoDrawn = false;
     if (b.logo) {
       try {
-        doc.image(b.logo, L, y, { fit: [70, 50] });
-        textX = L + 80;
+        doc.image(b.logo, L, y - 2, { fit: [48, 48], align: 'center', valign: 'center' });
+        textX = L + 60;
+        logoDrawn = true;
       } catch {
-        /* unsupported image -> skip */
+        /* unsupported image -> monogram */
       }
     }
-    doc.font('Helvetica-Bold').fontSize(14).fillColor('#111827').text(b.name, textX, y, { width: W * 0.6 - (textX - L) });
-    doc.font('Helvetica').fontSize(8).fillColor(GREY);
-    for (const line of b.lines) doc.text(line, textX, doc.y + 1, { width: W * 0.6 - (textX - L) });
-    const leftBottom = Math.max(doc.y, y + 50);
+    if (!logoDrawn) {
+      const initials = b.name.replace(/^(PT|CV|UD|TBK)\.?\s+/i, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'K';
+      doc.roundedRect(L, y, 40, 40, 8).fill(accent);
+      doc.font('Helvetica-Bold').fontSize(15).fillColor('#ffffff').text(initials, L, y + 12.5, { width: 40, align: 'center', lineBreak: false });
+      textX = L + 52;
+    }
+    const leftW = W * 0.62 - (textX - L);
+    doc.font('Helvetica-Bold').fontSize(14).fillColor(ink).text(b.name, textX, y + 1, { width: leftW });
+    doc.font('Helvetica').fontSize(7.8).fillColor(GREY);
+    for (const line of b.lines) {
+      // a line that does not fit breaks at its last ", " (e.g. the city goes to its own line) instead of mid-phrase
+      const cut = line.lastIndexOf(', ');
+      const parts = doc.widthOfString(line) > leftW && cut > 0 ? [line.slice(0, cut), line.slice(cut + 2)] : [line];
+      for (const part of parts) doc.text(part, textX, doc.y + 1.5, { width: leftW });
+    }
+    const leftBottom = Math.max(doc.y, y + 44);
 
-    doc.font('Helvetica-Bold').fontSize(20).fillColor(b.color).text(d.title.toUpperCase(), L + W * 0.55, y, { width: W * 0.45, align: 'right' });
-    if (d.number) doc.font('Helvetica').fontSize(10).fillColor('#111827').text(d.number, L + W * 0.55, doc.y + 2, { width: W * 0.45, align: 'right' });
-    if (d.status) doc.font('Helvetica-Bold').fontSize(8).fillColor(GREY).text(d.status.toUpperCase(), L + W * 0.55, doc.y + 2, { width: W * 0.45, align: 'right' });
-    y = Math.max(leftBottom, doc.y) + 10;
-    doc.moveTo(L, y).lineTo(L + W, y).lineWidth(2).strokeColor(b.color).stroke();
-    y += 12;
+    const rx = L + W * 0.62;
+    const rw = W * 0.38;
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(accent).text(d.title.toUpperCase(), rx, y, { width: rw, align: 'right', characterSpacing: 0.6 });
+    if (d.number) doc.font('Helvetica-Bold').fontSize(10).fillColor(ink).text(d.number, rx, doc.y + 3, { width: rw, align: 'right' });
+    let rightBottom = doc.y;
+    const stamp = statusStyle(d.status);
+    if (d.status && stamp) {
+      doc.font('Helvetica-Bold').fontSize(7.5);
+      const label = d.status.toUpperCase();
+      const pw = doc.widthOfString(label, { characterSpacing: 0.8 }) + 16;
+      const py = rightBottom + 6;
+      doc.roundedRect(L + W - pw, py, pw, 15, 7.5).fill(stamp.bg);
+      doc.fillColor(stamp.fg).text(label, L + W - pw, py + 4, { width: pw, align: 'center', characterSpacing: 0.8, lineBreak: false });
+      rightBottom = py + 15;
+    }
+    y = Math.max(leftBottom, rightBottom) + 14;
+    doc.moveTo(L, y).lineTo(L + W, y).lineWidth(0.8).strokeColor(LINE).stroke();
+    y += 16;
 
-    // ---------- Parties + meta
+    // ---------- Parties (cards) + document details (panel)
     const parties = d.parties ?? [];
-    const colW = W / Math.max(1, parties.length + 1);
-    let blockBottom = y;
-    parties.forEach((p, i) => {
-      const x = L + i * colW;
-      doc.font('Helvetica-Bold').fontSize(8).fillColor(GREY).text(p.label.toUpperCase(), x, y, { width: colW - 10 });
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text(p.name, x, doc.y + 2, { width: colW - 10 });
-      doc.font('Helvetica').fontSize(8.5).fillColor('#374151');
-      for (const line of p.lines.filter(Boolean)) doc.text(line, x, doc.y + 1, { width: colW - 10 });
-      blockBottom = Math.max(blockBottom, doc.y);
-    });
-    const mx = L + parties.length * colW;
-    let my = y;
-    for (const m of d.meta.filter((m) => m.value)) {
-      doc.font('Helvetica').fontSize(8.5).fillColor(GREY).text(m.label, mx, my, { width: colW * 0.45 });
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#111827').text(m.value, mx + colW * 0.45, my, { width: colW * 0.55, align: 'right' });
-      my = Math.max(doc.y, my + 11) + 2;
-    }
-    y = Math.max(blockBottom, my) + 14;
-
-    // ---------- Table
-    y = this.table(doc, d.columns, d.rows, y, L, W, b.color);
-
-    // ---------- Totals
-    if (d.totals?.length) {
-      const tx = L + W * 0.55;
-      const tw = W * 0.45;
-      y += 6;
-      for (const t of d.totals) {
-        y = this.ensure(doc, y, 18);
-        if (t.bold) {
-          doc.rect(tx, y - 3, tw, 18).fill(b.color);
-          doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff');
-        } else doc.font('Helvetica').fontSize(9).fillColor('#111827');
-        doc.text(t.label, tx + 6, y, { width: tw * 0.5 });
-        doc.text(t.value, tx + tw * 0.4, y, { width: tw * 0.6 - 6, align: 'right' });
-        y += t.bold ? 20 : 15;
+    const meta = d.meta.filter((m) => m.value);
+    if (parties.length) {
+      const gap = 14;
+      const metaW = Math.min(W * 0.38, 230);
+      const partyW = (W - metaW - gap * parties.length) / parties.length;
+      let blockBottom = y;
+      parties.forEach((p, i) => {
+        const x = L + i * (partyW + gap);
+        doc.font('Helvetica-Bold').fontSize(7).fillColor(accent).text(p.label.toUpperCase(), x, y, { width: partyW, characterSpacing: 0.7 });
+        doc.font('Helvetica-Bold').fontSize(10.5).fillColor(ink).text(p.name, x, doc.y + 4, { width: partyW });
+        doc.font('Helvetica').fontSize(8.3).fillColor(body);
+        for (const line of p.lines.filter(Boolean)) {
+          // "phone | e-mail" lines that do not fit: one item per line instead of a break in the middle
+          const parts = doc.widthOfString(line) > partyW && /\s\|\s/.test(line) ? line.split(/\s+\|\s+/) : [line];
+          for (const part of parts) doc.text(part, x, doc.y + 1.5, { width: partyW });
+        }
+        blockBottom = Math.max(blockBottom, doc.y);
+      });
+      const mx = L + W - metaW;
+      const metaBottom = this.metaPanel(doc, meta, mx, y - 6, metaW, tint, ink);
+      y = Math.max(blockBottom, metaBottom) + 18;
+    } else if (meta.length) {
+      // reports / lists: one compact line of details
+      doc.font('Helvetica').fontSize(8.3);
+      let x = L;
+      for (const m of meta) {
+        const lw = doc.font('Helvetica').widthOfString(`${m.label}  `);
+        const vw = doc.font('Helvetica-Bold').widthOfString(m.value);
+        if (x + lw + vw > L + W) {
+          x = L;
+          y += 13;
+        }
+        doc.font('Helvetica').fillColor(GREY).text(`${m.label}  `, x, y, { lineBreak: false });
+        doc.font('Helvetica-Bold').fillColor(ink).text(m.value, x + lw, y, { lineBreak: false });
+        x += lw + vw + 22;
       }
-    }
-    if (d.amount) {
-      y = this.ensure(doc, y + 4, 24);
-      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#374151').text(`${b.wordsLang === 'id' ? 'Terbilang' : 'Amount in words'}: ${amountInWords(d.amount.value, d.amount.currency, b.wordsLang)}`, L, y, { width: W });
-      y = doc.y + 6;
+      y += 24;
     }
 
-    // ---------- Notes / terms / payment info
+    // ---------- Watermark for drafts and cancelled documents (every page, under the content)
+    const watermark = d.status && /^(draft|cancelled)$/i.test(d.status) ? { text: d.status.toUpperCase(), color: /cancel/i.test(d.status) ? '#dc2626' : '#64748b' } : null;
+    const drawWatermark = () => {
+      if (!watermark) return;
+      doc.save();
+      doc.rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] });
+      doc.font('Helvetica-Bold').fontSize(96).fillColor(watermark.color).fillOpacity(0.07).text(watermark.text, 0, doc.page.height / 2 - 48, { width: doc.page.width, align: 'center', lineBreak: false });
+      doc.restore();
+      doc.fillOpacity(1);
+    };
+    drawWatermark();
+    doc.on('pageAdded', drawWatermark);
+
+    // ---------- Line items
+    y = this.table(doc, d.columns, d.rows, y, L, W, { accent, tint, soft, ink, body, footer: d.footer });
+
+    // ---------- Amount in words (left) + totals (right)
+    const words = d.amount ? amountInWords(d.amount.value, d.amount.currency, b.wordsLang) : null;
+    if (d.totals?.length || words) {
+      const tw = Math.min(W * 0.42, 250);
+      const tx = L + W - tw;
+      const rows = d.totals ?? [];
+      const totalsH = rows.reduce((h, t) => h + (t.bold ? 26 : 16), 0) + 8;
+      doc.font('Helvetica-Oblique').fontSize(8.3);
+      const wordsH = words ? doc.heightOfString(words, { width: W - tw - 34 }) + 30 : 0;
+      y = this.ensure(doc, y + 10, Math.max(totalsH, wordsH));
+      const top = y;
+      if (words) {
+        const ww = rows.length ? W - tw - 18 : W;
+        doc.roundedRect(L, top, ww, wordsH - 4, 6).fill(tint);
+        doc.font('Helvetica-Bold').fontSize(6.8).fillColor(accent).text((b.wordsLang === 'id' ? 'Terbilang' : 'Amount in words').toUpperCase(), L + 10, top + 8, { width: ww - 20, characterSpacing: 0.7 });
+        doc.font('Helvetica-Oblique').fontSize(8.3).fillColor(ink).text(words, L + 10, doc.y + 3, { width: ww - 20 });
+      }
+      let ty = top;
+      for (const t of rows) {
+        if (t.bold) {
+          ty += 4;
+          doc.roundedRect(tx, ty, tw, 22, 5).fill(accent);
+          doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#ffffff');
+          doc.text(t.label, tx + 10, ty + 6.5, { width: tw * 0.45, lineBreak: false });
+          doc.text(t.value, tx + tw * 0.35, ty + 6.5, { width: tw * 0.65 - 10, align: 'right', lineBreak: false });
+          ty += 22;
+        } else {
+          doc.font('Helvetica').fontSize(8.6).fillColor(GREY).text(t.label, tx + 10, ty + 3, { width: tw * 0.5, lineBreak: false });
+          doc.font('Helvetica-Bold').fontSize(8.6).fillColor(ink).text(t.value, tx + tw * 0.35, ty + 3, { width: tw * 0.65 - 10, align: 'right', lineBreak: false });
+          ty += 16;
+          doc.moveTo(tx + 10, ty).lineTo(tx + tw - 10, ty).lineWidth(0.4).strokeColor(LINE).stroke();
+        }
+      }
+      y = Math.max(ty, top + wordsH) + 6;
+    }
+
+    // ---------- Payment information / notes / terms
     for (const [label, text] of [
       ['Payment Information', d.paymentInfo],
       ['Notes', d.notes],
       ['Terms & Conditions', d.terms],
     ] as const) {
       if (!text) continue;
-      y = this.ensure(doc, y + 6, 40);
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(GREY).text(label.toUpperCase(), L, y, { width: W });
-      doc.font('Helvetica').fontSize(8.5).fillColor('#374151').text(text, L, doc.y + 2, { width: W });
-      y = doc.y + 4;
+      doc.font('Helvetica').fontSize(8.3);
+      const h = doc.heightOfString(text, { width: W - 14 }) + 18;
+      y = this.ensure(doc, y + 10, Math.min(h, 120));
+      const start = y;
+      doc.font('Helvetica-Bold').fontSize(6.8).fillColor(accent).text(label.toUpperCase(), L + 12, y, { width: W - 14, characterSpacing: 0.7 });
+      doc.font('Helvetica').fontSize(8.3).fillColor(body).text(text, L + 12, doc.y + 3, { width: W - 14 });
+      y = doc.y;
+      doc.rect(L, start - 1, 2.2, Math.max(12, y - start + 1)).fill(soft);
     }
 
-    // ---------- Signatures
+    // ---------- Signatures (fixed-width boxes, right aligned)
     if (b.showSignatures && d.signatures?.length) {
-      y = this.ensure(doc, y + 20, 80);
-      // fixed-width signature boxes, right aligned -> identical look for 1, 2 or 3 signatures
-      const sw = Math.min(W / d.signatures.length, W / 3);
+      y = this.ensure(doc, y + 24, 92);
+      const sw = Math.min(W / d.signatures.length, W / 3.2);
       const startX = L + W - sw * d.signatures.length;
       d.signatures.forEach((s, i) => {
-        const x = startX + i * sw;
-        doc.font('Helvetica').fontSize(8.5).fillColor(GREY).text(s, x, y, { width: sw - 20, align: 'center' });
-        doc.moveTo(x + 15, y + 60).lineTo(x + sw - 35, y + 60).lineWidth(0.5).strokeColor('#9ca3af').stroke();
+        const x = startX + i * sw + 8;
+        const w = sw - 16;
+        doc.font('Helvetica-Bold').fontSize(7).fillColor(GREY).text(s.toUpperCase(), x, y, { width: w, align: 'center', characterSpacing: 0.6 });
+        // the company's own box: approval / authorisation, or "received by" on a receipt for a customer payment
+        const companyBox = /authori|approv/i.test(s) || (d.verify?.k === 'PAY_IN' && /received/i.test(s));
+        const signHere = !!b.signer && companyBox && !/draft|cancel/i.test(d.status ?? '');
+        if (d.stampDuty && companyBox) {
+          const mw = 54;
+          const mx = x + 8;
+          doc.save().dash(2, { space: 2 }).roundedRect(mx, y + 14, mw, 40, 3).lineWidth(0.6).strokeColor('#94a3b8').stroke().undash().restore();
+          doc.font('Helvetica').fontSize(6).fillColor('#94a3b8').text('Meterai\nRp10.000', mx, y + 26, { width: mw, align: 'center' });
+        }
+        if (signHere) {
+          try {
+            doc.image(b.signer!.image, x + 6, y + 12, { fit: [w - 12, 48], align: 'center', valign: 'bottom' });
+          } catch {
+            /* unreadable image: leave the box empty */
+          }
+        }
+        doc.moveTo(x + 6, y + 62).lineTo(x + w - 6, y + 62).lineWidth(0.6).strokeColor('#94a3b8').stroke();
+        if (signHere) {
+          doc.font('Helvetica-Bold').fontSize(7.4).fillColor('#0f172a').text(b.signer!.name, x, y + 65, { width: w, align: 'center' });
+          if (b.signer!.title) doc.font('Helvetica').fontSize(6.8).fillColor('#64748b').text(b.signer!.title, x, doc.y + 0.5, { width: w, align: 'center' });
+        } else doc.font('Helvetica').fontSize(6.8).fillColor('#94a3b8').text('Name & date', x, y + 66, { width: w, align: 'center' });
       });
+      y += 82;
     }
 
-    // ---------- Footer on every page
+    // ---------- Digital signature: QR + how to verify (only once the system has a public address)
+    if (verifyUrl && !/^(localhost|127\.|0\.0\.0\.0|\[::1\]|192\.168\.|10\.)/.test(publicUrl.replace(/^https?:\/\//, ''))) {
+      const qr = await QRCode.toBuffer(verifyUrl, { margin: 0, width: 180, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
+      const QR = 42;
+      const boxH = QR + 12;
+      y = this.ensure(doc, y + 10, boxH);
+      doc.roundedRect(L, y, W, boxH, 6).lineWidth(0.6).strokeColor(LINE).stroke();
+      doc.image(qr, L + 6, y + 6, { width: QR, height: QR });
+      const host = publicUrl.replace(/^https?:\/\//, '');
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(ink).text('Digitally signed document', L + QR + 18, y + 11, { width: W - QR - 30 });
+      doc.font('Helvetica').fontSize(7.6).fillColor(GREY).text(`Issued by ${b.name}.${/^(localhost|127\.|0\.0\.0\.0|\[::1\]|192\.168\.|10\.)/.test(host) ? '' : ` Scan the code (or open ${host}/verify) to check that this document is authentic and has not been changed.`}`, L + QR + 18, doc.y + 3, { width: W - QR - 30 });
+      y += boxH;
+    }
+
+    // ---------- Accent bar + footer on every page
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
-      const fy = doc.page.height - 35;
-      doc.moveTo(L, fy - 5).lineTo(L + W, fy - 5).lineWidth(0.5).strokeColor(LINE).stroke();
+      doc.rect(0, 0, doc.page.width, 4).fill(accent);
+      if (b.color2) doc.rect(doc.page.width * 0.78, 0, doc.page.width * 0.22, 4).fill(b.color2);
+      const fy = doc.page.height - 38;
+      doc.moveTo(L, fy - 6).lineTo(L + W, fy - 6).lineWidth(0.5).strokeColor(LINE).stroke();
       doc.font('Helvetica').fontSize(7).fillColor(GREY);
-      doc.text(b.footer || b.name, L, fy, { width: W * 0.7, lineBreak: false, height: 10 });
-      doc.text(`Page ${i - range.start + 1} of ${range.count}`, L + W * 0.7, fy, { width: W * 0.3, align: 'right', lineBreak: false, height: 10 });
+      doc.text(b.footer || b.name, L, fy, { width: W * 0.6, lineBreak: false, height: 10, ellipsis: true });
+      doc.text(`${d.number ? `${d.title} ${d.number}  ·  ` : ''}Page ${i - range.start + 1} of ${range.count}`, L + W * 0.6, fy, { width: W * 0.4, align: 'right', lineBreak: false, height: 10 });
     }
     doc.end();
-    return done;
+    const pdf = await done;
+    if (token && d.verify) {
+      // fingerprint of the exact bytes issued: the verify page uses it to detect edited copies
+      await this.prisma.signedFile.create({
+        data: { companyId, tokenHash: tokenHash(token), code, token, sha256: createHash('sha256').update(pdf).digest('hex'), size: pdf.length, docKind: d.verify.k, docNumber: d.verify.n?.slice(0, 60) ?? null },
+      });
+    }
+    return pdf;
+  }
+
+  /** document details: label / value rows on a tinted panel; returns the bottom */
+  private metaPanel(doc: PDFKit.PDFDocument, meta: { label: string; value: string }[], x: number, y: number, w: number, tint: string, ink: string): number {
+    if (!meta.length) return y;
+    const pad = 10;
+    // the label column is as wide as the longest label, the values get the rest
+    doc.font('Helvetica').fontSize(8.3);
+    const labelW = Math.min(w * 0.5, Math.max(...meta.map((m) => doc.widthOfString(m.label))) + 12);
+    const valueW = w - labelW - pad * 2;
+    const rows = meta.map((m) => {
+      doc.font('Helvetica-Bold').fontSize(8.3);
+      return { ...m, h: Math.max(10, doc.heightOfString(m.value, { width: valueW })) };
+    });
+    const gap = 5;
+    const h = rows.reduce((a, r) => a + r.h + gap, 0) - gap + pad * 2 - 2;
+    doc.roundedRect(x, y, w, h, 6).fill(tint);
+    let ry = y + pad;
+    for (const r of rows) {
+      doc.font('Helvetica').fontSize(8.3).fillColor(GREY).text(r.label, x + pad, ry, { width: labelW, lineBreak: false });
+      doc.font('Helvetica-Bold').fontSize(8.3).fillColor(ink).text(r.value, x + pad + labelW, ry, { width: valueW, align: 'right' });
+      ry += r.h + gap;
+    }
+    return y + h;
   }
 
   private ensure(doc: PDFKit.PDFDocument, y: number, needed: number): number {
-    if (y + needed > doc.page.height - doc.page.margins.bottom - 20) {
+    if (y + needed > doc.page.height - doc.page.margins.bottom - 2) {
       doc.addPage();
-      return doc.page.margins.top;
+      return doc.page.margins.top + 6;
     }
     return y;
   }
 
-  private table(doc: PDFKit.PDFDocument, cols: PrintColumn[], rows: Record<string, string>[], y: number, L: number, W: number, color: string): number {
-    const weights = cols.map((c) => c.width ?? 1);
-    const total = weights.reduce((a, b) => a + b, 0);
-    const widths = weights.map((w) => (w / total) * W);
-    const pad = 4;
+  /**
+   * Column widths follow the content: short columns (numbers, dates, codes) get what they need and never wrap,
+   * the rest of the width goes to the text columns by their weight.
+   */
+  private widths(doc: PDFKit.PDFDocument, cols: PrintColumn[], rows: Record<string, string>[], W: number, pad: number): number[] {
+    doc.font('Helvetica').fontSize(8.5);
+    const natural = cols.map((c) => {
+      doc.font('Helvetica-Bold').fontSize(7.3);
+      const head = doc.widthOfString(c.label.toUpperCase(), { characterSpacing: 0.5 });
+      doc.font('Helvetica').fontSize(8.5);
+      const cell = rows.reduce((m, r) => Math.max(m, ...(r[c.key] ?? '').split('\n').map((l) => doc.widthOfString(l))), 0);
+      return Math.ceil(Math.max(head, cell)) + pad * 2 + 1;
+    });
+    // text columns may wrap: everything that is not right / center aligned and has room to share
+    const flexible = cols.map((c, i) => (c.align ?? 'left') === 'left' && natural[i] > 90);
+    const fixed = natural.reduce((a, n, i) => a + (flexible[i] ? 0 : n), 0);
+    const weights = cols.map((c, i) => (flexible[i] ? (c.width ?? 1) : 0));
+    const wsum = weights.reduce((a, b) => a + b, 0);
+    if (!wsum || fixed > W) {
+      // nothing to share, or too many fixed columns: fall back to the weights
+      const all = cols.map((c) => c.width ?? 1);
+      const s = all.reduce((a, b) => a + b, 0);
+      const natTotal = natural.reduce((a, b) => a + b, 0);
+      return natTotal <= W ? natural.map((n) => n + (W - natTotal) * (n / natTotal)) : all.map((w) => (w / s) * W);
+    }
+    const share = W - fixed;
+    return cols.map((c, i) => (flexible[i] ? Math.max(60, (weights[i] / wsum) * share) : natural[i]));
+  }
+
+  private table(
+    doc: PDFKit.PDFDocument,
+    cols: PrintColumn[],
+    rows: Record<string, string>[],
+    y: number,
+    L: number,
+    W: number,
+    s: { accent: string; tint: string; soft: string; ink: string; body: string; footer?: Record<string, string> },
+  ): number {
+    const pad = 6;
+    let widths = this.widths(doc, cols, s.footer ? [...rows, s.footer] : rows, W, pad);
+    const sum = widths.reduce((a, b) => a + b, 0);
+    widths = widths.map((w) => (w * W) / sum); // exact fit
+    const HEAD = 20;
     const header = (yy: number) => {
-      doc.rect(L, yy, W, 18).fill(color);
+      doc.roundedRect(L, yy, W, HEAD, 4).fill(s.tint);
       let x = L;
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#ffffff');
+      doc.font('Helvetica-Bold').fontSize(7.3).fillColor(s.accent);
       cols.forEach((c, i) => {
-        doc.text(c.label, x + pad, yy + 5, { width: widths[i] - pad * 2, align: c.align ?? 'left', lineBreak: false, height: 10 });
+        doc.text(c.label.toUpperCase(), x + pad, yy + 7, { width: widths[i] - pad * 2, align: c.align ?? 'left', lineBreak: false, height: 10, characterSpacing: 0.5 });
         x += widths[i];
       });
-      return yy + 18;
+      return yy + HEAD + 2;
     };
+    y = this.ensure(doc, y, HEAD + 24);
     y = header(y);
-    doc.font('Helvetica').fontSize(8.5);
-    rows.forEach((r, idx) => {
-      const h = Math.max(...cols.map((c, i) => doc.heightOfString(r[c.key] ?? '', { width: widths[i] - pad * 2 }))) + pad * 2;
-      if (y + h > doc.page.height - doc.page.margins.bottom - 20) {
+    const drawRow = (r: Record<string, string>, bold: boolean) => {
+      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5);
+      const h = Math.max(20, Math.max(...cols.map((c, i) => doc.heightOfString(r[c.key] || ' ', { width: widths[i] - pad * 2 }))) + pad * 2);
+      if (y + h > doc.page.height - doc.page.margins.bottom - 10) {
         doc.addPage();
-        y = header(doc.page.margins.top);
-        doc.font('Helvetica').fontSize(8.5);
+        y = header(doc.page.margins.top + 6);
+        doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5);
       }
-      if (idx % 2 === 1) doc.rect(L, y, W, h).fill('#f9fafb');
+      if (bold) {
+        doc.moveTo(L, y).lineTo(L + W, y).lineWidth(1).strokeColor(s.accent).stroke();
+        doc.rect(L, y, W, h).fill(s.tint);
+        doc.font('Helvetica-Bold').fontSize(8.5);
+      }
       let x = L;
-      doc.fillColor('#111827');
       cols.forEach((c, i) => {
-        doc.text(r[c.key] ?? '', x + pad, y + pad, { width: widths[i] - pad * 2, align: c.align ?? 'left' });
+        doc.fillColor(i === 0 || bold ? s.ink : s.body).text(r[c.key] ?? '', x + pad, y + pad, { width: widths[i] - pad * 2, align: c.align ?? 'left' });
         x += widths[i];
       });
       y += h;
-      doc.moveTo(L, y).lineTo(L + W, y).lineWidth(0.5).strokeColor(LINE).stroke();
-    });
+      if (!bold) doc.moveTo(L, y).lineTo(L + W, y).lineWidth(0.5).strokeColor('#eef0f4').stroke();
+    };
+    rows.forEach((r) => drawRow(r, false));
     if (!rows.length) {
-      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor(GREY).text('No data', L, y + 6, { width: W, align: 'center' });
-      y += 22;
+      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor(GREY).text('No data', L, y + 8, { width: W, align: 'center' });
+      y += 26;
     }
+    if (s.footer && rows.length) drawRow(s.footer, true);
     return y;
   }
+
+  /**
+   * Official letter on the company letterhead (Indonesian layout): number / attachment / subject, addressee,
+   * signer and person details, the text, and an electronic signature by the system - a QR code that opens the
+   * public verification page - instead of a hand-drawn signature.
+   */
+  async renderLetter(companyId: string, l: LetterContent): Promise<Buffer> {
+    const b = await this.brand(companyId);
+    const token = l.draft ? '' : await this.signing.sign(companyId, { k: 'LETTER', id: l.id, n: l.number, d: l.date, a: null, cur: null, ...(l.personName ? { p: l.personName.slice(0, 150) } : {}) });
+    const code = l.draft ? 'PRATINJAU' : tokenHash(token).slice(0, 20);
+    const publicUrl = (await this.settings.str('general.publicUrl', companyId, 'http://localhost:3000')).replace(/\/$/, '');
+    const verifyUrl = `${publicUrl}/verify?c=${code}`;
+    const host = publicUrl.replace(/^https?:\/\//, '');
+    // a local address means nobody outside this computer can open the check page: do not print it
+    const publicHost = /^(localhost|127\.|0\.0\.0\.0|\[::1\]|192\.168\.|10\.)/.test(host) ? null : host;
+    const doc = new PDFDocument({
+      size: b.paper,
+      margins: { top: 40, bottom: 50, left: 64, right: 60 },
+      bufferPages: true,
+      info: { Title: `${l.subject} ${l.number}`, Author: b.name, Creator: 'KCS ERP', ...(token ? { Subject: 'Digitally signed (Ed25519)', Keywords: `kcs-signature:${token}` } : { Subject: 'Preview' }) },
+    });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    const done = new Promise<Buffer>((res) => doc.on('end', () => res(Buffer.concat(chunks))));
+    const L = doc.page.margins.left;
+    const W = doc.page.width - L - doc.page.margins.right;
+    const ink = '#111827';
+    const accent = b.color;
+    const size = 10.5;
+    const gap = 4;
+
+    // ---------- letterhead
+    let y = doc.page.margins.top;
+    let textX = L;
+    if (b.logo) {
+      try {
+        doc.image(b.logo, L, y, { fit: [56, 56], align: 'center', valign: 'center' });
+        textX = L + 68;
+      } catch {
+        /* no logo */
+      }
+    }
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(accent).text(b.name.toUpperCase(), textX, y + 2, { width: W - (textX - L) });
+    doc.font('Helvetica').fontSize(8).fillColor(GREY);
+    for (const line of b.lines) doc.text(line, textX, doc.y + 1.5, { width: W - (textX - L) });
+    y = Math.max(doc.y, y + 56) + 8;
+    doc.moveTo(L, y).lineTo(L + W, y).lineWidth(2.2).strokeColor(accent).stroke();
+    if (b.color2) doc.moveTo(L, y + 3).lineTo(L + W, y + 3).lineWidth(0.8).strokeColor(b.color2).stroke();
+    y += 18;
+
+    // ---------- number / attachment / subject
+    const kv = (rows: [string, string, boolean?][], x: number, labelW: number, top: number) => {
+      let yy = top;
+      for (const [k, v, bold] of rows) {
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text(k, x, yy, { width: labelW });
+        doc.text(':', x + labelW, yy, { width: 8 });
+        doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').text(v || '-', x + labelW + 10, yy, { width: W - (x - L) - labelW - 10 });
+        yy = Math.max(doc.y, yy + size + 2) + 2;
+      }
+      return yy;
+    };
+    const dateText = new Date(`${l.date}T00:00:00Z`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+    // formal documents (statements, decrees, contracts...) carry a centred title with the number;
+    // letters addressed to someone carry number / attachment / subject and "Kepada Yth."
+    const titled = TITLED_LETTERS.has(l.type ?? '');
+    if (titled) {
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(ink).text(l.type === 'MEMO' ? 'MEMO INTERNAL' : l.subject.toUpperCase(), L, y, { width: W, align: 'center', underline: true });
+      doc.font('Helvetica').fontSize(size).text(`Nomor: ${l.number}`, L, doc.y + 4, { width: W, align: 'center' });
+      y = doc.y + 18;
+      if (l.type === 'MEMO') {
+        const to = (l.recipient ?? '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean).join(', ');
+        y = kv([['Kepada', to || 'Seluruh karyawan'], ['Dari', `${l.signerTitle}, ${b.name}`], ['Tanggal', dateText], ['Perihal', l.subject, true]], L, 62, y);
+        doc.moveTo(L, y + 2).lineTo(L + W, y + 2).lineWidth(0.6).strokeColor(LINE).stroke();
+        y += 14;
+      }
+    } else {
+      y = kv([['Nomor', l.number], ['Lampiran', '-'], ['Perihal', l.subject, true]], L, 62, y) + 10;
+      if (l.recipient?.trim()) {
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text('Kepada Yth.', L, y);
+        const lines = l.recipient.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+        lines.forEach((line, i) => doc.font(i === 0 ? 'Helvetica-Bold' : 'Helvetica').text(line, L, doc.y + 1, { width: W }));
+        y = doc.y + 12;
+      }
+    }
+    if (l.layout !== 'PLAIN') {
+      if (!titled) {
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text('Dengan hormat,', L, y);
+        y = doc.y + 8;
+      }
+      doc.font('Helvetica').fontSize(size).fillColor(ink).text('Yang bertanda tangan di bawah ini:', L, y);
+      y = kv([['Nama', l.signerName, true], ['Jabatan', l.signerTitle], ['Perusahaan', b.name]], L + 8, 110, doc.y + gap) + 6;
+      if (l.type === 'POWER_OF_ATTORNEY') {
+        doc.font('Helvetica').fontSize(size).text('selanjutnya disebut Pemberi Kuasa,', L, y);
+        y = doc.y + 4;
+      }
+      if (l.personName) {
+        const INTRO: Record<string, string> = {
+          RECOMMENDATION: 'dengan ini menerangkan dan memberikan rekomendasi kepada:',
+          ASSIGNMENT: 'dengan ini memberikan tugas kepada:',
+          POWER_OF_ATTORNEY: 'dengan ini memberikan kuasa kepada:',
+          APPOINTMENT: 'dengan ini menetapkan, atas nama:',
+          WARNING: 'dengan ini memberikan Surat Peringatan kepada:',
+          LEAVE_PERMIT: 'dengan ini memberikan izin cuti kepada:',
+          RESIGNATION: 'dengan ini menerangkan bahwa karyawan berikut:',
+        };
+        doc.font('Helvetica').fontSize(size).text(INTRO[l.type ?? ''] ?? 'dengan ini menerangkan bahwa:', L, y);
+        const person: [string, string, boolean?][] = [['Nama', l.personName, true]];
+        if (l.personIdNumber) person.push(['NIK', l.personIdNumber]);
+        if (l.personAddress) person.push(['Alamat', l.personAddress.replace(/\s*\r?\n\s*/g, ', ')]);
+        if (l.personPosition) person.push(['Jabatan', l.personPosition]);
+        y = kv(person, L + 8, 110, doc.y + gap) + 8;
+      }
+    }
+
+    // ---------- text: "# " starts a heading (e.g. Pasal 1), lines starting with "- " or "1." form a list
+    for (const block of l.body.split(/\r?\n\s*\r?\n/).map((s) => s.trim()).filter(Boolean)) {
+      y = this.ensure(doc, y, 40);
+      const lines = block.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      if (lines[0].startsWith('# ')) {
+        doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(lines[0].slice(2), L, y, { width: W, align: lines[0].length < 90 ? 'center' : 'left' });
+        y = doc.y + 4;
+        lines.shift();
+        if (!lines.length) continue;
+      }
+      // a block may mix sentences and list items ("dibayar bertahap:" followed by 1. 2. 3.)
+      let text: string[] = [];
+      const flush = () => {
+        if (!text.length) return;
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text(text.join(' '), L, y, { width: W, align: 'justify', lineGap: 1.5 });
+        y = doc.y + 4;
+        text = [];
+      };
+      let listed = false;
+      for (const line of lines) {
+        const m = /^(-|\d+[.)]|[a-z][.)])\s+(.*)$/.exec(line);
+        if (!m) {
+          if (listed) y += 2;
+          listed = false;
+          text.push(line);
+          continue;
+        }
+        flush();
+        listed = true;
+        y = this.ensure(doc, y, 16);
+        const bullet = m[1] === '-' ? '•' : m[1];
+        doc.font('Helvetica').fontSize(size).fillColor(ink).text(bullet, L + 6, y, { width: 18 });
+        doc.text(m[2], L + 24, y, { width: W - 24, align: 'justify', lineGap: 1.5 });
+        y = doc.y + 3;
+      }
+      flush();
+      y += 4;
+    }
+
+    // ---------- signature: place & date, company, the signer's signature (QR once the system is public)
+    const parties = TWO_PARTY_LETTERS[l.type ?? ''] && l.personName ? TWO_PARTY_LETTERS[l.type ?? ''] : null;
+    const blockH = 160;
+    if (y + blockH > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      y = doc.page.margins.top;
+    }
+    // the company's block sits against the right margin; the other party (if any) mirrors it on the left
+    const sw = Math.min(W * 0.36, 175);
+    const sx = L + W - sw;
+    const center = { width: sw, align: 'center' as const };
+    doc.font('Helvetica').fontSize(size).fillColor(ink).text(`${l.place}, ${dateText}`, sx, y + 4, center);
+    let top = doc.y + 6;
+    if (parties) {
+      doc.font('Helvetica').fontSize(size).fillColor(ink).text(parties.other, L, top, center);
+      doc.text(parties.company, sx, top, center);
+      top = doc.y + 1;
+    } else if (!titled) {
+      doc.font('Helvetica').fontSize(size).fillColor(ink).text('Hormat kami,', sx, doc.y + 1, center);
+      top = doc.y + 1;
+    }
+    doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(b.name, sx, top, center);
+    if (parties) doc.font('Helvetica').fontSize(size).text(' ', L, top, center);
+    const qy = doc.y + 6;
+    const qr = await QRCode.toBuffer(verifyUrl, { margin: 0, width: 240, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
+    // the signer's own signature (My Profile) when they are the configured document signer
+    const sig = b.signer && b.signer.name.trim().toLowerCase() === l.signerName.trim().toLowerCase() ? b.signer.image : null;
+    const QR = 50;
+    if (sig) {
+      try {
+        doc.image(sig, publicHost ? sx : sx, qy, { fit: [publicHost ? sw - QR - 10 : sw, 64], align: 'center', valign: 'bottom' });
+      } catch {
+        /* unreadable image */
+      }
+    }
+    if (publicHost) {
+      doc.image(qr, sx + sw - QR, qy + 8, { width: QR, height: QR });
+      doc.font('Helvetica').fontSize(5.6).fillColor(GREY).text('Tanda tangan elektronik', sx + sw - QR - 8, qy + QR + 10, { width: QR + 16, align: 'center' });
+    }
+    // contracts and powers of attorney: stamp duty (meterai) on the other party's side
+    if (parties?.stamp) {
+      const mw = 62;
+      const mx = L + (sw - mw) / 2;
+      doc.save().dash(2, { space: 2 }).roundedRect(mx, qy + 8, mw, 46, 3).lineWidth(0.6).strokeColor('#94a3b8').stroke().undash().restore();
+      doc.font('Helvetica').fontSize(6.5).fillColor('#94a3b8').text('Meterai\nRp10.000', mx, qy + 22, { width: mw, align: 'center' });
+    }
+    if (!parties && STAMPED_LETTERS.has(l.type ?? '')) {
+      const mw = 58;
+      doc.save().dash(2, { space: 2 }).roundedRect(sx - mw + 18, qy + 10, mw, 42, 3).lineWidth(0.6).strokeColor('#94a3b8').stroke().undash().restore();
+      doc.font('Helvetica').fontSize(6.3).fillColor('#94a3b8').text('Meterai\nRp10.000', sx - mw + 18, qy + 23, { width: mw, align: 'center' });
+    }
+    const ny = qy + 70;
+    if (parties) {
+      doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(l.personName!, L, ny, { ...center, underline: true });
+      if (l.personPosition) doc.font('Helvetica').text(l.personPosition, L, doc.y + 1, center);
+    }
+    doc.font('Helvetica-Bold').fontSize(size).fillColor(ink).text(l.signerName, sx, ny, { ...center, underline: true });
+    doc.font('Helvetica').text(l.signerTitle, sx, doc.y + 1, center);
+
+    // ---------- footer on every page
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      doc.rect(0, 0, doc.page.width, 4).fill(accent);
+      if (b.color2) doc.rect(doc.page.width * 0.78, 0, doc.page.width * 0.22, 4).fill(b.color2);
+      const fy = doc.page.height - 36;
+      doc.moveTo(L, fy - 6).lineTo(L + W, fy - 6).lineWidth(0.5).strokeColor(LINE).stroke();
+      doc.font('Helvetica').fontSize(6.8).fillColor(GREY);
+      if (l.draft) {
+        // preview: big diagonal mark so it is never mistaken for an issued document
+        doc.save().rotate(-35, { origin: [doc.page.width / 2, doc.page.height / 2] });
+        doc.font('Helvetica-Bold').fontSize(86).fillColor('#e2e8f0').fillOpacity(0.55).text('PRATINJAU', 0, doc.page.height / 2 - 50, { width: doc.page.width, align: 'center', lineBreak: false });
+        doc.restore().fillOpacity(1);
+        doc.font('Helvetica').fontSize(6.8).fillColor(GREY);
+      }
+      const pageNo = range.count > 1 ? `  ·  Halaman ${i - range.start + 1} dari ${range.count}` : '';
+      doc.text(`Dokumen ini ditandatangani secara elektronik oleh sistem ${b.name}${publicHost ? `. Verifikasi keaslian: ${publicHost}/verify` : ''}  ·  ${l.number}${pageNo}`, L, fy, { width: W, lineBreak: false, height: 10, ellipsis: true });
+    }
+    doc.end();
+    const pdf = await done;
+    // fingerprint of the exact bytes issued: the verify page detects edited copies (never for a preview)
+    if (!l.draft)
+      await this.prisma.signedFile.create({
+        data: { companyId, tokenHash: tokenHash(token), code, token, sha256: createHash('sha256').update(pdf).digest('hex'), size: pdf.length, docKind: 'LETTER', docNumber: l.number.slice(0, 60) },
+      });
+    return pdf;
+  }
+}
+
+/** hex color mixed with another (t = share of the second one) */
+function mix(a: string, b: string, t: number): string {
+  const p = (h: string) => {
+    const s = h.replace('#', '');
+    const full = s.length === 3 ? s.split('').map((c) => c + c).join('') : s.padEnd(6, '0');
+    return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) || 0);
+  };
+  const [x, y] = [p(/^#?[0-9a-f]{3,6}$/i.test(a) ? a : '#1e40af'), p(b)];
+  return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+
+function statusStyle(status?: string): { bg: string; fg: string } | null {
+  if (!status) return null;
+  if (/cancel|void|reject/i.test(status)) return { bg: '#fee2e2', fg: '#b91c1c' };
+  if (/draft/i.test(status)) return { bg: '#f1f5f9', fg: '#475569' };
+  if (/paid|complete|approved|posted/i.test(status)) return { bg: '#dcfce7', fg: '#15803d' };
+  return { bg: '#e0e7ff', fg: '#3730a3' };
 }

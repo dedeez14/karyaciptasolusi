@@ -7,6 +7,9 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { env } from '../../config/env';
 import { FilesService } from './files.service';
 import { FileOutputService } from './file-output.service';
+import { WatermarkService } from '../security/watermark.service';
+import { SettingsService } from '../../common/settings/settings.service';
+import { RequestCtx } from '../../common/context/request-context';
 
 const uuidOrNull = z.preprocess((v) => (v === '' || v === 'root' ? null : v), z.uuid().nullable().optional());
 const folderSchema = z.object({
@@ -48,7 +51,7 @@ const listSchema = z.object({
 
 @Controller('files')
 export class FilesController {
-  constructor(private readonly files: FilesService, private readonly output: FileOutputService) {}
+  constructor(private readonly files: FilesService, private readonly output: FileOutputService, private readonly watermark: WatermarkService, private readonly settings: SettingsService) {}
 
   @Get('folders')
   folders() {
@@ -127,8 +130,13 @@ export class FilesController {
     const { file, data } = await this.files.content(id);
     // only safe passive types may be shown inline (never HTML/SVG)
     const canInline = inline === '1' && (file.mimeType.startsWith('image/') || file.mimeType === 'application/pdf' || file.mimeType === 'text/plain');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
-    this.output.send(res, data, file.name, file.mimeType, canInline);
+    if (!canInline) res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    let out = data;
+    if (!canInline && file.mimeType === 'image/png' && (await this.settings.bool('files.watermarkImages', file.companyId, true))) {
+      const u = RequestCtx.user();
+      out = this.watermark.embed(data, { u: u.id, n: u.username, f: file.id, t: new Date().toISOString() }) ?? data;
+    }
+    this.output.send(res, out, file.name, file.mimeType, canInline);
   }
 
   @Patch(':id')

@@ -1,4 +1,5 @@
-import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { Permission } from '../../common/decorators';
@@ -10,6 +11,10 @@ import { SettingsService } from '../../common/settings/settings.service';
 import { RequestCtx } from '../../common/context/request-context';
 import { paged } from '../../common/utils/query';
 import { MenuService } from './menu.service';
+import { MailService } from '../integrations/mail.service';
+import { FilesService } from '../files/files.service';
+import { StorageService } from '../files/storage.service';
+import { sniffMime } from '../files/mime';
 
 // ============================================================================ Roles & permissions
 const roleSchema = z.object({
@@ -50,6 +55,13 @@ export class RolesController {
     return { ...role, permissions: role.permissions.map((p) => p.permission.code) };
   }
 
+  /** a non super-admin cannot create or widen a role beyond their own data scope */
+  private assertScope(scope?: string) {
+    const u = RequestCtx.user();
+    const rank: Record<string, number> = { OWN: 0, BRANCH: 1, COMPANY: 2, ALL: 3 };
+    if (scope && !u.isSuperAdmin && rank[scope] > rank[u.dataScope]) throw new BadRequestException(`You cannot give a role a wider data scope (${scope}) than your own (${u.dataScope})`);
+  }
+
   private async permissionIds(codes: string[]) {
     const perms = await this.prisma.permission.findMany({ where: { code: { in: codes } }, select: { id: true, code: true } });
     // a non super-admin can never grant permissions they do not hold themselves (privilege escalation)
@@ -64,6 +76,7 @@ export class RolesController {
   @Post()
   @Permission('system.role.create')
   async create(@Body(new ZodPipe(roleSchema)) body: z.infer<typeof roleSchema>) {
+    this.assertScope(body.dataScope);
     const ids = await this.permissionIds(body.permissions);
     const { permissions, ...data } = body;
     const role = await this.prisma.role.create({ data: { ...data, companyId: RequestCtx.companyId(), createdById: RequestCtx.user().id, permissions: { create: ids.map((permissionId) => ({ permissionId })) } } });
@@ -76,6 +89,7 @@ export class RolesController {
   async update(@Param('id') id: string, @Body(new ZodPipe(roleSchema.partial())) body: Partial<z.infer<typeof roleSchema>>) {
     const before = await this.get(id);
     if (before.isSystem && !RequestCtx.user().isSuperAdmin) throw new ConflictException('System roles can only be changed by a super administrator');
+    this.assertScope(body.dataScope);
     const { permissions, ...data } = body;
     const role = await this.prisma.$transaction(async (tx) => {
       if (permissions) {
@@ -168,9 +182,91 @@ export class MenusController {
 }
 
 // ============================================================================ Settings
+/** settings that decide which program the server runs (lead finder scraper) */
+const SUPER_ADMIN_ONLY_SETTINGS = new Set(['marketing.scraperPath']);
+
 @Controller('system/settings')
 export class SettingsController {
-  constructor(private readonly settings: SettingsService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly settings: SettingsService,
+    private readonly audit: AuditService,
+    private readonly mail: MailService,
+    private readonly prisma: PrismaService,
+    private readonly files: FilesService,
+    private readonly storage: StorageService,
+  ) {}
+
+  // ------------------------------------------------------------------ company logo (letterhead of every PDF)
+
+  /** The current logo as a data URL (small image), so the settings page can show it without a file link */
+  @Get('company-logo')
+  @Permission('system.setting.read')
+  async companyLogo() {
+    const companyId = RequestCtx.companyId();
+    const c = await this.prisma.company.findUnique({ where: { id: companyId }, select: { logoFileId: true } });
+    if (!c?.logoFileId) return { logo: null };
+    const f = await this.prisma.storedFile.findFirst({ where: { id: c.logoFileId, companyId, deletedAt: null } });
+    if (!f || !['image/png', 'image/jpeg'].includes(f.mimeType)) return { logo: null };
+    const data = await this.storage.get(f.storageKey, f.isEncrypted).catch(() => null);
+    if (!data) return { logo: null };
+    return { logo: { fileId: f.id, name: f.originalName, size: f.size, dataUrl: `data:${f.mimeType};base64,${data.toString('base64')}` } };
+  }
+
+  /** PNG or JPG only: the PDF engine cannot draw SVG or WebP */
+  @Post('company-logo')
+  @Permission('system.setting.update')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024, files: 1 } }))
+  async uploadCompanyLogo(@UploadedFile() file: Express.Multer.File | undefined) {
+    if (!file?.buffer?.length) throw new BadRequestException('Choose an image file');
+    const ext = (file.originalname.split('.').pop() ?? '').toLowerCase();
+    const type = sniffMime(file.buffer, ext);
+    if (type !== 'image/png' && type !== 'image/jpeg') throw new BadRequestException('Use a PNG or JPG image. Documents cannot show SVG, WebP or other formats.');
+    const companyId = RequestCtx.companyId();
+    const before = await this.prisma.company.findUnique({ where: { id: companyId }, select: { logoFileId: true } });
+    const stored = await this.files.store({ buffer: file.buffer, originalName: file.originalname || `logo.${type === 'image/png' ? 'png' : 'jpg'}`, mimeType: type, categoryCode: 'MARKETING', description: 'Company logo, used on documents', source: 'UPLOAD' });
+    await this.prisma.company.update({ where: { id: companyId }, data: { logoFileId: stored.id } });
+    await this.audit.record('Company', companyId, 'UPDATE', { logoFileId: before?.logoFileId ?? null }, { logoFileId: stored.id });
+    return this.companyLogo();
+  }
+
+  /** Documents fall back to the company initials */
+  @Delete('company-logo')
+  @Permission('system.setting.update')
+  async removeCompanyLogo() {
+    const companyId = RequestCtx.companyId();
+    const before = await this.prisma.company.findUnique({ where: { id: companyId }, select: { logoFileId: true } });
+    if (before?.logoFileId) {
+      await this.prisma.company.update({ where: { id: companyId }, data: { logoFileId: null } });
+      await this.audit.record('Company', companyId, 'UPDATE', { logoFileId: before.logoFileId }, { logoFileId: null });
+    }
+    return { logo: null };
+  }
+
+  /** Sends a short test message with the saved SMTP settings, so an administrator can check them */
+  @Post('test-mail')
+  @Permission('system.setting.update')
+  async testMail(@Body(new ZodPipe(z.object({ to: z.email().max(150) }))) body: { to: string }) {
+    const u = RequestCtx.user();
+    const company = await this.prisma.company.findUnique({ where: { id: u.companyId }, select: { name: true, legalName: true } });
+    const name = company?.legalName || company?.name || 'KCS ERP';
+    const host = await this.settings.str('mail.host', u.companyId);
+    const at = new Date().toLocaleString('en-GB', { timeZone: await this.settings.str('general.timezone', u.companyId, 'Asia/Jakarta') });
+    try {
+      await this.mail.send({
+        to: body.to,
+        subject: `Test e-mail from ${name}`,
+        text: `This is a test e-mail from KCS ERP (${name}).\n\nIf you can read this, the SMTP settings work.\nServer: ${host}\nSent: ${at}\nSent by: ${u.fullName}`,
+        html: `<p>This is a test e-mail from <b>KCS ERP</b> (${name.replace(/[<>&]/g, '')}).</p><p>If you can read this, the SMTP settings work.</p><p style="color:#64748b;font-size:12px">Server: ${host.replace(/[<>&]/g, '')} &middot; Sent: ${at} &middot; Sent by: ${u.fullName.replace(/[<>&]/g, '')}</p>`,
+      });
+    } catch (e: any) {
+      // SMTP errors carry useful hints (wrong password, blocked port, ...) - pass the server's message on, without secrets
+      const msg = String(e?.response || e?.message || e).replace(/\s+/g, ' ').slice(0, 300);
+      await this.audit.record('Setting', null, 'TEST_MAIL_FAILED', undefined, { to: body.to, error: msg });
+      throw new BadRequestException(`The test e-mail could not be sent: ${msg}`);
+    }
+    await this.audit.record('Setting', null, 'TEST_MAIL', undefined, { to: body.to });
+    return { sent: true, to: body.to };
+  }
 
   @Get()
   @Permission('system.setting.read')
@@ -183,13 +279,17 @@ export class SettingsController {
   async save(@Body(new ZodPipe(z.object({ values: z.array(z.object({ key: z.string().max(100), value: z.string().max(10000).nullable(), scope: z.enum(['company', 'global']).default('company') })).max(200) }))) body: { values: { key: string; value: string | null; scope: 'company' | 'global' }[] }) {
     const u = RequestCtx.user();
     for (const v of body.values) {
+      if (v.key.startsWith('security.') && v.key.endsWith('Key')) throw new BadRequestException('Cryptographic keys cannot be changed here');
       if (v.scope === 'global' && !u.isSuperAdmin) throw new BadRequestException('Only a super administrator can change global settings');
+      // settings that make the server start a program: never in the hands of a company administrator
+      if (SUPER_ADMIN_ONLY_SETTINGS.has(v.key) && !u.isSuperAdmin) throw new ForbiddenException(`Only a super administrator can change "${v.key}"`);
       await this.settings.set(v.key, v.value, v.scope === 'global' ? null : u.companyId, u.id);
     }
     await this.audit.record('Setting', null, 'UPDATE', undefined, { keys: body.values.map((v) => v.key) });
     return this.settings.list(u.companyId);
   }
 }
+
 
 // ============================================================================ Audit, activity & sessions
 const logQuery = z.object({
@@ -205,7 +305,7 @@ const logQuery = z.object({
 
 @Controller('system')
 export class LogsController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly access: AccessService) {}
 
   private range(q: z.infer<typeof logQuery>) {
     return q.from || q.to ? { createdAt: { ...(q.from ? { gte: new Date(q.from) } : {}), ...(q.to ? { lte: new Date(q.to + 'T23:59:59.999Z') } : {}) } } : {};
@@ -221,6 +321,15 @@ export class LogsController {
     if (q.search) where.OR = [{ entityId: q.search }, { username: { contains: q.search, mode: 'insensitive' } }, { entity: { contains: q.search, mode: 'insensitive' } }];
     const [rows, total] = await Promise.all([this.prisma.auditLog.findMany({ where, orderBy: { id: 'desc' }, skip: (q.page - 1) * q.pageSize, take: q.pageSize }), this.prisma.auditLog.count({ where })]);
     return paged(rows, total, q);
+  }
+
+  /** Tamper-evidence check of the audit trail hash chain */
+  @Get('audit-logs/verify')
+  @Permission('system.audit.read')
+  async verifyAudit() {
+    const r = await this.audit.verifyChain(RequestCtx.companyId());
+    this.audit.activity('audit.verify', { valid: r.valid, checked: r.checked });
+    return r;
   }
 
   @Get('audit-logs/entities')
@@ -257,9 +366,12 @@ export class LogsController {
   @Post('sessions/:id/revoke')
   @Permission('system.session.revoke')
   async revoke(@Param('id') id: string) {
-    const s = await this.prisma.session.findUnique({ where: { id } });
+    const u = RequestCtx.user();
+    // only sessions of users of the current company (same rule as the list)
+    const s = /^[0-9a-f-]{36}$/i.test(id) ? await this.prisma.session.findFirst({ where: { id, ...(u.isSuperAdmin ? {} : { user: { assignments: { some: { companyId: u.companyId } } } }) } }) : null;
     if (!s) throw new NotFoundException('Session not found');
     await this.prisma.session.updateMany({ where: { familyId: s.familyId, revokedAt: null }, data: { revokedAt: new Date() } });
+    this.access.invalidateSessions();
     await this.audit.record('Session', id, 'REVOKE', undefined, { userId: s.userId });
     return { success: true };
   }

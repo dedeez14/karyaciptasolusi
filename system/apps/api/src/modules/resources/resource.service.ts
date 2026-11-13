@@ -56,6 +56,7 @@ export class ResourceService {
 
   /** Metadata consumed by the frontend to render tables, forms and filters */
   meta(def: ResourceDef) {
+    if (!['read', 'create', 'update'].some((op) => RequestCtx.can(`${def.permission}.${op}`)) && !this.canUseOptions(def)) throw new ForbiddenException(`You do not have access to ${def.label}`);
     const can = (op: string) => RequestCtx.can(`${def.permission}.${op}`) && (op === 'export' || this.ops(def).includes(op as any));
     return {
       key: def.key,
@@ -84,7 +85,44 @@ export class ResourceService {
     const where = this.baseWhere(def);
     const u = RequestCtx.user();
     if (def.key === 'companies' && !u.isSuperAdmin) where.id = { in: (await this.access.companiesFor(u.id)).map((c) => c.id) };
+    // users are global records: show only people who work in the current company (and the super administrators)
+    if (def.key === 'users') where.AND = [...((where.AND as Row[]) ?? []), { OR: [{ assignments: { some: { companyId: u.companyId } } }, { isSuperAdmin: true }] }];
     return where;
+  }
+
+  /**
+   * Who may load the id/label list of a resource for a dropdown, besides holders of its read permission.
+   * 'company': every member of the company (reference data picked in many forms).
+   * prefixes: holders of any permission of the modules whose forms use the list.
+   * Not listed: holders of create/update on a resource that links to it.
+   */
+  private static readonly OPTIONS_ACCESS: Record<string, 'company' | string[]> = {
+    branches: 'company', departments: 'company', positions: 'company', uoms: 'company', currencies: 'company', countries: 'company', banks: 'company',
+    'payment-terms': 'company', 'payment-methods': 'company', taxes: 'company', 'cost-centers': 'company', warehouses: 'company', products: 'company',
+    'product-categories': 'company', brands: 'company', 'customer-groups': 'company', 'supplier-groups': 'company', campaigns: 'company', projects: 'company',
+    users: 'company', 'task-stages': 'company', 'leave-types': 'company', holidays: 'company', 'pipeline-stages': 'company', companies: 'company',
+    accounts: ['accounting.', 'hris.expense', 'hris.payroll', 'sales.payment', 'purchase.payment'],
+    'work-centers': ['manufacturing.', 'maintenance.'],
+    equipment: ['maintenance.', 'manufacturing.'],
+    'waste-types': ['compliance.'],
+    'farm-sites': ['farm.', 'plantation.'],
+    'farm-units': ['farm.'],
+    'plantation-divisions': ['plantation.'],
+    'plantation-activities': ['plantation.'],
+    'pos-outlets': 'company', 'pos-tables': 'company', 'price-lists': 'company',
+    'bank-accounts': ['accounting.', 'pos.', 'sales.payment', 'purchase.payment', 'hris.expense.pay', 'hris.payroll.pay', 'hris.payroll.create'],
+    customers: ['sales.', 'pos.', 'crm.', 'support.ticket', 'task.', 'master.project', 'report.', 'farm.harvest', 'plantation.dispatch'],
+    suppliers: ['purchase.', 'accounting.asset', 'accounting.cash', 'report.', 'manufacturing.', 'compliance.', 'farm.'],
+    employees: ['hris.', 'accounting.asset', 'task.', 'report.employee-directory', 'plantation.'],
+  };
+
+  private canUseOptions(def: ResourceDef) {
+    if (RequestCtx.can(`${def.permission}.read`)) return true;
+    const rule = ResourceService.OPTIONS_ACCESS[def.key];
+    if (rule === 'company') return true;
+    const mine = [...RequestCtx.user().permissions];
+    if (rule && mine.some((p) => rule.some((prefix) => p.startsWith(prefix)))) return true;
+    return RESOURCES.some((r) => r.fields.some((f) => f.relation?.resource === def.key) && (RequestCtx.can(`${r.permission}.create`) || RequestCtx.can(`${r.permission}.update`)));
   }
 
   private filterWhere(def: ResourceDef, filters: Record<string, string>): Row {
@@ -196,11 +234,12 @@ export class ResourceService {
     return def.labelFields.map((k) => row[k]).filter((v) => v !== null && v !== undefined && v !== '').map((v) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v))).join(' - ');
   }
 
-  /** Lightweight id/label list for select inputs (any authenticated user of the company). */
+  /** Lightweight id/label list for select inputs (see OPTIONS_ACCESS for who may load it). */
   async options(key: string, search?: string, ids?: string[]) {
     const def = this.def(key);
+    if (!this.canUseOptions(def)) throw new ForbiddenException(`You do not have access to ${def.label}`);
     const idField = def.idField ?? 'id';
-    const where: Row = { ...this.baseWhere(def), ...(def.optionsWhere ?? {}) };
+    const where: Row = { ...(await this.scopedWhere(def)), ...(def.optionsWhere ?? {}) };
     if (def.scope === 'company') {
       // options are reference data: company isolation always applies, branch/own scope does not
       delete where.OR;
@@ -209,7 +248,9 @@ export class ResourceService {
       where.companyId = RequestCtx.companyId();
     }
     if (ids?.length) {
-      Object.keys(where).forEach((k) => k !== 'companyId' && delete where[k]);
+      // keep the tenant filters (company, the users / companies limits), drop the rest
+      Object.keys(where).forEach((k) => !['companyId', 'AND', ...(def.key === 'companies' ? ['id'] : [])].includes(k) && delete where[k]);
+      if (def.key === 'companies' && where.id) where.AND = [...((where.AND as Row[]) ?? []), { id: where.id }];
       where[idField] = { in: ids.slice(0, 100) };
     } else if (search && def.searchFields.length) where.OR = def.searchFields.map((f) => ({ [f]: { contains: search, mode: 'insensitive' } }));
     const rows: Row[] = await this.prisma.delegate(def.model).findMany({
@@ -279,6 +320,7 @@ export class ResourceService {
     const data: Row = update.parse(body);
     for (const k of Object.keys(data)) if (data[k] === undefined) delete data[k];
     await this.prepare(def, data);
+    await this.hooks.prepareUpdate(def, before, data);
     if (has(def.model, 'updatedById')) data.updatedById = u.id;
     const idField = def.idField ?? 'id';
     const updated = await this.prisma.$transaction(async (tx) => {

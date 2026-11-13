@@ -47,6 +47,7 @@ export function ResourceForm({ meta, id, open, onClose, onSaved }: { meta: Resou
       toast.success(`${meta.singular} ${isEdit ? 'updated' : 'created'}`);
       qc.invalidateQueries({ queryKey: ['resource', meta.key] });
       qc.invalidateQueries({ queryKey: ['options', meta.key] });
+      qc.invalidateQueries({ queryKey: ['insights'] }); // purpose-built views (trees, cards, 360 pages)
       onSaved?.(row);
       onClose();
     },

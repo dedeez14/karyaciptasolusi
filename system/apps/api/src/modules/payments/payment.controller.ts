@@ -26,6 +26,11 @@ export class PaymentController {
     return this.payments.list(direction, q);
   }
 
+  @Get(':direction/withholding-taxes')
+  withholdingTaxes(@Param('direction') direction: string) {
+    return this.payments.withholdingTaxes(direction);
+  }
+
   @Get(':direction/open-invoices/:partnerId')
   open(@Param('direction') direction: string, @Param('partnerId') partnerId: string) {
     return this.payments.openInvoices(direction, partnerId);

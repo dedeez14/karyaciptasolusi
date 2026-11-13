@@ -22,6 +22,7 @@ import { ResourceService } from './modules/resources/resource.service';
 import { ResourceHooks } from './modules/resources/resource.hooks';
 import { DocumentController } from './modules/documents/document.controller';
 import { DocumentService } from './modules/documents/document.service';
+import { LotService } from './modules/documents/lot.service';
 import { InventoryService } from './modules/documents/inventory.service';
 import { PaymentController } from './modules/payments/payment.controller';
 import { PaymentService } from './modules/payments/payment.service';
@@ -31,6 +32,7 @@ import { HrisController } from './modules/hris/hris.controller';
 import { HrisService } from './modules/hris/hris.service';
 import { CrmController } from './modules/crm/crm.controller';
 import { ReportController } from './modules/reports/report.controller';
+import { CoretaxController } from './modules/reports/coretax.controller';
 import { DashboardController } from './modules/dashboard/dashboard.controller';
 import { FilesController } from './modules/files/files.controller';
 import { FilesService } from './modules/files/files.service';
@@ -41,17 +43,97 @@ import { DocumentPrintService } from './modules/print/document-print.service';
 import { MailService } from './modules/integrations/mail.service';
 import { HostingerController } from './modules/integrations/hostinger.controller';
 import { HealthController } from './modules/system/health.controller';
+import { ResourceImportService } from './modules/resources/resource.import';
+import { CashController } from './modules/cash/cash.controller';
+import { CashService } from './modules/cash/cash.service';
+import { NotificationController } from './modules/notifications/notification.controller';
+import { NotificationService } from './modules/notifications/notification.service';
+import { TaskController } from './modules/tasks/task.controller';
+import { TaskService } from './modules/tasks/task.service';
+import { SecurityController } from './modules/security/security.controller';
+import { SigningService } from './modules/security/signing.service';
+import { TransportService } from './modules/security/transport.service';
+import { TransportInterceptor } from './modules/security/transport.interceptor';
+import { WatermarkService } from './modules/security/watermark.service';
+import { ScheduleModule } from '@nestjs/schedule';
+import { BILLING_CONTROLLERS, BILLING_PROVIDERS } from './modules/billing';
+import { ASSETS_CONTROLLERS, ASSETS_PROVIDERS } from './modules/assets';
+import { BUDGET_CONTROLLERS, BUDGET_PROVIDERS } from './modules/budget';
+import { APPROVALS_CONTROLLERS, APPROVALS_PROVIDERS } from './modules/approvals';
+import { EXPENSES_CONTROLLERS, EXPENSES_PROVIDERS } from './modules/expenses';
+import { HELPDESK_CONTROLLERS, HELPDESK_PROVIDERS } from './modules/helpdesk';
+import { PRIVACY_CONTROLLERS, PRIVACY_PROVIDERS } from './modules/privacy';
+import { INVENTORY_CONTROLLERS, INVENTORY_PROVIDERS } from './modules/inventory';
+import { MANUFACTURING_CONTROLLERS, MANUFACTURING_PROVIDERS } from './modules/manufacturing';
+import { POS_CONTROLLERS, POS_PROVIDERS } from './modules/pos';
+import { QUALITY_CONTROLLERS, QUALITY_PROVIDERS } from './modules/quality';
+import { COMPLIANCE_CONTROLLERS, COMPLIANCE_PROVIDERS } from './modules/compliance';
+import { FARM_CONTROLLERS, FARM_PROVIDERS } from './modules/farm';
+import { PLANTATION_CONTROLLERS, PLANTATION_PROVIDERS } from './modules/plantation';
+import { MILL_CONTROLLERS, MILL_PROVIDERS } from './modules/mill';
+import { HERD_CONTROLLERS, HERD_PROVIDERS } from './modules/herd';
+import { COMMODITY_CONTROLLERS, COMMODITY_PROVIDERS } from './modules/commodity';
+import { GARMENT_CONTROLLERS, GARMENT_PROVIDERS } from './modules/garment';
+import { BONDED_CONTROLLERS, BONDED_PROVIDERS } from './modules/bonded';
+import { AUTOMOTIVE_CONTROLLERS, AUTOMOTIVE_PROVIDERS } from './modules/automotive';
+import { CARTON_CONTROLLERS, CARTON_PROVIDERS } from './modules/carton';
+import { PAINT_CONTROLLERS, PAINT_PROVIDERS } from './modules/paint';
+import { DISTRIBUTION_CONTROLLERS, DISTRIBUTION_PROVIDERS } from './modules/distribution';
+import { LANDED_COST_CONTROLLERS, LANDED_COST_PROVIDERS } from './modules/landedcost';
+import { CONSTRUCTION_CONTROLLERS, CONSTRUCTION_PROVIDERS } from './modules/construction';
+import { PROPERTY_CONTROLLERS, PROPERTY_PROVIDERS } from './modules/property';
+import { LOGISTICS_CONTROLLERS, LOGISTICS_PROVIDERS } from './modules/logistics';
+import { COOP_CONTROLLERS, COOP_PROVIDERS } from './modules/coop';
+import { HOTEL_CONTROLLERS, HOTEL_PROVIDERS } from './modules/hotel';
+import { CLINIC_CONTROLLERS, CLINIC_PROVIDERS } from './modules/clinic';
+import { RENTAL_CONTROLLERS, RENTAL_PROVIDERS } from './modules/rental';
+import { SCHOOL_CONTROLLERS, SCHOOL_PROVIDERS } from './modules/school';
+import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
+import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
+import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
+import { CLOSING_CONTROLLERS, CLOSING_PROVIDERS } from './modules/closing';
+import { TIMEBILLING_CONTROLLERS, TIMEBILLING_PROVIDERS } from './modules/timebilling';
+import { LEADFINDER_CONTROLLERS, LEADFINDER_PROVIDERS } from './modules/leadfinder';
+import { WEBSITE_CONTROLLERS, WEBSITE_PROVIDERS } from './modules/website';
+import { AnnouncementController } from './modules/announcements/announcement.controller';
+import { LetterController } from './modules/letters/letter.controller';
+import { SignatureController } from './modules/letters/signature.controller';
+import { MilestoneController } from './modules/projects/milestone.controller';
+import { CashflowController } from './modules/director/cashflow.controller';
+import { ObligationsController } from './modules/director/obligations.controller';
+import { DealProjectController } from './modules/director/deal-project.controller';
+import { EMAILCAMPAIGN_CONTROLLERS, EMAILCAMPAIGN_PROVIDERS } from './modules/emailcampaign';
+import { AttendanceController } from './modules/hris/attendance.controller';
+import { AttendanceService } from './modules/hris/attendance.service';
 
 const webDist = join(__dirname, '..', '..', 'web', 'dist');
 
 @Module({
   imports: [
     CommonModule,
+    ScheduleModule.forRoot(),
     JwtModule.register({ global: true, secret: Buffer.from(env.JWT_ACCESS_SECRET, 'base64').toString('hex'), signOptions: { algorithm: 'HS256', issuer: 'kcs-erp' }, verifyOptions: { algorithms: ['HS256'], issuer: 'kcs-erp' } }),
     // Layer: rate limiting (per IP). Login has a stricter limit on its route.
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 600 }]),
     // Production: the API also serves the built PWA (single port, single process)
-    ...(existsSync(webDist) ? [ServeStaticModule.forRoot({ rootPath: webDist, exclude: ['/api/{*path}'], serveStaticOptions: { index: 'index.html', maxAge: '1h' } })] : []),
+    ...(existsSync(webDist)
+      ? [
+          ServeStaticModule.forRoot({
+            rootPath: webDist,
+            exclude: ['/api/{*path}'],
+            serveStaticOptions: {
+              index: 'index.html',
+              // hashed bundles never change -> cache forever; the HTML shell, service worker and manifest
+              // must always be revalidated so a new build is picked up immediately (no stale/unstyled pages)
+              setHeaders: (res, filePath) => {
+                const f = filePath.split('\\').join('/');
+                if (/\/assets\//.test(f)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+                else res.setHeader('Cache-Control', 'no-cache');
+              },
+            },
+          }),
+        ]
+      : []),
   ],
   controllers: [
     HealthController,
@@ -68,14 +150,69 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     HrisController,
     CrmController,
     ReportController,
+    CoretaxController,
     DashboardController,
     FilesController,
     HostingerController,
+    CashController,
+    NotificationController,
+    TaskController,
+    SecurityController,
+    ...BILLING_CONTROLLERS,
+    ...ASSETS_CONTROLLERS,
+    ...BUDGET_CONTROLLERS,
+    ...APPROVALS_CONTROLLERS,
+    ...PRIVACY_CONTROLLERS,
+    ...INVENTORY_CONTROLLERS,
+    ...MANUFACTURING_CONTROLLERS,
+    ...QUALITY_CONTROLLERS,
+    ...COMPLIANCE_CONTROLLERS,
+    ...FARM_CONTROLLERS,
+    ...PLANTATION_CONTROLLERS,
+    ...MILL_CONTROLLERS,
+    ...HERD_CONTROLLERS,
+    ...COMMODITY_CONTROLLERS,
+    ...GARMENT_CONTROLLERS,
+    ...BONDED_CONTROLLERS,
+    ...AUTOMOTIVE_CONTROLLERS,
+    ...CARTON_CONTROLLERS,
+    ...PAINT_CONTROLLERS,
+    ...DISTRIBUTION_CONTROLLERS,
+    ...LANDED_COST_CONTROLLERS,
+    ...CONSTRUCTION_CONTROLLERS,
+    ...PROPERTY_CONTROLLERS,
+    ...LOGISTICS_CONTROLLERS,
+    ...COOP_CONTROLLERS,
+    ...HOTEL_CONTROLLERS,
+    ...CLINIC_CONTROLLERS,
+    ...RENTAL_CONTROLLERS,
+    ...SCHOOL_CONTROLLERS,
+    ...POS_CONTROLLERS,
+    ...EXPENSES_CONTROLLERS,
+    ...HELPDESK_CONTROLLERS,
+    ...INSIGHTS_CONTROLLERS,
+    ...OPENING_CONTROLLERS,
+    ...BANKREC_CONTROLLERS,
+    ...CLOSING_CONTROLLERS,
+    ...TIMEBILLING_CONTROLLERS,
+    ...LEADFINDER_CONTROLLERS,
+    ...WEBSITE_CONTROLLERS,
+    AnnouncementController,
+    LetterController,
+    SignatureController,
+    MilestoneController,
+    CashflowController,
+    ObligationsController,
+    DealProjectController,
+    ...EMAILCAMPAIGN_CONTROLLERS,
+    AttendanceController,
   ],
   providers: [
+    MilestoneController,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: TransportInterceptor },
     { provide: APP_INTERCEPTOR, useClass: ActivityInterceptor },
     AuthService,
     MenuService,
@@ -83,6 +220,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ResourceService,
     ResourceHooks,
     DocumentService,
+    LotService,
     InventoryService,
     PaymentService,
     JournalService,
@@ -94,6 +232,54 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     PdfService,
     DocumentPrintService,
     MailService,
+    ResourceImportService,
+    CashService,
+    NotificationService,
+    TaskService,
+    SigningService,
+    TransportService,
+    WatermarkService,
+    ...BILLING_PROVIDERS,
+    ...ASSETS_PROVIDERS,
+    ...BUDGET_PROVIDERS,
+    ...APPROVALS_PROVIDERS,
+    ...PRIVACY_PROVIDERS,
+    ...INVENTORY_PROVIDERS,
+    ...MANUFACTURING_PROVIDERS,
+    ...QUALITY_PROVIDERS,
+    ...COMPLIANCE_PROVIDERS,
+    ...FARM_PROVIDERS,
+    ...PLANTATION_PROVIDERS,
+    ...MILL_PROVIDERS,
+    ...HERD_PROVIDERS,
+    ...COMMODITY_PROVIDERS,
+    ...GARMENT_PROVIDERS,
+    ...BONDED_PROVIDERS,
+    ...AUTOMOTIVE_PROVIDERS,
+    ...CARTON_PROVIDERS,
+    ...PAINT_PROVIDERS,
+    ...DISTRIBUTION_PROVIDERS,
+    ...LANDED_COST_PROVIDERS,
+    ...CONSTRUCTION_PROVIDERS,
+    ...PROPERTY_PROVIDERS,
+    ...LOGISTICS_PROVIDERS,
+    ...COOP_PROVIDERS,
+    ...HOTEL_PROVIDERS,
+    ...CLINIC_PROVIDERS,
+    ...RENTAL_PROVIDERS,
+    ...SCHOOL_PROVIDERS,
+    ...POS_PROVIDERS,
+    ...EXPENSES_PROVIDERS,
+    ...HELPDESK_PROVIDERS,
+    ...INSIGHTS_PROVIDERS,
+    ...OPENING_PROVIDERS,
+    ...BANKREC_PROVIDERS,
+    ...CLOSING_PROVIDERS,
+    ...TIMEBILLING_PROVIDERS,
+    ...LEADFINDER_PROVIDERS,
+    ...WEBSITE_PROVIDERS,
+    ...EMAILCAMPAIGN_PROVIDERS,
+    AttendanceService,
   ],
 })
 export class AppModule {}

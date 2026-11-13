@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
-import { fmtDateTime } from '@/lib/format';
+import { fmtDateTime, humanize } from '@/lib/format';
 import { Badge, Card, DataTable, Pagination, PageHeader, type Column } from '@/components/ui';
 import { LogFilters, type LogFilterValue } from './LogFilters';
 
@@ -29,7 +29,7 @@ export default function ActivityPage() {
   const columns: Column<ActivityRow>[] = [
     { key: 'createdAt', header: 'Time', render: (r) => <span className="whitespace-nowrap">{fmtDateTime(r.createdAt)}</span> },
     { key: 'username', header: 'User', render: (r) => r.username ?? <span className="text-slate-400">anonymous</span> },
-    { key: 'action', header: 'Activity', render: (r) => <span className="font-medium">{r.action}</span> },
+    { key: 'action', header: 'Activity', render: (r) => <span className="font-medium">{humanize(r.action)}</span> },
     {
       key: 'path',
       header: 'Request',
