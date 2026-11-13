@@ -122,6 +122,11 @@ const ConsCertificatesPage = lazy(() => consPages().then((m) => ({ default: m.Ce
 const ConsCertificatePage = lazy(() => consPages().then((m) => ({ default: m.CertificatePage })));
 const ConsSubcontractsPage = lazy(() => consPages().then((m) => ({ default: m.SubcontractsPage })));
 const ConsFinalTaxPage = lazy(() => consPages().then((m) => ({ default: m.FinalTaxPage })));
+const propPages = () => import('@/features/property/PropertyPages');
+const PropUnitsPage = lazy(() => propPages().then((m) => ({ default: m.UnitsPage })));
+const PropSalesPage = lazy(() => propPages().then((m) => ({ default: m.SalesPage })));
+const PropSalePage = lazy(() => propPages().then((m) => ({ default: m.SalePage })));
+const PropTaxPage = lazy(() => propPages().then((m) => ({ default: m.PropertyTaxPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -333,6 +338,10 @@ export default function App() {
             <Route path="construction/certificates/:id" element={<ConsCertificatePage />} />
             <Route path="construction/subcontracts" element={<ConsSubcontractsPage />} />
             <Route path="construction/final-tax" element={<ConsFinalTaxPage />} />
+            <Route path="property/units" element={<PropUnitsPage />} />
+            <Route path="property/sales" element={<PropSalesPage />} />
+            <Route path="property/sales/:id" element={<PropSalePage />} />
+            <Route path="property/final-tax" element={<PropTaxPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

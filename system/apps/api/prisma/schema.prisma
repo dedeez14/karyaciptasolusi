@@ -6414,3 +6414,140 @@ model ConstructionTaxSelfPay {
   @@index([companyId, period])
   @@map("construction_tax_self_pay")
 }
+
+// ----------------------------------------------------------------------------
+// Property development: sites and units with prices and costs, unit sales with payment schedules (booking fee, down
+// payment, instalments, KPR) invoiced as buyer deposits, PPJB / AJB / handover, cancellation (Permen PUPR 11/2019),
+// PPh final on land and building transfers (PP 34/2016), PPN DTP on houses (PMK 90/2025)
+// ----------------------------------------------------------------------------
+
+model PropertySite {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  /// costs of land and development are booked to Real Estate Inventory with this project
+  projectId     String   @db.Uuid
+  code          String   @db.VarChar(30)
+  name          String   @db.VarChar(150)
+  /// HOUSE (rumah tapak) | APARTMENT (rusun) | SHOPHOUSE | LAND
+  kind          String   @default("HOUSE") @db.VarChar(10)
+  address       String?  @db.VarChar(300)
+  /// estimated total cost of land and development, spread over the units by relative sales value
+  estimatedCost Decimal  @default(0) @db.Decimal(18, 2)
+  isActive      Boolean  @default(true)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?  @db.Uuid
+
+  units PropertyUnit[]
+
+  @@unique([companyId, code])
+  @@map("property_sites")
+}
+
+model PropertyUnit {
+  id           String   @id @default(uuid()) @db.Uuid
+  siteId       String   @db.Uuid
+  code         String   @db.VarChar(30)
+  unitType     String?  @db.VarChar(60)
+  landArea     Decimal  @default(0) @db.Decimal(12, 2)
+  buildingArea Decimal  @default(0) @db.Decimal(12, 2)
+  /// list price before PPN
+  price        Decimal  @db.Decimal(18, 2)
+  /// STANDARD (PPN 11/12) | DTP (PMK 90/2025) | EXEMPT (simple houses, dibebaskan) | NONE (land only / not PKP)
+  ppnMode      String   @default("STANDARD") @db.VarChar(10)
+  /// PPh final PP 34/2016: 2.5 | 1 (rumah / rusun sederhana) | 0
+  pphRate      Decimal  @default(2.5) @db.Decimal(5, 2)
+  /// ready to occupy (siap huni): needed for the PPN DTP
+  readyToOccupy Boolean @default(false)
+  /// cost of the unit (allocated or entered), charged to cost of sales at the handover
+  cost         Decimal  @default(0) @db.Decimal(18, 2)
+  certificateNo String? @db.VarChar(60)
+  /// AVAILABLE | BOOKED | SOLD
+  status       String   @default("AVAILABLE") @db.VarChar(10)
+  notes        String?
+
+  site PropertySite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, code])
+  @@map("property_units")
+}
+
+model PropertySale {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  number       String    @db.VarChar(40)
+  unitId       String    @db.Uuid
+  customerId   String    @db.Uuid
+  date         DateTime  @db.Date
+  price        Decimal   @db.Decimal(18, 2)
+  /// CASH (tunai keras) | INSTALMENT (cicilan bertahap) | KPR (mortgage)
+  scheme       String    @db.VarChar(10)
+  ppnMode      String    @db.VarChar(10)
+  /// PPN DTP: part of the price whose PPN the government bears (up to Rp2 bn)
+  dtpBase      Decimal   @default(0) @db.Decimal(18, 2)
+  pphRate      Decimal   @db.Decimal(5, 2)
+  kprBank      String?   @db.VarChar(100)
+  ppjbNo       String?   @db.VarChar(60)
+  ppjbDate     DateTime? @db.Date
+  ajbNo        String?   @db.VarChar(60)
+  ajbDate      DateTime? @db.Date
+  notary       String?   @db.VarChar(150)
+  handoverDate DateTime? @db.Date
+  cost         Decimal   @default(0) @db.Decimal(18, 2)
+  /// ACTIVE | HANDED_OVER | CANCELLED
+  status       String    @default("ACTIVE") @db.VarChar(12)
+  /// cancellation: BUYER | DEVELOPER, part kept, refund and its due date (30 days)
+  cancelReason String?   @db.VarChar(10)
+  forfeit      Decimal   @default(0) @db.Decimal(18, 2)
+  refund       Decimal   @default(0) @db.Decimal(18, 2)
+  refundDue    DateTime? @db.Date
+  cancelledAt  DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdById  String?   @db.Uuid
+  updatedById  String?   @db.Uuid
+
+  lines PropertySaleLine[]
+
+  @@unique([companyId, number])
+  @@index([unitId])
+  @@index([companyId, status])
+  @@map("property_sales")
+}
+
+model PropertySaleLine {
+  id        String    @id @default(uuid()) @db.Uuid
+  saleId    String    @db.Uuid
+  seq       Int
+  /// BOOKING | DP | INSTALMENT | KPR | CASH
+  kind      String    @db.VarChar(10)
+  label     String    @db.VarChar(100)
+  dueDate   DateTime  @db.Date
+  /// before PPN
+  amount    Decimal   @db.Decimal(18, 2)
+  invoiceId String?   @db.Uuid
+
+  sale PropertySale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+  @@index([invoiceId])
+  @@map("property_sale_lines")
+}
+
+/// PPh final PHTB we pay for a month of payments received (PP 34/2016: by the 15th of the next month)
+model PropertyTaxPayment {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  period      String   @db.VarChar(7)
+  base        Decimal  @db.Decimal(18, 2)
+  amount      Decimal  @db.Decimal(18, 2)
+  /// POSTED | CANCELLED
+  status      String   @default("POSTED") @db.VarChar(10)
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@index([companyId, period])
+  @@map("property_tax_payments")
+}

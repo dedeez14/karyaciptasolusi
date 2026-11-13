@@ -794,6 +794,8 @@ export class DocumentService {
           if (cert) throw new ConflictException(`Invoice of progress certificate ${cert.number}: cancel the certificate in Construction`);
           const con = await tx.constructionContract.findFirst({ where: { OR: [{ advanceInvoiceId: id }, { retentionInvoiceId: id }], status: { not: 'CANCELLED' } }, select: { contractNo: true, retentionInvoiceId: true } });
           if (con) throw new ConflictException(con.retentionInvoiceId === id ? `Retention invoice of contract ${con.contractNo}: undo the handover in Construction` : `Advance invoice of contract ${con.contractNo}: it is recovered from the certificates`);
+          const ps = await tx.propertySaleLine.findFirst({ where: { invoiceId: id, sale: { status: { not: 'CANCELLED' } } }, select: { sale: { select: { number: true } } } });
+          if (ps) throw new ConflictException(`Invoice of property sale ${ps.sale.number}: cancel the sale in Property (Permen PUPR 11/2019 refund)`);
         }
         if (!opts.skipPermission && def.code === 'PI') {
           const cl = await tx.subcontractClaim.findFirst({ where: { invoiceId: id, status: 'APPROVED' }, select: { number: true } });

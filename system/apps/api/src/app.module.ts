@@ -81,6 +81,7 @@ import { PAINT_CONTROLLERS, PAINT_PROVIDERS } from './modules/paint';
 import { DISTRIBUTION_CONTROLLERS, DISTRIBUTION_PROVIDERS } from './modules/distribution';
 import { LANDED_COST_CONTROLLERS, LANDED_COST_PROVIDERS } from './modules/landedcost';
 import { CONSTRUCTION_CONTROLLERS, CONSTRUCTION_PROVIDERS } from './modules/construction';
+import { PROPERTY_CONTROLLERS, PROPERTY_PROVIDERS } from './modules/property';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
@@ -173,6 +174,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...DISTRIBUTION_CONTROLLERS,
     ...LANDED_COST_CONTROLLERS,
     ...CONSTRUCTION_CONTROLLERS,
+    ...PROPERTY_CONTROLLERS,
     ...POS_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
@@ -247,6 +249,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...DISTRIBUTION_PROVIDERS,
     ...LANDED_COST_PROVIDERS,
     ...CONSTRUCTION_PROVIDERS,
+    ...PROPERTY_PROVIDERS,
     ...POS_PROVIDERS,
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,
