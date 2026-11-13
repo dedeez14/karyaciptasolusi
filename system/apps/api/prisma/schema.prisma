@@ -6551,3 +6551,183 @@ model PropertyTaxPayment {
   @@index([companyId, period])
   @@map("property_tax_payments")
 }
+
+// ----------------------------------------------------------------------------
+// Logistics: fleet and drivers with their documents (KIR PM 19/2021, STNK, SIM), rate cards, shipment jobs and
+// waybills, trips with advances and expense settlement, proof of delivery, invoicing (PPN dibebaskan PP 49/2022 for
+// public road transport, PPN besaran tertentu 1.1% for forwarding PMK 71/2022 jo 11/2025), job costing
+// ----------------------------------------------------------------------------
+
+model FleetVehicle {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  plateNo         String    @db.VarChar(20)
+  /// PICKUP | VAN | CDE | CDD | FUSO | TRONTON | TRAILER | OTHER
+  vehicleType     String    @db.VarChar(10)
+  brand           String?   @db.VarChar(60)
+  capacityKg      Decimal   @default(0) @db.Decimal(12, 2)
+  capacityM3      Decimal   @default(0) @db.Decimal(12, 2)
+  /// OWNED | RENTED | PARTNER
+  ownership       String    @default("OWNED") @db.VarChar(8)
+  assetId         String?   @db.Uuid
+  /// periodic test (uji berkala / KIR): every 6 months for goods vehicles (PM 19/2021)
+  kirExpiry       DateTime? @db.Date
+  /// STNK: annual tax and 5-yearly plate
+  stnkExpiry      DateTime? @db.Date
+  insuranceExpiry DateTime? @db.Date
+  odometer        Int       @default(0)
+  /// ACTIVE | MAINTENANCE | INACTIVE
+  status          String    @default("ACTIVE") @db.VarChar(12)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([companyId, plateNo])
+  @@map("fleet_vehicles")
+}
+
+model FleetDriver {
+  id         String    @id @default(uuid()) @db.Uuid
+  companyId  String    @db.Uuid
+  name       String    @db.VarChar(120)
+  employeeId String?   @db.Uuid
+  phone      String?   @db.VarChar(30)
+  /// SIM class (B1 / B2 umum for goods vehicles)
+  simType    String?   @db.VarChar(12)
+  simNo      String?   @db.VarChar(30)
+  simExpiry  DateTime? @db.Date
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([companyId])
+  @@map("fleet_drivers")
+}
+
+model FreightRate {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  /// empty = the general price list
+  customerId  String?  @db.Uuid
+  /// TRUCKING | FORWARDING
+  service     String   @db.VarChar(10)
+  origin      String   @db.VarChar(80)
+  destination String   @db.VarChar(80)
+  vehicleType String?  @db.VarChar(10)
+  /// TRIP | KG | M3
+  basis       String   @default("TRIP") @db.VarChar(4)
+  rate        Decimal  @db.Decimal(18, 2)
+  minCharge   Decimal  @default(0) @db.Decimal(18, 2)
+  leadDays    Int?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId, origin, destination])
+  @@map("freight_rates")
+}
+
+model LogisticsJob {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  number           String    @db.VarChar(40)
+  date             DateTime  @db.Date
+  customerId       String    @db.Uuid
+  service          String    @db.VarChar(10)
+  origin           String    @db.VarChar(80)
+  originAddress    String?   @db.VarChar(300)
+  destination      String    @db.VarChar(80)
+  consignee        String?   @db.VarChar(150)
+  consigneeAddress String?   @db.VarChar(300)
+  consigneePhone   String?   @db.VarChar(30)
+  cargo            String    @db.VarChar(200)
+  pieces           Int       @default(0)
+  weightKg         Decimal   @default(0) @db.Decimal(12, 2)
+  volumeM3         Decimal   @default(0) @db.Decimal(12, 3)
+  vehicleType      String?   @db.VarChar(10)
+  pickupDate       DateTime? @db.Date
+  rateId           String?   @db.Uuid
+  basis            String    @default("TRIP") @db.VarChar(4)
+  rate             Decimal   @default(0) @db.Decimal(18, 2)
+  /// price billed (before PPN); forwarding: of which freight charges paid to carriers (not the forwarder's fee)
+  amount           Decimal   @default(0) @db.Decimal(18, 2)
+  freightCharge    Decimal   @default(0) @db.Decimal(18, 2)
+  customerRef      String?   @db.VarChar(80)
+  /// OPEN | DISPATCHED | DELIVERED | INVOICED | CANCELLED
+  status           String    @default("OPEN") @db.VarChar(10)
+  tripId           String?   @db.Uuid
+  podDate          DateTime? @db.Date
+  podReceiver      String?   @db.VarChar(120)
+  podNote          String?   @db.VarChar(300)
+  invoiceId        String?   @db.Uuid
+  /// costs: share of its trip's expenses and carrier bills linked
+  tripCost         Decimal   @default(0) @db.Decimal(18, 2)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@index([tripId])
+  @@map("logistics_jobs")
+}
+
+model LogisticsTrip {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  number         String    @db.VarChar(40)
+  date           DateTime  @db.Date
+  vehicleId      String    @db.Uuid
+  driverId       String    @db.Uuid
+  helper         String?   @db.VarChar(120)
+  route          String?   @db.VarChar(200)
+  odoStart       Int?
+  odoEnd         Int?
+  /// OPEN | DONE | SETTLED | CANCELLED
+  status         String    @default("OPEN") @db.VarChar(10)
+  advance        Decimal   @default(0) @db.Decimal(18, 2)
+  advanceAccountId String? @db.Uuid
+  expenses       Decimal   @default(0) @db.Decimal(18, 2)
+  fuelLiters     Decimal   @default(0) @db.Decimal(12, 2)
+  settledAt      DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+
+  costs TripExpense[]
+
+  @@unique([companyId, number])
+  @@index([vehicleId])
+  @@map("logistics_trips")
+}
+
+model TripExpense {
+  id     String  @id @default(uuid()) @db.Uuid
+  tripId String  @db.Uuid
+  /// FUEL | TOLL | PARKING | DRIVER | LOADING | REPAIR | OTHER
+  kind   String  @db.VarChar(8)
+  amount Decimal @db.Decimal(18, 2)
+  liters Decimal @default(0) @db.Decimal(12, 2)
+  note   String? @db.VarChar(200)
+
+  trip LogisticsTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@map("trip_expenses")
+}
+
+/// carrier / agent bill lines (purchase invoices on product LOG-CARRIER) charged to a forwarding job
+model JobCarrierCost {
+  id           String   @id @default(uuid()) @db.Uuid
+  jobId        String   @db.Uuid
+  sourceDocId  String   @db.Uuid
+  sourceLineId String   @db.Uuid
+  amount       Decimal  @db.Decimal(18, 2)
+  createdAt    DateTime @default(now())
+
+  @@index([jobId])
+  @@index([sourceLineId])
+  @@map("job_carrier_costs")
+}

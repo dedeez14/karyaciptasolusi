@@ -796,10 +796,14 @@ export class DocumentService {
           if (con) throw new ConflictException(con.retentionInvoiceId === id ? `Retention invoice of contract ${con.contractNo}: undo the handover in Construction` : `Advance invoice of contract ${con.contractNo}: it is recovered from the certificates`);
           const ps = await tx.propertySaleLine.findFirst({ where: { invoiceId: id, sale: { status: { not: 'CANCELLED' } } }, select: { sale: { select: { number: true } } } });
           if (ps) throw new ConflictException(`Invoice of property sale ${ps.sale.number}: cancel the sale in Property (Permen PUPR 11/2019 refund)`);
+          const lj = await tx.logisticsJob.findFirst({ where: { invoiceId: id, status: 'INVOICED' }, select: { number: true } });
+          if (lj) throw new ConflictException(`Invoice of logistics job ${lj.number}: cancel it from the job in Logistics`);
         }
         if (!opts.skipPermission && def.code === 'PI') {
           const cl = await tx.subcontractClaim.findFirst({ where: { invoiceId: id, status: 'APPROVED' }, select: { number: true } });
           if (cl) throw new ConflictException(`Invoice of subcontractor claim ${cl.number}: cancel the claim in Construction`);
+          const lc = await tx.jobCarrierCost.findFirst({ where: { sourceDocId: id }, select: { jobId: true } });
+          if (lc) throw new ConflictException('Carrier bill charged to a logistics job: take it off the job first');
         }
         if (doc.status !== 'DRAFT') {
           if (def.stock) {
