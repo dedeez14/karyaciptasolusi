@@ -74,6 +74,11 @@ const CommShipmentsPage = lazy(() => commodityPages().then((m) => ({ default: m.
 const CommShipmentPage = lazy(() => commodityPages().then((m) => ({ default: m.ShipmentPage })));
 const CommRegisterPage = lazy(() => commodityPages().then((m) => ({ default: m.RegisterPage })));
 const CommReferencesPage = lazy(() => commodityPages().then((m) => ({ default: m.ReferencesPage })));
+const garmentPages = () => import('@/features/garment/GarmentPages');
+const GarmentStylesPage = lazy(() => garmentPages().then((m) => ({ default: m.StylesPage })));
+const GarmentOrdersPage = lazy(() => garmentPages().then((m) => ({ default: m.OrdersPage })));
+const GarmentOrderPage = lazy(() => garmentPages().then((m) => ({ default: m.OrderPage })));
+const GarmentEfficiencyPage = lazy(() => garmentPages().then((m) => ({ default: m.EfficiencyPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -245,6 +250,10 @@ export default function App() {
             <Route path="commodity/shipments/:id" element={<CommShipmentPage />} />
             <Route path="commodity/register" element={<CommRegisterPage />} />
             <Route path="commodity/references" element={<CommReferencesPage />} />
+            <Route path="garment/styles" element={<GarmentStylesPage />} />
+            <Route path="garment/orders" element={<GarmentOrdersPage />} />
+            <Route path="garment/orders/:id" element={<GarmentOrderPage />} />
+            <Route path="garment/efficiency" element={<GarmentEfficiencyPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

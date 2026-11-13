@@ -4973,3 +4973,247 @@ model ExportShipment {
   @@index([companyId, status])
   @@map("export_shipments")
 }
+
+// ----------------------------------------------------------------------------
+// Garment: styles with their size / colour matrix (one stock product per SKU), operation bulletin (SAM),
+// production orders by matrix, cutting lays and bundle tickets, line output and efficiency, finished goods by SKU
+// ----------------------------------------------------------------------------
+
+/// Garment style (model): sizes, colours, materials per piece and the operation bulletin
+model GarmentStyle {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  code          String    @db.VarChar(30)
+  name          String    @db.VarChar(150)
+  customerId    String?   @db.Uuid
+  season        String?   @db.VarChar(40)
+  category      String?   @db.VarChar(60)
+  /// ordered size run, e.g. ["S","M","L","XL"]
+  sizes         Json
+  /// [{ code, name }]
+  colours       Json
+  /// fibre composition and care for the label
+  composition   String?   @db.VarChar(150)
+  care          String?   @db.VarChar(200)
+  /// total standard allowed minutes per piece (sum of the operations)
+  sam           Decimal   @default(0) @db.Decimal(10, 3)
+  salePrice     Decimal   @default(0) @db.Decimal(18, 2)
+  notes         String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+  deletedAt     DateTime?
+
+  variants   GarmentVariant[]
+  operations GarmentOperation[]
+  materials  GarmentMaterial[]
+
+  @@unique([companyId, code])
+  @@map("garment_styles")
+}
+
+/// One SKU of a style (colour x size), a stock product of its own
+model GarmentVariant {
+  id        String @id @default(uuid()) @db.Uuid
+  styleId   String @db.Uuid
+  colour    String @db.VarChar(30)
+  size      String @db.VarChar(20)
+  productId String @db.Uuid
+
+  style GarmentStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@unique([styleId, colour, size])
+  @@map("garment_variants")
+}
+
+/// Operation bulletin: sewing / finishing operations with their standard minutes
+model GarmentOperation {
+  id        String  @id @default(uuid()) @db.Uuid
+  styleId   String  @db.Uuid
+  seq       Int
+  name      String  @db.VarChar(120)
+  /// machine: SNLS, OL, FL, BH, BT, IRON, MANUAL...
+  machine   String? @db.VarChar(20)
+  sam       Decimal @db.Decimal(8, 3)
+  /// piece rate paid per piece for this operation (bundle coupons)
+  pieceRate Decimal @default(0) @db.Decimal(14, 2)
+
+  style GarmentStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@index([styleId])
+  @@map("garment_operations")
+}
+
+/// Material per piece: the fabric (issued at cutting) and trims (issued at packing)
+model GarmentMaterial {
+  id          String  @id @default(uuid()) @db.Uuid
+  styleId     String  @db.Uuid
+  /// FABRIC | TRIM
+  kind        String  @db.VarChar(6)
+  productId   String  @db.Uuid
+  qtyPerPiece Decimal @db.Decimal(12, 4)
+  /// colour the material is for (empty = all colours)
+  colour      String? @db.VarChar(30)
+
+  style GarmentStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@index([styleId])
+  @@map("garment_materials")
+}
+
+/// Production order of a style by colour x size
+model GarmentOrder {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  branchId         String?   @db.Uuid
+  number           String    @db.VarChar(40)
+  styleId          String    @db.Uuid
+  customerId       String?   @db.Uuid
+  /// buyer purchase order
+  buyerRef         String?   @db.VarChar(60)
+  orderDate        DateTime  @db.Date
+  shipDate         DateTime? @db.Date
+  /// store of fabric and trims, store of finished goods
+  warehouseId      String    @db.Uuid
+  fgWarehouseId    String    @db.Uuid
+  /// OPEN | CLOSED | CANCELLED
+  status           String    @default("OPEN") @db.VarChar(10)
+  /// extra cut on top of the ordered quantity (%), e.g. 3
+  cutAllowancePct  Decimal   @default(0) @db.Decimal(5, 2)
+  /// cost in work in process: fabric issued at cutting less what finished goods took
+  fabricCost       Decimal   @default(0) @db.Decimal(18, 2)
+  fabricRelieved   Decimal   @default(0) @db.Decimal(18, 2)
+  trimCost         Decimal   @default(0) @db.Decimal(18, 2)
+  conversionCost   Decimal   @default(0) @db.Decimal(18, 2)
+  closedLoss       Decimal   @default(0) @db.Decimal(18, 2)
+  salesOrderId     String?   @db.Uuid
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+
+  lines GarmentOrderLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@map("garment_orders")
+}
+
+model GarmentOrderLine {
+  id          String  @id @default(uuid()) @db.Uuid
+  orderId     String  @db.Uuid
+  colour      String  @db.VarChar(30)
+  size        String  @db.VarChar(20)
+  productId   String  @db.Uuid
+  qty         Int
+  cutQty      Int     @default(0)
+  sewnQty     Int     @default(0)
+  receivedQty Int     @default(0)
+  rejectQty   Int     @default(0)
+
+  order GarmentOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, colour, size])
+  @@map("garment_order_lines")
+}
+
+/// Cutting lay: one colour, a marker ratio by size and the number of plies; issues the fabric and makes the bundles
+model GarmentLay {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  orderId          String    @db.Uuid
+  number           String    @db.VarChar(40)
+  date             DateTime  @db.Date
+  colour           String    @db.VarChar(30)
+  /// { size: pieces per ply }
+  ratio            Json
+  plies            Int
+  markerLengthM    Decimal?  @db.Decimal(10, 3)
+  /// marker efficiency (%): area of the pieces / area of the marker
+  markerEfficiency Decimal?  @db.Decimal(5, 2)
+  fabricProductId  String?   @db.Uuid
+  fabricQty        Decimal   @default(0) @db.Decimal(14, 3)
+  fabricCost       Decimal   @default(0) @db.Decimal(18, 2)
+  shade            String?   @db.VarChar(20)
+  bundleSize       Int       @default(20)
+  /// POSTED | CANCELLED
+  status           String    @default("POSTED") @db.VarChar(10)
+  createdAt        DateTime  @default(now())
+  createdById      String?   @db.Uuid
+
+  bundles GarmentBundle[]
+
+  @@unique([companyId, number])
+  @@index([orderId])
+  @@map("garment_lays")
+}
+
+/// Bundle of cut pieces of one size with its ticket number and ply range
+model GarmentBundle {
+  id       String @id @default(uuid()) @db.Uuid
+  layId    String @db.Uuid
+  orderId  String @db.Uuid
+  bundleNo Int
+  colour   String @db.VarChar(30)
+  size     String @db.VarChar(20)
+  plyFrom  Int
+  plyTo    Int
+  qty      Int
+
+  lay GarmentLay @relation(fields: [layId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, bundleNo])
+  @@map("garment_bundles")
+}
+
+/// Sewing line output of a day for an order: efficiency = pieces x SAM / (operators x minutes)
+model GarmentLineOutput {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  date        DateTime @db.Date
+  /// sewing line (work centre)
+  lineId      String   @db.Uuid
+  orderId     String   @db.Uuid
+  operators   Int
+  helpers     Int      @default(0)
+  minutes     Decimal  @db.Decimal(8, 2)
+  /// { "colour|size": pieces }
+  pieces      Json
+  totalPieces Int
+  rejects     Int      @default(0)
+  sam         Decimal  @db.Decimal(10, 3)
+  efficiency  Decimal  @default(0) @db.Decimal(6, 2)
+  notes       String?  @db.VarChar(300)
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@index([companyId, date])
+  @@index([orderId])
+  @@map("garment_line_outputs")
+}
+
+/// Finished, packed pieces received into the finished goods store
+model GarmentReceipt {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid
+  orderId        String   @db.Uuid
+  number         String   @db.VarChar(40)
+  date           DateTime @db.Date
+  /// [{ colour, size, productId, qty, unitCost }]
+  lines          Json
+  totalPieces    Int
+  fabricCost     Decimal  @db.Decimal(18, 2)
+  trimCost       Decimal  @db.Decimal(18, 2)
+  conversionCost Decimal  @db.Decimal(18, 2)
+  /// POSTED | CANCELLED
+  status         String   @default("POSTED") @db.VarChar(10)
+  createdAt      DateTime @default(now())
+  createdById    String?  @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([orderId])
+  @@map("garment_receipts")
+}
