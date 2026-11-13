@@ -16,6 +16,8 @@ const cellSchema = z.object({
   note: z.string().trim().max(500).nullable().optional(),
 });
 const entrySchema = z.object({ billable: z.boolean().optional(), note: z.string().trim().max(500).nullable().optional() });
+const ratesSchema = z.object({ rates: z.array(z.object({ userId: z.uuid(), hourlyRate: z.coerce.number().positive().max(1e9) })).max(200) });
+const daySchema = z.object({ asOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 const invoiceSchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(), keys: z.array(z.string().max(80)).max(500).nullable().optional() });
 
 @Controller()
@@ -43,6 +45,26 @@ export class TimeBillingController {
   @Patch('timesheets/entries/:id')
   entry(@Param('id') id: string, @Body(new ZodPipe(entrySchema)) body: z.infer<typeof entrySchema>) {
     return this.timesheets.updateEntry(id, body);
+  }
+
+  @Put('time-billing/projects/:id/rates')
+  rates(@Param('id') id: string, @Body(new ZodPipe(ratesSchema)) body: z.infer<typeof ratesSchema>) {
+    return this.billing.setRates(id, body.rates);
+  }
+
+  @Get('time-billing/wip')
+  wip(@Query(new ZodPipe(daySchema)) q: z.infer<typeof daySchema>) {
+    return this.billing.wip(q.asOf);
+  }
+
+  @Post('time-billing/wip/accrue')
+  accrue(@Body(new ZodPipe(daySchema)) body: z.infer<typeof daySchema>) {
+    return this.billing.accrue(body.asOf);
+  }
+
+  @Post('time-billing/wip/accruals/:id/void')
+  voidAccrual(@Param('id') id: string) {
+    return this.billing.voidAccrual(id);
   }
 
   @Get('time-billing/projects/:id')

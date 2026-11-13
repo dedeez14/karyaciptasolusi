@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { fmtDate, fmtNumber, isoDate } from '@/lib/format';
 import { useLookupOptions } from '@/hooks/useLookups';
 import { useSession } from '@/stores/session';
-import { Badge, Button, Card, Checkbox, cn, confirm, DatePicker, Field, Icon, StatusBadge, toast } from '@/components/ui';
+import { Badge, Button, Card, Checkbox, cn, confirm, DatePicker, Field, Icon, Modal, NumberInput, StatusBadge, toast } from '@/components/ui';
 import type { Row } from '@/features/resources/types';
 import { MilestonesTab } from './MilestonesTab';
 import { DetailShell, DOC_LABEL, InfoGrid, Kpi, Loading, LookupBadge, MiniTable, money, Muted, Progress, TabBar, useHashTab } from '../shared';
@@ -38,10 +38,24 @@ interface Overview {
   billing?: { hourlyRate: number; unbilledHours: number; unbilledAmount: number } | null;
 }
 interface Billing {
+  rates: { userId: string; userName: string; hourlyRate: number }[];
   project: { id: string; code: string; name: string; hourlyRate: number; customer: { id: string; code: string; name: string } | null; product: { id: string; code: string; name: string } | null };
   issues: string[];
   canBill: boolean;
-  unbilled: { key: string; taskId: string; taskCode: string; taskTitle: string; userId: string; userName: string; hours: number; amount: number; from: string; to: string; entries: number }[];
+  unbilled: {
+    key: string;
+    taskId: string;
+    taskCode: string;
+    taskTitle: string;
+    userId: string;
+    userName: string;
+    hours: number;
+    amount: number;
+    rate: number;
+    from: string;
+    to: string;
+    entries: number;
+  }[];
   totalHours: number;
   totalAmount: number;
   invoices: { id: string; number: string; date: string; status: string; grandTotal: number; hours: number }[];
@@ -296,7 +310,14 @@ function BillingTab({ id }: { id: string }) {
   const range = (a: string, z: string) => (a === z ? fmtDate(a) : `${fmtDate(a)} – ${fmtDate(z)}`);
 
   const create = async () => {
-    if (!(await confirm({ title: 'Create the invoice?', message: `A draft sales invoice for ${fmtNumber(hours)} h (${money(amount)} before tax) is created for ${b.project.customer?.name}. You can review it before confirming.`, confirmText: 'Create draft invoice' }))) return;
+    if (
+      !(await confirm({
+        title: 'Create the invoice?',
+        message: `A draft sales invoice for ${fmtNumber(hours)} h (${money(amount)} before tax) is created for ${b.project.customer?.name}. You can review it before confirming.`,
+        confirmText: 'Create draft invoice',
+      }))
+    )
+      return;
     setBusy(true);
     try {
       const r = await api.post<{ invoiceId: string; number: string }>(`/time-billing/projects/${id}/invoice`, { date, keys: sel.length === b.unbilled.length ? null : sel.map((g) => g.key) });
@@ -312,7 +333,12 @@ function BillingTab({ id }: { id: string }) {
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <Card title="Hours to invoice" subtitle={`Billable hours not on an invoice yet · rate ${money(b.project.hourlyRate)} / h`} className="lg:col-span-2" bodyClass="p-0">
+      <Card
+        title="Hours to invoice"
+        subtitle={`Billable hours not on an invoice yet · project rate ${money(b.project.hourlyRate)} / h${b.rates.length ? `, ${b.rates.length} personal rate${b.rates.length > 1 ? 's' : ''}` : ''}`}
+        className="lg:col-span-2"
+        bodyClass="p-0"
+      >
         {b.issues.length > 0 && (
           <div className="m-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <p className="font-medium">Before invoicing time on this project:</p>
@@ -341,6 +367,7 @@ function BillingTab({ id }: { id: string }) {
                   <th className="px-3 py-2 font-medium">Person</th>
                   <th className="px-3 py-2 font-medium">Dates</th>
                   <th className="px-3 py-2 text-right font-medium">Hours</th>
+                  <th className="px-3 py-2 text-right font-medium">Rate</th>
                   <th className="px-3 py-2 text-right font-medium">Amount</th>
                 </tr>
               </thead>
@@ -357,6 +384,7 @@ function BillingTab({ id }: { id: string }) {
                     <td className="px-3 py-2">{g.userName}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{range(g.from, g.to)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmtNumber(g.hours)}</td>
+                    <td className={cn('px-3 py-2 text-right tabular-nums', !(g.rate > 0) && 'text-red-600')}>{g.rate > 0 ? money(g.rate) : 'no rate'}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{money(g.amount)}</td>
                   </tr>
                 ))}
@@ -368,6 +396,7 @@ function BillingTab({ id }: { id: string }) {
                     Selected
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtNumber(hours)}</td>
+                  <td />
                   <td className="px-3 py-2 text-right tabular-nums">{money(amount)}</td>
                 </tr>
               </tfoot>
@@ -395,6 +424,7 @@ function BillingTab({ id }: { id: string }) {
             {!b.canBill && <p className="text-xs text-slate-500">You need permission to invoice project hours.</p>}
           </div>
         </Card>
+        <RatesCard id={id} b={b} />
         <Card title="Time invoices">
           {!b.invoices.length && <Muted>No hours invoiced yet</Muted>}
           <ul className="space-y-2">
@@ -418,5 +448,90 @@ function BillingTab({ id }: { id: string }) {
         </Card>
       </div>
     </div>
+  );
+}
+
+/** rate card: people billed at their own hourly rate on this project (others at the project rate) */
+function RatesCard({ id, b }: { id: string; b: Billing }) {
+  const qc = useQueryClient();
+  const can = useSession((s) => s.can);
+  const [open, setOpen] = useState(false);
+  const people = new Map<string, string>();
+  for (const r of b.rates) people.set(r.userId, r.userName);
+  for (const g of b.unbilled) people.set(g.userId, g.userName);
+  const [rates, setRates] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const start = () => (setRates(Object.fromEntries(b.rates.map((r) => [r.userId, String(r.hourlyRate)]))), setOpen(true));
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api.put(`/time-billing/projects/${id}/rates`, {
+        rates: Object.entries(rates)
+          .filter(([, v]) => Number(v) > 0)
+          .map(([userId, v]) => ({ userId, hourlyRate: Number(v) })),
+      });
+      toast.success('Rates saved');
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ['insights'] });
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card
+      title="Rates per person"
+      actions={
+        can('master.project.update') && (
+          <Button size="sm" variant="outline" icon="pencil" onClick={start}>
+            Edit
+          </Button>
+        )
+      }
+    >
+      {!b.rates.length ? (
+        <Muted>Everyone at the project rate ({money(b.project.hourlyRate)} / h)</Muted>
+      ) : (
+        <ul className="space-y-1 text-sm">
+          {b.rates.map((r) => (
+            <li key={r.userId} className="flex justify-between gap-2">
+              <span>{r.userName}</span>
+              <span className="tabular-nums">{money(r.hourlyRate)} / h</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {open && (
+        <Modal
+          open
+          onClose={() => setOpen(false)}
+          title="Rates per person"
+          footer={
+            <Button icon="check" loading={busy} onClick={save}>
+              Save
+            </Button>
+          }
+        >
+          <p className="mb-3 text-sm text-slate-500">Empty = the project rate ({money(b.project.hourlyRate)} / h). People appear once they log hours on the project.</p>
+          <div className="space-y-2">
+            {[...people.entries()].map(([userId, name]) => (
+              <div key={userId} className="grid grid-cols-[minmax(0,1fr)_10rem] items-center gap-2 text-sm">
+                <span>{name}</span>
+                <NumberInput
+                  decimals={0}
+                  min={0}
+                  value={rates[userId] ?? ''}
+                  placeholder={String(b.project.hourlyRate || '')}
+                  onChange={(v) => setRates({ ...rates, [userId]: v })}
+                  aria-label={`Rate of ${name}`}
+                />
+              </div>
+            ))}
+            {!people.size && <Muted>Nobody has logged hours yet.</Muted>}
+          </div>
+        </Modal>
+      )}
+    </Card>
   );
 }

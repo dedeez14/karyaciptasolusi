@@ -511,6 +511,7 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['tasks', null, 'Task Management', 'list-todo', null, null],
   ['tasks.mine', 'tasks', 'My Tasks', 'user-check', '/tasks/my', 'task.task.read'],
   ['tasks.timesheets', 'tasks', 'Timesheets', 'timer', '/tasks/timesheets', 'task.timesheet.read'],
+  ['tasks.wip', 'tasks', 'Unbilled Time (WIP)', 'hourglass', '/tasks/wip', 'task.timesheet.read'],
   ['tasks.board', 'tasks', 'Task Board', 'square-kanban', '/tasks/board', 'task.task.read'],
   ['tasks.list', 'tasks', 'All Tasks', 'list-checks', '/tasks', 'task.task.read'],
   ['tasks.projects', 'tasks', 'Projects', 'folder-kanban', '/r/projects', 'master.project.read'],
