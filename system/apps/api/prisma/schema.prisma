@@ -551,6 +551,8 @@ model Product {
   hsCode              String?     @db.VarChar(12)
   originCountry       String?     @db.VarChar(3)
   auxiliaryMaterial   Boolean     @default(false)
+  /// bonded zone IT Inventory class: RAW | AUX | FG | CAPITAL | RND | FUEL | OFFICE | SCRAP (empty = not reported)
+  customsClass        String?     @db.VarChar(8)
   halalRequired       Boolean     @default(false)
   bpomRequired        Boolean     @default(false)
   sniRequired         Boolean     @default(false)
@@ -5216,4 +5218,116 @@ model GarmentReceipt {
   @@unique([companyId, number])
   @@index([orderId])
   @@map("garment_receipts")
+}
+
+// ----------------------------------------------------------------------------
+// Bonded zone (Kawasan Berikat) / KITE: customs documents linked to the stock documents, IT Inventory
+// ----------------------------------------------------------------------------
+
+/// Customs document (dokumen pabean) of a KB / KITE company (PER-7/BC/2021 Art. 5(6)): BC 2.0 / 2.3 / 4.0 / 2.6.2 / 2.7
+/// in, BC 2.5 / 2.6.1 / 2.7 / 3.0 / 4.1 / 2.4 out. The stock document that moved the goods is the receipt / release proof.
+model CustomsDocument {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  branchId         String?   @db.Uuid
+  number           String    @db.VarChar(40)
+  /// BC20 | BC23 | BC24 | BC25 | BC261 | BC262 | BC27 | BC30 | BC40 | BC41
+  bcType           String    @db.VarChar(6)
+  /// IN | OUT
+  direction        String    @db.VarChar(3)
+  /// KB | KITE
+  facility         String    @default("KB") @db.VarChar(5)
+  /// where goods released on a BC 2.5 / 2.7 go: TLDDP | FTZ | KEK | KB (domestic quota, PMK 131 Art. 31)
+  destination      String?   @db.VarChar(6)
+  ajuNo            String?   @db.VarChar(30)
+  registrationNo   String?   @db.VarChar(20)
+  registrationDate DateTime? @db.Date
+  officeCode       String?   @db.VarChar(8)
+  /// stock document that moved the goods (GR, SR, DO, PRT, TRF, ADJ)
+  tradeDocumentId  String?   @db.Uuid
+  receiptNumber    String?   @db.VarChar(40)
+  receiptDate      DateTime? @db.Date
+  supplierId       String?   @db.Uuid
+  customerId       String?   @db.Uuid
+  partnerName      String?   @db.VarChar(200)
+  currencyCode     String    @default("IDR") @db.VarChar(3)
+  exchangeRate     Decimal   @default(1) @db.Decimal(18, 6)
+  /// CIF (in) / FOB or selling price (out), in the document currency and in rupiah
+  totalValue       Decimal   @default(0) @db.Decimal(18, 2)
+  totalValueIdr    Decimal   @default(0) @db.Decimal(18, 2)
+  /// BC 2.5: FG (selling price, the rule) | RAW (raw-material values at entry, PMK 131 Art. 29(2))
+  dutyBasis        String?   @db.VarChar(4)
+  bm               Decimal   @default(0) @db.Decimal(18, 2)
+  ppn              Decimal   @default(0) @db.Decimal(18, 2)
+  ppnbm            Decimal   @default(0) @db.Decimal(18, 2)
+  pph22            Decimal   @default(0) @db.Decimal(18, 2)
+  fine             Decimal   @default(0) @db.Decimal(18, 2)
+  /// SUSPENDED (ditangguhkan / tidak dipungut, information only) | PAYABLE (we pay: journal at registration) | GUARANTEE (BC 2.6.1)
+  dutyStatus       String    @default("SUSPENDED") @db.VarChar(10)
+  /// import PPN paid can be credited with the customs document (PMK 131 Art. 24(2)); not on KITE settlements (PMK 149 Art. 24)
+  ppnCreditable    Boolean   @default(true)
+  /// BC 2.6.1: return deadline set by the customs office; BC 2.6.2: the BC 2.6.1 it returns
+  returnDueDate    DateTime? @db.Date
+  linkedId         String?   @db.Uuid
+  /// KITE import: end of the period (registration + 12 months unless extended, PMK 149 Art. 10)
+  kiteDueDate      DateTime? @db.Date
+  /// faktur pajak code of the delivery (07 not collected, 01 collected)
+  taxInvoiceCode   String?   @db.VarChar(2)
+  /// DRAFT | REGISTERED | CANCELLED
+  status           String    @default("DRAFT") @db.VarChar(10)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+
+  lines CustomsDocumentLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, bcType, registrationDate])
+  @@index([tradeDocumentId])
+  @@map("customs_documents")
+}
+
+model CustomsDocumentLine {
+  id            String   @id @default(uuid()) @db.Uuid
+  documentId    String   @db.Uuid
+  /// item serial (seri barang)
+  lineNo        Int
+  productId     String   @db.Uuid
+  hsCode        String?  @db.VarChar(12)
+  description   String?  @db.VarChar(200)
+  qty           Decimal  @db.Decimal(18, 4)
+  uom           String?  @db.VarChar(20)
+  value         Decimal  @default(0) @db.Decimal(18, 2)
+  valueIdr      Decimal  @default(0) @db.Decimal(18, 2)
+  originCountry String?  @db.VarChar(3)
+  /// KITE import lines: waste % of the conversion (BCL.KT01)
+  wastePct      Decimal? @db.Decimal(9, 4)
+  /// KITE import: charged to exports; BC 2.6.1: returned on BC 2.6.2
+  settledQty    Decimal  @default(0) @db.Decimal(18, 4)
+
+  document CustomsDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([productId])
+  @@map("customs_document_lines")
+}
+
+/// Raw material of a KITE import charged to an export by the conversion (KITE), or goods of a BC 2.6.1 returned on a BC 2.6.2 (RETURN)
+model CustomsAllocation {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @db.Uuid
+  /// KITE | RETURN
+  kind         String   @db.VarChar(6)
+  sourceLineId String   @db.Uuid
+  targetDocId  String   @db.Uuid
+  targetLineId String?  @db.Uuid
+  productId    String   @db.Uuid
+  qty          Decimal  @db.Decimal(18, 4)
+  createdAt    DateTime @default(now())
+
+  @@index([sourceLineId])
+  @@index([targetDocId])
+  @@map("customs_allocations")
 }

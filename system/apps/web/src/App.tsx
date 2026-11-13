@@ -79,6 +79,12 @@ const GarmentStylesPage = lazy(() => garmentPages().then((m) => ({ default: m.St
 const GarmentOrdersPage = lazy(() => garmentPages().then((m) => ({ default: m.OrdersPage })));
 const GarmentOrderPage = lazy(() => garmentPages().then((m) => ({ default: m.OrderPage })));
 const GarmentEfficiencyPage = lazy(() => garmentPages().then((m) => ({ default: m.EfficiencyPage })));
+const bondedPages = () => import('@/features/bonded/BondedPages');
+const BondedDocumentsPage = lazy(() => bondedPages().then((m) => ({ default: m.DocumentsPage })));
+const BondedDocumentPage = lazy(() => bondedPages().then((m) => ({ default: m.DocumentPage })));
+const BondedReportsPage = lazy(() => bondedPages().then((m) => ({ default: m.ReportsPage })));
+const BondedQuotaPage = lazy(() => bondedPages().then((m) => ({ default: m.QuotaPage })));
+const BondedKitePage = lazy(() => bondedPages().then((m) => ({ default: m.KitePage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -254,6 +260,11 @@ export default function App() {
             <Route path="garment/orders" element={<GarmentOrdersPage />} />
             <Route path="garment/orders/:id" element={<GarmentOrderPage />} />
             <Route path="garment/efficiency" element={<GarmentEfficiencyPage />} />
+            <Route path="bonded/documents" element={<BondedDocumentsPage />} />
+            <Route path="bonded/documents/:id" element={<BondedDocumentPage />} />
+            <Route path="bonded/reports" element={<BondedReportsPage />} />
+            <Route path="bonded/quota" element={<BondedQuotaPage />} />
+            <Route path="bonded/kite" element={<BondedKitePage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />
