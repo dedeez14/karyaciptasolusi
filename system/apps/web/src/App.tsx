@@ -67,6 +67,13 @@ const PartnershipReportPage = lazy(() => farmPages().then((m) => ({ default: m.P
 const plantationPages = () => import('@/features/plantation/PlantationPages');
 const millPages = () => import('@/features/mill/MillPages');
 const herdPages = () => import('@/features/herd/HerdPages');
+const commodityPages = () => import('@/features/commodity/CommodityPages');
+const CommContractsPage = lazy(() => commodityPages().then((m) => ({ default: m.ContractsPage })));
+const CommContractPage = lazy(() => commodityPages().then((m) => ({ default: m.ContractPage })));
+const CommShipmentsPage = lazy(() => commodityPages().then((m) => ({ default: m.ShipmentsPage })));
+const CommShipmentPage = lazy(() => commodityPages().then((m) => ({ default: m.ShipmentPage })));
+const CommRegisterPage = lazy(() => commodityPages().then((m) => ({ default: m.RegisterPage })));
+const CommReferencesPage = lazy(() => commodityPages().then((m) => ({ default: m.ReferencesPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -232,6 +239,12 @@ export default function App() {
             <Route path="herd/feeding" element={<HerdFeedingPage />} />
             <Route path="herd/health" element={<HerdHealthPage />} />
             <Route path="herd/fattening" element={<HerdFatteningPage />} />
+            <Route path="commodity/contracts" element={<CommContractsPage />} />
+            <Route path="commodity/contracts/:id" element={<CommContractPage />} />
+            <Route path="commodity/shipments" element={<CommShipmentsPage />} />
+            <Route path="commodity/shipments/:id" element={<CommShipmentPage />} />
+            <Route path="commodity/register" element={<CommRegisterPage />} />
+            <Route path="commodity/references" element={<CommReferencesPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

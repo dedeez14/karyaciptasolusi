@@ -4812,3 +4812,164 @@ model MilkDelivery {
   @@index([companyId, date])
   @@map("milk_deliveries")
 }
+
+// ----------------------------------------------------------------------------
+// Commodity sales (CPO, palm kernel, PKO...): contracts (direct, KPBN tender, export), deliveries with quality claims,
+// export shipments with duty, levy and export proceeds (DHE)
+// ----------------------------------------------------------------------------
+
+/// Sales contract of a bulk commodity
+model CommodityContract {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  branchId      String?   @db.Uuid
+  number        String    @db.VarChar(40)
+  /// buyer / tender contract number
+  buyerRef      String?   @db.VarChar(60)
+  date          DateTime  @db.Date
+  customerId    String    @db.Uuid
+  productId     String    @db.Uuid
+  /// DOMESTIC | EXPORT
+  market        String    @db.VarChar(8)
+  /// DIRECT | TENDER (KPBN)
+  channel       String    @default("DIRECT") @db.VarChar(8)
+  /// FRANCO | LOCO | FOB | CFR | CIF
+  incoterm      String    @db.VarChar(6)
+  deliveryPoint String?   @db.VarChar(150)
+  qtyKg         Decimal   @db.Decimal(16, 2)
+  tolerancePct  Decimal   @default(0) @db.Decimal(5, 2)
+  currencyCode  String    @default("IDR") @db.VarChar(3)
+  /// price per kg (IDR contracts) or per metric ton (export), excluding PPN
+  price         Decimal   @db.Decimal(18, 4)
+  /// KG | MT
+  priceUnit     String    @default("KG") @db.VarChar(2)
+  taxId         String?   @db.Uuid
+  deliveryFrom  DateTime? @db.Date
+  deliveryTo    DateTime? @db.Date
+  /// quality: { ffaMax, miMax, dobiMin }
+  spec          Json?
+  /// claims: { ffaRatePct, miDeductWeight, dobiRatePct }
+  claims        Json?
+  paymentTerms  String?   @db.VarChar(150)
+  /// OPEN | COMPLETED | CANCELLED
+  status        String    @default("OPEN") @db.VarChar(10)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@map("commodity_contracts")
+}
+
+/// Commodity loaded for a contract (truck, barge or vessel) with its quality and claim
+model CommodityDelivery {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  contractId    String    @db.Uuid
+  number        String    @db.VarChar(40)
+  date          DateTime  @db.Date
+  warehouseId   String    @db.Uuid
+  /// truck plate / barge / vessel
+  vehicle       String?   @db.VarChar(60)
+  sealNo        String?   @db.VarChar(60)
+  qtyKg         Decimal   @db.Decimal(16, 2)
+  ffa           Decimal?  @db.Decimal(5, 2)
+  mi            Decimal?  @db.Decimal(5, 2)
+  dobi          Decimal?  @db.Decimal(5, 2)
+  claimPct      Decimal   @default(0) @db.Decimal(7, 4)
+  claimKg       Decimal   @default(0) @db.Decimal(14, 2)
+  invoiceKg     Decimal   @db.Decimal(16, 2)
+  /// price after the quality claim, in the contract currency and unit
+  unitPrice     Decimal   @db.Decimal(18, 4)
+  amount        Decimal   @db.Decimal(18, 2)
+  shipmentId    String?   @db.Uuid
+  deliveryDocId String?   @db.Uuid
+  invoiceDocId  String?   @db.Uuid
+  /// POSTED | CANCELLED
+  status        String    @default("POSTED") @db.VarChar(10)
+  notes         String?   @db.VarChar(500)
+  createdAt     DateTime  @default(now())
+  createdById   String?   @db.Uuid
+  updatedById   String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([contractId])
+  @@map("commodity_deliveries")
+}
+
+/// Reference price, export duty and levy of a month for a product (from the Kemendag / Kemenkeu announcements)
+model ExportReference {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  /// YYYY-MM
+  month        String    @db.VarChar(7)
+  productId    String    @db.Uuid
+  refPriceUsd  Decimal   @db.Decimal(14, 2)
+  dutyUsdPerMt Decimal   @default(0) @db.Decimal(14, 2)
+  levyPct      Decimal?  @db.Decimal(6, 3)
+  levyUsdPerMt Decimal?  @db.Decimal(14, 2)
+  reference    String?   @db.VarChar(200)
+  createdAt    DateTime  @default(now())
+  createdById  String?   @db.Uuid
+  deletedAt    DateTime?
+
+  @@index([companyId, productId, month])
+  @@map("export_references")
+}
+
+/// Export shipment (one PEB): documents, export duty, levy and the export proceeds
+model ExportShipment {
+  id                 String    @id @default(uuid()) @db.Uuid
+  companyId          String    @db.Uuid
+  branchId           String?   @db.Uuid
+  number             String    @db.VarChar(40)
+  contractId         String    @db.Uuid
+  pebNo              String?   @db.VarChar(40)
+  pebDate            DateTime? @db.Date
+  npeNo              String?   @db.VarChar(40)
+  npeDate            DateTime? @db.Date
+  vessel             String?   @db.VarChar(100)
+  blNo               String?   @db.VarChar(60)
+  blDate             DateTime? @db.Date
+  portOfLoading      String?   @db.VarChar(100)
+  portOfDischarge    String?   @db.VarChar(100)
+  destinationCountry String?   @db.VarChar(3)
+  hsCode             String?   @db.VarChar(12)
+  /// surveyor report (LS), certificate of origin (SKA / COO), sustainability (ISPO / RSPO), EUDR due diligence reference
+  surveyorReport     String?   @db.VarChar(60)
+  originCertificate  String?   @db.VarChar(60)
+  sustainabilityRef  String?   @db.VarChar(100)
+  eudrRef            String?   @db.VarChar(100)
+  qtyKg              Decimal   @default(0) @db.Decimal(16, 2)
+  fobUsd             Decimal   @default(0) @db.Decimal(18, 2)
+  referenceId        String?   @db.Uuid
+  refPriceUsd        Decimal   @default(0) @db.Decimal(14, 2)
+  dutyUsdPerMt       Decimal   @default(0) @db.Decimal(14, 2)
+  levyUsdPerMt       Decimal   @default(0) @db.Decimal(14, 2)
+  /// rate used for the duty and levy (Nilai Dasar Perhitungan / kurs)
+  rate               Decimal   @default(0) @db.Decimal(14, 4)
+  dutyIdr            Decimal   @default(0) @db.Decimal(18, 2)
+  levyIdr            Decimal   @default(0) @db.Decimal(18, 2)
+  dutyBilling        String?   @db.VarChar(60)
+  levyBilling        String?   @db.VarChar(60)
+  /// export proceeds (DHE): received, bank, retained until
+  dheReceivedDate    DateTime? @db.Date
+  dheReceivedUsd     Decimal?  @db.Decimal(18, 2)
+  dheBank            String?   @db.VarChar(100)
+  dheRetainedUsd     Decimal?  @db.Decimal(18, 2)
+  dheRetainUntil     DateTime? @db.Date
+  /// DRAFT | SHIPPED | CANCELLED
+  status             String    @default("DRAFT") @db.VarChar(10)
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  createdById        String?   @db.Uuid
+  updatedById        String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@map("export_shipments")
+}
