@@ -5989,3 +5989,111 @@ model VanSettlement {
   @@unique([companyId, number])
   @@map("van_settlements")
 }
+
+/// Trade scheme (promo dagang): a discount % or bonus goods on products, for some outlet channels, in a period;
+/// the principal's share of it is claimed back from the principal
+model TradeScheme {
+  id               String   @id @default(uuid()) @db.Uuid
+  companyId        String   @db.Uuid
+  code             String   @db.VarChar(30)
+  name             String   @db.VarChar(150)
+  /// principal (supplier) funding part of it
+  supplierId       String?  @db.Uuid
+  /// DISCOUNT | BONUS
+  type             String   @db.VarChar(8)
+  /// products it covers: [productId]
+  productIds       Json
+  /// outlet channels it is for (empty = all)
+  channels         Json
+  /// DISCOUNT: from this quantity per line; BONUS: per this many bought
+  minQty           Decimal  @default(1) @db.Decimal(18, 4)
+  discountPct      Decimal? @db.Decimal(6, 3)
+  bonusProductId   String?  @db.Uuid
+  bonusQty         Decimal? @db.Decimal(18, 4)
+  principalSharePct Decimal @default(0) @db.Decimal(6, 3)
+  /// how the principal's share is claimed (SE-24/PJ/2018): AWARD | SERVICE | SPACE_RENT | EQUIPMENT_RENT | COMPENSATION
+  claimType        String   @default("COMPENSATION") @db.VarChar(15)
+  dateFrom         DateTime @db.Date
+  dateTo           DateTime @db.Date
+  isActive         Boolean  @default(true)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([companyId, code])
+  @@map("trade_schemes")
+}
+
+/// What a scheme gave on a document: the discount or the bonus value, and the principal's share to claim
+model SchemeUsage {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid
+  schemeId       String   @db.Uuid
+  documentId     String   @db.Uuid
+  docType        String   @db.VarChar(4)
+  documentNumber String   @db.VarChar(40)
+  date           DateTime @db.Date
+  customerId     String   @db.Uuid
+  productId      String   @db.Uuid
+  qty            Decimal  @db.Decimal(18, 4)
+  /// discount given, or bonus goods at their sale price
+  value          Decimal  @db.Decimal(18, 2)
+  principalShare Decimal  @db.Decimal(18, 2)
+  claimId        String?  @db.Uuid
+  createdAt      DateTime @default(now())
+
+  @@index([companyId, schemeId])
+  @@index([documentId])
+  @@index([claimId])
+  @@map("scheme_usages")
+}
+
+/// Bonus goods given as a free supply (pemberian cuma-cuma, UU PPN Art. 1A(1)(d)): delivered apart, PPN on
+/// 11/12 x (price - gross profit) (PMK 11/2025 Art. 2b) borne by the company when it is a PKP
+model GiftRecord {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  number      String   @db.VarChar(40)
+  date        DateTime @db.Date
+  schemeId    String?  @db.Uuid
+  customerId  String   @db.Uuid
+  productId   String   @db.Uuid
+  qty         Decimal  @db.Decimal(18, 4)
+  /// document the bonus was earned on
+  sourceDocId String?  @db.Uuid
+  /// PENDING | DELIVERED | CANCELLED
+  status      String   @default("PENDING") @db.VarChar(10)
+  deliveryId  String?  @db.Uuid
+  cost        Decimal  @default(0) @db.Decimal(18, 2)
+  price       Decimal  @default(0) @db.Decimal(18, 2)
+  dpp         Decimal  @default(0) @db.Decimal(18, 2)
+  ppn         Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt   DateTime @default(now())
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@map("gift_records")
+}
+
+/// Claim to a principal for its share of the schemes, invoiced to the principal (as a customer) by claim type
+model PrincipalClaim {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  number      String   @db.VarChar(40)
+  supplierId  String   @db.Uuid
+  /// the principal as a customer, billed with the claim invoice
+  customerId  String   @db.Uuid
+  claimType   String   @db.VarChar(15)
+  periodFrom  DateTime @db.Date
+  periodTo    DateTime @db.Date
+  amount      Decimal  @db.Decimal(18, 2)
+  /// INVOICED | CANCELLED
+  status      String   @default("INVOICED") @db.VarChar(10)
+  invoiceId   String?  @db.Uuid
+  notes       String?
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@unique([companyId, number])
+  @@map("principal_claims")
+}

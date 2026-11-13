@@ -164,6 +164,8 @@ export function permissionCatalog(): PermissionDef[] {
     ['distribution.read', 'View routes, journey plans, visits and van settlements'],
     ['distribution.route.manage', 'Set up salesman routes and their outlets'],
     ['distribution.visit', 'Visit outlets: check in, take orders, sell from the van, collect payments'],
+    ['distribution.scheme.manage', 'Set up trade schemes (discounts, bonus goods) and deliver free goods'],
+    ['distribution.claim', 'Claim the principals\' share of the schemes'],
     ['distribution.settle', 'Settle a van at the end of the day (cash counted, stock left)'],
     ['sales.instalment.manage', 'Make, reschedule and cancel instalment plans, invoice instalments and late fees'],
     ['accounting.asset.read', 'View fixed assets'],

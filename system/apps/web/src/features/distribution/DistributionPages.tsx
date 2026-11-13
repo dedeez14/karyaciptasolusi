@@ -851,3 +851,471 @@ export function CreditPage() {
     </div>
   );
 }
+
+// ============================================================ trade schemes and free goods
+const CLAIM_LABEL: Record<string, string> = {
+  AWARD: 'Award / target bonus',
+  SERVICE: 'Promotion services',
+  SPACE_RENT: 'Display space rent',
+  EQUIPMENT_RENT: 'Display equipment rent',
+  COMPENSATION: 'Compensation (programme of the principal)',
+};
+const CHANNELS = ['WHOLESALE', 'GROCERY', 'MINIMARKET', 'SUPERMARKET', 'HORECA', 'PHARMACY', 'OTHER'];
+interface Scheme {
+  id: string;
+  code: string;
+  name: string;
+  supplierId: string | null;
+  supplier: string | null;
+  type: string;
+  productIds: string[];
+  products: { id: string; code: string; name: string }[];
+  channels: string[];
+  minQty: number;
+  discountPct: number | null;
+  bonusProductId: string | null;
+  bonusProduct: { code: string; name: string } | null;
+  bonusQty: number | null;
+  principalSharePct: number;
+  claimType: string;
+  dateFrom: string;
+  dateTo: string;
+  isActive: boolean;
+  notes: string | null;
+  given: number;
+  claimable: number;
+}
+
+export function SchemesPage() {
+  const can = useSession((s) => s.can);
+  const qc = useQueryClient();
+  const [edit, setEdit] = useState<Scheme | 'new' | null>(null);
+  const [deliver, setDeliver] = useState<string | null>(null);
+  const [wh, setWh] = useState<string | null>(null);
+  const q = useQuery({ queryKey: ['distribution', 'schemes'], queryFn: () => api.get<Scheme[]>('/distribution/schemes') });
+  const gifts = useQuery({
+    queryKey: ['distribution', 'gifts'],
+    queryFn: () =>
+      api.get<
+        {
+          id: string;
+          number: string;
+          date: string;
+          status: string;
+          qty: number;
+          cost: number;
+          dpp: number;
+          ppn: number;
+          customer: string | null;
+          product: { code: string; name: string } | null;
+          delivery: { id: string; number: string } | null;
+        }[]
+      >('/distribution/gifts'),
+  });
+  const act = useMutation({
+    mutationFn: (x: { id: string; action: 'deliver' | 'cancel' }) => api.post(`/distribution/gifts/${x.id}/${x.action}`, x.action === 'deliver' ? { warehouseId: wh } : {}),
+    onSuccess: () => (toast.success('Done'), setDeliver(null), qc.invalidateQueries({ queryKey: ['distribution'] })),
+    onError: (e) => toast.error(e),
+  });
+  const today = isoDate();
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="Trade Schemes & Free Goods"
+        subtitle="Discounts and bonus goods applied to orders and van sales (the best discount per line); bonus goods are a free supply (pemberian cuma-cuma) delivered apart with PPN on 11/12 x cost, unless Settings say otherwise"
+        actions={
+          can('distribution.scheme.manage') && (
+            <Button icon="plus" onClick={() => setEdit('new')}>
+              New scheme
+            </Button>
+          )
+        }
+      />
+      <Card bodyClass="p-0">
+        {q.isLoading ? (
+          <Loading />
+        ) : !q.data?.length ? (
+          <EmptyState icon="badge-percent" title="No schemes" />
+        ) : (
+          <ul className="divide-y divide-line">
+            {q.data.map((s) => {
+              const live = s.isActive && s.dateFrom <= today && s.dateTo >= today;
+              return (
+                <li key={s.id}>
+                  <button type="button" className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left text-sm hover:bg-slate-50" onClick={() => setEdit(s)}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">
+                        {s.code} · {s.name}
+                      </span>
+                      <span className="block text-xs text-slate-500">
+                        {s.type === 'DISCOUNT' ? `${s.discountPct}% from ${s.minQty}` : `buy ${s.minQty} get ${s.bonusQty} ${s.bonusProduct?.code}`} · {s.products.map((p) => p.code).join(', ')}
+                        {s.channels.length ? ` · ${s.channels.join(', ').toLowerCase()}` : ''} · {fmtDate(s.dateFrom)} - {fmtDate(s.dateTo)}
+                        {s.supplier ? ` · ${s.principalSharePct}% by ${s.supplier} (${CLAIM_LABEL[s.claimType].toLowerCase()})` : ''}
+                      </span>
+                    </span>
+                    <span className="text-right text-xs">
+                      given {fmtMoney(s.given, 0)}
+                      {s.claimable > 0 && <span className="block text-slate-500">principal {fmtMoney(s.claimable, 0)}</span>}
+                    </span>
+                    <Badge tone={live ? 'green' : 'gray'}>{live ? 'Running' : s.isActive ? 'Out of period' : 'Off'}</Badge>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+      <Card title="Free goods (pemberian cuma-cuma)" bodyClass="p-0">
+        {!gifts.data?.length ? (
+          <p className="px-4 py-4 text-sm text-slate-500">No free goods yet.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {gifts.data.map((g) => (
+              <li key={g.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm">
+                <span className="min-w-0 flex-1">
+                  {g.number} · {fmtDate(g.date)} · {g.customer} · {fmtNumber(g.qty, 2)} {g.product?.code}
+                  {g.status === 'DELIVERED' && (
+                    <span className="block text-xs text-slate-500">
+                      on {g.delivery?.number} · cost {fmtMoney(g.cost, 0)} · DPP {fmtMoney(g.dpp, 0)} · PPN {fmtMoney(g.ppn, 0)}
+                    </span>
+                  )}
+                </span>
+                <Badge tone={g.status === 'DELIVERED' ? 'green' : g.status === 'PENDING' ? 'amber' : 'gray'}>{g.status.toLowerCase()}</Badge>
+                {g.status === 'PENDING' && can('distribution.visit') && (
+                  <Button size="sm" variant="outline" icon="truck" onClick={() => setDeliver(g.id)}>
+                    Deliver
+                  </Button>
+                )}
+                {g.status === 'PENDING' && can('distribution.scheme.manage') && (
+                  <Button size="sm" variant="ghost" icon="x" aria-label="Cancel" onClick={() => act.mutate({ id: g.id, action: 'cancel' })} />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      {edit && <SchemeForm s={edit === 'new' ? undefined : edit} onClose={() => setEdit(null)} onSaved={() => (setEdit(null), qc.invalidateQueries({ queryKey: ['distribution'] }))} />}
+      {deliver && (
+        <Modal
+          open
+          onClose={() => setDeliver(null)}
+          title="Deliver free goods"
+          footer={
+            <Button icon="check" loading={act.isPending} disabled={!wh} onClick={() => act.mutate({ id: deliver, action: 'deliver' })}>
+              Deliver
+            </Button>
+          }
+        >
+          <Field label="From warehouse" required>
+            <AsyncSelect resource="warehouses" value={wh} onChange={setWh} />
+          </Field>
+          <p className="mt-2 text-xs text-slate-500">A zero-priced delivery; PPN 12% on 11/12 x the cost is booked to Trade Promotion when the company is a PKP (PMK 11/2025).</p>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function SchemeForm({ s, onClose, onSaved }: { s?: Scheme; onClose: () => void; onSaved: () => void }) {
+  const can = useSession((x) => x.can);
+  const ro = !can('distribution.scheme.manage');
+  const [f, setF] = useState({
+    code: s?.code ?? '',
+    name: s?.name ?? '',
+    supplierId: s?.supplierId ?? (null as string | null),
+    type: s?.type ?? 'DISCOUNT',
+    minQty: String(s?.minQty ?? 1),
+    discountPct: s?.discountPct ? String(s.discountPct) : '',
+    bonusProductId: s?.bonusProductId ?? (null as string | null),
+    bonusQty: s?.bonusQty ? String(s.bonusQty) : '',
+    principalSharePct: String(s?.principalSharePct ?? 0),
+    claimType: s?.claimType ?? 'COMPENSATION',
+    dateFrom: s?.dateFrom ?? isoDate(),
+    dateTo: s?.dateTo ?? isoDate(),
+    channels: s?.channels ?? [],
+    isActive: s?.isActive ?? true,
+    notes: s?.notes ?? '',
+  });
+  const [products, setProducts] = useState(s?.products.map((p) => ({ id: p.id as string | null, label: `${p.code} - ${p.name}` })) ?? [{ id: null as string | null, label: '' }]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const save = useMutation({
+    mutationFn: () => {
+      const body = {
+        ...f,
+        productIds: products.map((p) => p.id).filter(Boolean),
+        discountPct: f.type === 'DISCOUNT' ? f.discountPct : null,
+        bonusProductId: f.type === 'BONUS' ? f.bonusProductId : null,
+        bonusQty: f.type === 'BONUS' ? f.bonusQty : null,
+      };
+      return s ? api.put(`/distribution/schemes/${s.id}`, body) : api.post('/distribution/schemes', body);
+    },
+    onSuccess: () => (toast.success('Scheme saved'), onSaved()),
+    onError: (e) => (setErrors(errorsOf(e)), toast.error(e)),
+  });
+  return (
+    <Modal
+      open
+      size="lg"
+      onClose={onClose}
+      title={s ? `Scheme ${s.code}` : 'New trade scheme'}
+      footer={
+        !ro && (
+          <Button icon="check" loading={save.isPending} disabled={!f.code || !f.name} onClick={() => save.mutate()}>
+            Save
+          </Button>
+        )
+      }
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Code" required error={errors.code}>
+          <Input disabled={ro} value={f.code} maxLength={30} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} />
+        </Field>
+        <Field label="Name" required>
+          <Input disabled={ro} value={f.name} maxLength={150} onChange={(e) => setF({ ...f, name: e.target.value })} />
+        </Field>
+        <Field label="Type">
+          <Select
+            disabled={ro}
+            value={f.type}
+            onChange={(e) => setF({ ...f, type: e.target.value })}
+            options={[
+              { value: 'DISCOUNT', label: 'Discount %' },
+              { value: 'BONUS', label: 'Bonus goods (buy X get Y)' },
+            ]}
+          />
+        </Field>
+        <Field label={f.type === 'DISCOUNT' ? 'From quantity (per line)' : 'For every (quantity bought)'}>
+          <NumberInput disabled={ro} decimals={2} min={0} value={f.minQty} onChange={(v) => setF({ ...f, minQty: v })} />
+        </Field>
+        {f.type === 'DISCOUNT' ? (
+          <Field label="Discount %" required error={errors.discountPct}>
+            <NumberInput disabled={ro} decimals={3} min={0} max={100} value={f.discountPct} onChange={(v) => setF({ ...f, discountPct: v })} />
+          </Field>
+        ) : (
+          <>
+            <Field label="Bonus product" required error={errors.bonusProductId}>
+              <AsyncSelect
+                disabled={ro}
+                resource="products"
+                value={f.bonusProductId}
+                initialLabel={s?.bonusProduct ? `${s.bonusProduct.code} - ${s.bonusProduct.name}` : undefined}
+                onChange={(v) => setF({ ...f, bonusProductId: v })}
+              />
+            </Field>
+            <Field label="Bonus quantity" required>
+              <NumberInput disabled={ro} decimals={2} min={0} value={f.bonusQty} onChange={(v) => setF({ ...f, bonusQty: v })} />
+            </Field>
+          </>
+        )}
+        <Field label="From" required>
+          <DatePicker disabled={ro} value={f.dateFrom} clearable={false} onChange={(v) => setF({ ...f, dateFrom: v ?? isoDate() })} />
+        </Field>
+        <Field label="To" required error={errors.dateTo}>
+          <DatePicker disabled={ro} value={f.dateTo} clearable={false} onChange={(v) => setF({ ...f, dateTo: v ?? isoDate() })} />
+        </Field>
+        <Field label="Principal" error={errors.supplierId}>
+          <AsyncSelect disabled={ro} resource="suppliers" value={f.supplierId} initialLabel={s?.supplier ?? undefined} onChange={(v) => setF({ ...f, supplierId: v })} />
+        </Field>
+        <Field label="Principal share %" help="Of the discount / bonus value, claimed back">
+          <NumberInput disabled={ro} decimals={2} min={0} max={100} value={f.principalSharePct} onChange={(v) => setF({ ...f, principalSharePct: v })} />
+        </Field>
+        <Field label="Claimed as" className="sm:col-span-2" help="SE-24/PJ/2018: awards and compensation carry no PPN; services and display rent are services of the distributor, with PPN">
+          <Select disabled={ro} value={f.claimType} onChange={(e) => setF({ ...f, claimType: e.target.value })} options={Object.entries(CLAIM_LABEL).map(([value, label]) => ({ value, label }))} />
+        </Field>
+      </div>
+      <p className="mb-1 mt-4 text-sm font-medium">Products</p>
+      {errors.productIds && <p className="mb-1 text-xs text-red-600">{errors.productIds}</p>}
+      <div className="space-y-2">
+        {products.map((p, i) => (
+          <div key={i} className="grid grid-cols-[minmax(0,1fr)_2.5rem] gap-2">
+            <AsyncSelect
+              disabled={ro}
+              resource="products"
+              value={p.id}
+              initialLabel={p.label || undefined}
+              onChange={(v, o) => setProducts(products.map((x, j) => (j === i ? { id: v, label: o?.label ?? '' } : x)))}
+              aria-label="Product"
+            />
+            {!ro && <Button variant="ghost" size="icon" icon="x" aria-label="Remove" onClick={() => setProducts(products.filter((_, j) => j !== i))} />}
+          </div>
+        ))}
+      </div>
+      {!ro && (
+        <Button size="sm" variant="outline" icon="plus" className="mt-2" onClick={() => setProducts([...products, { id: null, label: '' }])}>
+          Product
+        </Button>
+      )}
+      <p className="mb-1 mt-4 text-sm font-medium">Outlet channels (none = all)</p>
+      <div className="flex flex-wrap gap-2 text-sm">
+        {CHANNELS.map((c) => (
+          <label key={c} className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              disabled={ro}
+              checked={f.channels.includes(c)}
+              onChange={(e) => setF({ ...f, channels: e.target.checked ? [...f.channels, c] : f.channels.filter((x) => x !== c) })}
+            />{' '}
+            {c.toLowerCase()}
+          </label>
+        ))}
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <input type="checkbox" disabled={ro} checked={f.isActive} onChange={(e) => setF({ ...f, isActive: e.target.checked })} /> Active
+      </label>
+    </Modal>
+  );
+}
+
+// ============================================================ principal claims
+export function ClaimsPage() {
+  const can = useSession((s) => s.can);
+  const qc = useQueryClient();
+  const [from, setFrom] = useState(isoDate().slice(0, 8) + '01');
+  const [to, setTo] = useState(isoDate());
+  const [make, setMake] = useState<{ supplierId: string; supplier: string | null; claimType: string; amount: number } | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const cl = useQuery({
+    queryKey: ['distribution', 'claimable', from, to],
+    queryFn: () =>
+      api.get<{ supplierId: string; supplier: string | null; claimType: string; amount: number; value: number; lines: number; schemes: string[]; tax: { vat: boolean; wht: string; label: string } }[]>(
+        '/distribution/claims/claimable',
+        { from, to },
+      ),
+  });
+  const list = useQuery({
+    queryKey: ['distribution', 'claims'],
+    queryFn: () =>
+      api.get<
+        {
+          id: string;
+          number: string;
+          supplier: string | null;
+          claimType: string;
+          periodFrom: string;
+          periodTo: string;
+          amount: number;
+          status: string;
+          tax: { vat: boolean; wht: string };
+          invoice: { id: string; number: string; status: string; total: number; paid: number } | null;
+        }[]
+      >('/distribution/claims'),
+  });
+  const create = useMutation({
+    mutationFn: () =>
+      api.post<{ number: string; invoice: { id: string; number: string } }>('/distribution/claims', {
+        supplierId: make!.supplierId,
+        customerId,
+        claimType: make!.claimType,
+        periodFrom: from,
+        periodTo: to,
+      }),
+    onSuccess: (r) => (toast.success(`${r.number}: draft invoice ${r.invoice.number}`), setMake(null), qc.invalidateQueries({ queryKey: ['distribution'] })),
+    onError: (e) => toast.error(e),
+  });
+  const cancel = useMutation({
+    mutationFn: (id: string) => api.post(`/distribution/claims/${id}/cancel`),
+    onSuccess: () => (toast.success('Claim cancelled'), qc.invalidateQueries({ queryKey: ['distribution'] })),
+    onError: (e) => toast.error(e),
+  });
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="Principal Claims"
+        subtitle="The principals' share of the schemes given on confirmed sales, claimed by type (SE-24/PJ/2018): an invoice to the principal, PPN only for services and display rent, the principal withholding the income tax shown"
+        actions={
+          <div className="flex gap-2">
+            <div className="w-40">
+              <DatePicker value={from} clearable={false} onChange={(v) => setFrom(v ?? isoDate())} aria-label="From" />
+            </div>
+            <div className="w-40">
+              <DatePicker value={to} clearable={false} onChange={(v) => setTo(v ?? isoDate())} aria-label="To" />
+            </div>
+          </div>
+        }
+      />
+      <Card title="To claim" bodyClass="p-0">
+        {cl.isLoading ? (
+          <Loading />
+        ) : !cl.data?.length ? (
+          <p className="px-4 py-4 text-sm text-slate-500">Nothing to claim in this period.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {cl.data.map((c) => (
+              <li key={`${c.supplierId}-${c.claimType}`} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">
+                    {c.supplier} · {c.tax.label}
+                  </span>
+                  <span className="block text-xs text-slate-500">
+                    {c.lines} lines of {c.schemes.join(', ')} · given {fmtMoney(c.value, 0)} · {c.tax.vat ? 'with PPN' : 'no PPN'} · withholding {c.tax.wht}
+                  </span>
+                </span>
+                <span className="font-semibold">{fmtMoney(c.amount, 0)}</span>
+                {can('distribution.claim') && (
+                  <Button size="sm" icon="file-signature" onClick={() => (setMake(c), setCustomerId(null))}>
+                    Claim
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      <Card title="Claims" bodyClass="p-0">
+        {!list.data?.length ? (
+          <p className="px-4 py-4 text-sm text-slate-500">No claims yet.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {list.data.map((c) => (
+              <li key={c.id} className={`flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm ${c.status === 'CANCELLED' ? 'text-slate-400 line-through' : ''}`}>
+                <span className="min-w-0 flex-1">
+                  {c.number} · {c.supplier} · {CLAIM_LABEL[c.claimType]} · {fmtDate(c.periodFrom)} - {fmtDate(c.periodTo)}
+                  {c.invoice && (
+                    <span className="block text-xs">
+                      <Link className="text-brand-600" to={`/documents/SI/${c.invoice.id}`}>
+                        {c.invoice.number}
+                      </Link>{' '}
+                      ({c.invoice.status.toLowerCase()}, paid {fmtMoney(c.invoice.paid, 0)} of {fmtMoney(c.invoice.total, 0)})
+                    </span>
+                  )}
+                </span>
+                <span>{fmtMoney(c.amount, 0)}</span>
+                {c.status === 'INVOICED' && can('distribution.claim') && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon="x"
+                    aria-label="Cancel claim"
+                    onClick={async () =>
+                      (await confirm({ title: `Cancel ${c.number}?`, message: 'Only while its invoice is a draft; the schemes can be claimed again.', danger: true, confirmText: 'Cancel claim' })) &&
+                      cancel.mutate(c.id)
+                    }
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      {make && (
+        <Modal
+          open
+          onClose={() => setMake(null)}
+          title={`Claim ${fmtMoney(make.amount, 0)} from ${make.supplier}`}
+          footer={
+            <Button icon="check" loading={create.isPending} disabled={!customerId} onClick={() => create.mutate()}>
+              Make claim invoice
+            </Button>
+          }
+        >
+          <Field label="Bill the principal as customer" required help="The customer record of the principal (the claim is an invoice to it)">
+            <AsyncSelect resource="customers" value={customerId} onChange={setCustomerId} />
+          </Field>
+          <p className="mt-2 text-xs text-slate-500">
+            {CLAIM_LABEL[make.claimType]} for {fmtDate(from)} - {fmtDate(to)}: a draft invoice to review and send.
+          </p>
+        </Modal>
+      )}
+    </div>
+  );
+}

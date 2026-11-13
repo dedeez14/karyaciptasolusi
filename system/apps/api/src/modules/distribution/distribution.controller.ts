@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { checkInSchema, collectSchema, DistributionService, noOrderSchema, orderSchema, routeSchema, settleSchema, vanSaleSchema } from './distribution.service';
+import { claimSchema, SchemeService, schemeSchema } from './schemes.service';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -9,7 +10,10 @@ const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_00
 
 @Controller('distribution')
 export class DistributionController {
-  constructor(private readonly svc: DistributionService) {}
+  constructor(
+    private readonly svc: DistributionService,
+    private readonly schemes: SchemeService,
+  ) {}
 
   @Get('routes')
   routes() {
@@ -111,5 +115,59 @@ export class DistributionController {
   @HttpCode(200)
   voidIt(@Param('id') id: string) {
     return this.svc.voidSettlement(id);
+  }
+
+  @Get('schemes')
+  schemeList() {
+    return this.schemes.schemes();
+  }
+
+  @Post('schemes')
+  createScheme(@Body(new ZodPipe(schemeSchema)) body: z.infer<typeof schemeSchema>) {
+    return this.schemes.saveScheme(null, body);
+  }
+
+  @Put('schemes/:id')
+  updateScheme(@Param('id') id: string, @Body(new ZodPipe(schemeSchema)) body: z.infer<typeof schemeSchema>) {
+    return this.schemes.saveScheme(id, body);
+  }
+
+  @Get('gifts')
+  gifts(@Query('status') status?: string) {
+    return this.schemes.gifts(status || undefined);
+  }
+
+  @Post('gifts/:id/deliver')
+  @HttpCode(200)
+  deliverGift(@Param('id') id: string, @Body() body: { warehouseId?: string }) {
+    if (!UUID.test(body?.warehouseId ?? '')) throw new BadRequestException('Choose the warehouse');
+    return this.schemes.deliverGift(id, body.warehouseId!);
+  }
+
+  @Post('gifts/:id/cancel')
+  @HttpCode(200)
+  cancelGift(@Param('id') id: string) {
+    return this.schemes.cancelGift(id);
+  }
+
+  @Get('claims/claimable')
+  claimable(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.schemes.claimable(DAY.test(from ?? '') ? from! : today().slice(0, 8) + '01', DAY.test(to ?? '') ? to! : today());
+  }
+
+  @Get('claims')
+  claims() {
+    return this.schemes.claims();
+  }
+
+  @Post('claims')
+  createClaim(@Body(new ZodPipe(claimSchema)) body: z.infer<typeof claimSchema>) {
+    return this.schemes.createClaim(body);
+  }
+
+  @Post('claims/:id/cancel')
+  @HttpCode(200)
+  cancelClaim(@Param('id') id: string) {
+    return this.schemes.cancelClaim(id);
   }
 }

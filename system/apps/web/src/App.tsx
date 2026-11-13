@@ -110,6 +110,8 @@ const DistRoutesPage = lazy(() => distPages().then((m) => ({ default: m.RoutesPa
 const DistVisitsPage = lazy(() => distPages().then((m) => ({ default: m.VisitsPage })));
 const DistSettlementsPage = lazy(() => distPages().then((m) => ({ default: m.SettlementsPage })));
 const DistCreditPage = lazy(() => distPages().then((m) => ({ default: m.CreditPage })));
+const DistSchemesPage = lazy(() => distPages().then((m) => ({ default: m.SchemesPage })));
+const DistClaimsPage = lazy(() => distPages().then((m) => ({ default: m.ClaimsPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -311,6 +313,8 @@ export default function App() {
             <Route path="distribution/visits" element={<DistVisitsPage />} />
             <Route path="distribution/settlements" element={<DistSettlementsPage />} />
             <Route path="distribution/credit" element={<DistCreditPage />} />
+            <Route path="distribution/schemes" element={<DistSchemesPage />} />
+            <Route path="distribution/claims" element={<DistClaimsPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

@@ -10,6 +10,7 @@ import { D } from '../../common/utils/money';
 import { JournalService } from '../accounting/journal.service';
 import { DocumentService, openOrderValue } from '../documents/document.service';
 import { PaymentService } from '../payments/payment.service';
+import { SchemeService } from './schemes.service';
 
 const n = (v: unknown) => Number(v ?? 0);
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -52,8 +53,8 @@ export const routeSchema = z.object({
 });
 export const checkInSchema = z.object({ routeId: optUuid, customerId: z.uuid(), latitude: optCoord(-90, 90), longitude: optCoord(-180, 180), notes: optText(500) });
 const lineSchema = z.object({ productId: z.uuid(), qty: z.coerce.number().positive().max(1e7), unitPrice: z.coerce.number().min(0).max(1e12).optional() });
-export const orderSchema = z.object({ lines: z.array(lineSchema).min(1).max(200), notes: optText(500) });
-export const vanSaleSchema = z.object({ lines: z.array(lineSchema).min(1).max(200), collect: z.coerce.number().min(0).max(1e13).default(0), notes: optText(500) });
+export const orderSchema = z.object({ lines: z.array(lineSchema).min(1).max(200), applySchemes: z.boolean().default(true), notes: optText(500) });
+export const vanSaleSchema = z.object({ lines: z.array(lineSchema).min(1).max(200), collect: z.coerce.number().min(0).max(1e13).default(0), applySchemes: z.boolean().default(true), notes: optText(500) });
 export const collectSchema = z.object({ amount: z.coerce.number().positive().max(1e13), notes: optText(500) });
 export const noOrderSchema = z.object({ reason: z.string().trim().min(1).max(200), closed: z.boolean().default(false) });
 export const settleSchema = z.object({ routeId: z.uuid(), date: z.coerce.date(), countedCash: z.coerce.number().min(0).max(1e13), notes: optText(1000) });
@@ -73,6 +74,7 @@ export class DistributionService {
     private readonly journal: JournalService,
     private readonly docs: DocumentService,
     private readonly payments: PaymentService,
+    private readonly schemes: SchemeService,
   ) {}
 
   // ------------------------------------------------------------------ routes
@@ -245,11 +247,33 @@ export class DistributionService {
     return v;
   }
 
+  /**
+   * lines with the schemes applied: the best discount per line; bonus goods either as extra lines at a 100% discount
+   * (bonus mode DISCOUNT) or as free supplies apart (FREE_SUPPLY, the default)
+   */
+  private async priced(customerId: string, lines: { productId: string; qty: number; unitPrice?: number }[], apply: boolean) {
+    const empty = { lines: lines.map((l) => ({ ...l, discountPct: undefined as number | undefined })), applied: lines.map((l) => ({ productId: l.productId, schemeId: null as string | null })), schemes: new Map(), gifts: [] as { schemeId: string; productId: string; qty: number }[] };
+    if (!apply) return empty;
+    const ev = await this.schemes.evaluate(customerId, new Date(localIso()), lines);
+    const mode = await this.schemes.bonusMode(RequestCtx.companyId());
+    const out = ev.lines.map((l) => ({ productId: l.productId, qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct }));
+    const applied = ev.lines.map((l) => ({ productId: l.productId, schemeId: l.schemeId }));
+    const gifts: { schemeId: string; productId: string; qty: number }[] = [];
+    for (const b of ev.bonuses) {
+      if (mode === 'DISCOUNT') {
+        out.push({ productId: b.productId, qty: b.qty, unitPrice: undefined, discountPct: 100 });
+        applied.push({ productId: b.productId, schemeId: b.schemeId });
+      } else gifts.push({ schemeId: b.schemeId, productId: b.productId, qty: b.qty });
+    }
+    return { lines: out, applied, schemes: ev.schemes, gifts };
+  }
+
   /** order taken at the outlet: a sales order, confirmed when the credit check allows (else it stays a draft) */
   async order(id: string, input: z.infer<typeof orderSchema>) {
     RequestCtx.assert('distribution.visit');
     const v = await this.openVisit(id);
-    const so = await this.docs.create('SO', { date: localIso(), customerId: v.customerId, reference: `Visit ${iso(v.date)}`, notes: input.notes ?? undefined, lines: input.lines }, undefined, { skipPermission: true });
+    const plan = await this.priced(v.customerId, input.lines, input.applySchemes !== false);
+    const so = await this.docs.create('SO', { date: localIso(), customerId: v.customerId, reference: `Visit ${iso(v.date)}`, notes: input.notes ?? undefined, lines: plan.lines }, undefined, { skipPermission: true });
     let warning: string | null = null;
     try {
       await this.docs.confirm('SO', so.id, { skipPermission: true });
@@ -257,6 +281,9 @@ export class DistributionService {
       warning = `Order ${so.number} saved as a draft: ${(e as Error).message}`;
     }
     const doc = await this.prisma.tradeDocument.findUniqueOrThrow({ where: { id: so.id } });
+    await this.schemes.recordDiscounts(so.id, plan.applied, plan.schemes);
+    // bonus goods as a free supply: delivered later with the order
+    for (const b of plan.gifts) await this.schemes.createGift(this.prisma, b, { id: so.id, customerId: v.customerId, date: doc.date });
     await this.prisma.salesVisit.update({ where: { id }, data: { outcome: 'ORDER', orderId: so.id, sales: { increment: doc.grandTotal } } });
     await this.audit.record('Sales Visit', id, 'ORDER', null, { order: so.number, warning });
     return { ...(await this.visit(id)), warning };
@@ -269,7 +296,8 @@ export class DistributionService {
     const route = v.routeId ? await this.prisma.salesRoute.findUnique({ where: { id: v.routeId } }) : null;
     if (!route?.vanWarehouseId) throw new ConflictException('Van sales need a route with a van warehouse');
     if (input.collect > 0 && !route.cashAccountId) throw new ConflictException('Set the cash account of the route to collect cash');
-    const dO = await this.docs.create('DO', { date: localIso(), customerId: v.customerId, warehouseId: route.vanWarehouseId, reference: `Van ${route.code}`, lines: input.lines.map((l) => ({ productId: l.productId, qty: l.qty })) }, undefined, { skipPermission: true });
+    const plan = await this.priced(v.customerId, input.lines, input.applySchemes !== false);
+    const dO = await this.docs.create('DO', { date: localIso(), customerId: v.customerId, warehouseId: route.vanWarehouseId, reference: `Van ${route.code}`, lines: plan.lines.map((l) => ({ productId: l.productId, qty: l.qty })) }, undefined, { skipPermission: true });
     await this.docs.confirm('DO', dO.id, { skipPermission: true }).catch(async (e) => {
       await this.prisma.tradeDocument.update({ where: { id: dO.id }, data: { deletedAt: new Date() } });
       throw e;
@@ -277,7 +305,7 @@ export class DistributionService {
     const doLines = await this.prisma.tradeDocumentLine.findMany({ where: { documentId: dO.id }, orderBy: { lineNo: 'asc' } });
     let si: { id: string; number: string };
     try {
-      si = await this.docs.create('SI', { date: localIso(), customerId: v.customerId, reference: dO.number, notes: input.notes ?? undefined, lines: input.lines.map((l, i) => ({ productId: l.productId, qty: l.qty, unitPrice: l.unitPrice, sourceLineId: doLines[i]?.id })) }, dO.id, { skipPermission: true });
+      si = await this.docs.create('SI', { date: localIso(), customerId: v.customerId, reference: dO.number, notes: input.notes ?? undefined, lines: plan.lines.map((l, i) => ({ productId: l.productId, qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct, sourceLineId: doLines[i]?.id })) }, dO.id, { skipPermission: true });
       await this.docs.confirm('SI', si.id, { skipPermission: true });
     } catch (e) {
       // not sold after all: the draft invoice is dropped and the goods go back on the van
@@ -286,6 +314,12 @@ export class DistributionService {
       throw e;
     }
     const inv = await this.prisma.tradeDocument.findUniqueOrThrow({ where: { id: si.id } });
+    await this.schemes.recordDiscounts(si.id, plan.applied, plan.schemes);
+    // bonus goods as a free supply: handed over from the van now, apart from the sale
+    for (const b of plan.gifts) {
+      const g = await this.schemes.createGift(this.prisma, b, { id: si.id, customerId: v.customerId, date: inv.date });
+      await this.schemes.deliverGift(g.id, route.vanWarehouseId);
+    }
     let paymentId: string | null = null;
     const collect = Math.min(input.collect, n(inv.grandTotal));
     if (collect > 0) {
