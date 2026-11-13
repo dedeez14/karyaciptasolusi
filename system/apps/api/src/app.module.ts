@@ -84,6 +84,7 @@ import { CONSTRUCTION_CONTROLLERS, CONSTRUCTION_PROVIDERS } from './modules/cons
 import { PROPERTY_CONTROLLERS, PROPERTY_PROVIDERS } from './modules/property';
 import { LOGISTICS_CONTROLLERS, LOGISTICS_PROVIDERS } from './modules/logistics';
 import { COOP_CONTROLLERS, COOP_PROVIDERS } from './modules/coop';
+import { HOTEL_CONTROLLERS, HOTEL_PROVIDERS } from './modules/hotel';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
@@ -179,6 +180,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...PROPERTY_CONTROLLERS,
     ...LOGISTICS_CONTROLLERS,
     ...COOP_CONTROLLERS,
+    ...HOTEL_CONTROLLERS,
     ...POS_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
@@ -256,6 +258,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...PROPERTY_PROVIDERS,
     ...LOGISTICS_PROVIDERS,
     ...COOP_PROVIDERS,
+    ...HOTEL_PROVIDERS,
     ...POS_PROVIDERS,
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,

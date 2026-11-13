@@ -141,6 +141,12 @@ const CoopLoansPage = lazy(() => coopPages().then((m) => ({ default: m.LoansPage
 const CoopLoanPage = lazy(() => coopPages().then((m) => ({ default: m.LoanPage })));
 const CoopProductsPage = lazy(() => coopPages().then((m) => ({ default: m.ProductsPage })));
 const CoopShuPage = lazy(() => coopPages().then((m) => ({ default: m.ShuPage })));
+const hotelPages = () => import('@/features/hotel/HotelPages');
+const HotelFrontDeskPage = lazy(() => hotelPages().then((m) => ({ default: m.FrontDeskPage })));
+const HotelReservationsPage = lazy(() => hotelPages().then((m) => ({ default: m.ReservationsPage })));
+const HotelReservationPage = lazy(() => hotelPages().then((m) => ({ default: m.ReservationPage })));
+const HotelRoomsPage = lazy(() => hotelPages().then((m) => ({ default: m.RoomsPage })));
+const HotelAuditPage = lazy(() => hotelPages().then((m) => ({ default: m.AuditPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -368,6 +374,11 @@ export default function App() {
             <Route path="coop/loans/:id" element={<CoopLoanPage />} />
             <Route path="coop/products" element={<CoopProductsPage />} />
             <Route path="coop/shu" element={<CoopShuPage />} />
+            <Route path="hotel/front-desk" element={<HotelFrontDeskPage />} />
+            <Route path="hotel/reservations" element={<HotelReservationsPage />} />
+            <Route path="hotel/reservations/:id" element={<HotelReservationPage />} />
+            <Route path="hotel/rooms" element={<HotelRoomsPage />} />
+            <Route path="hotel/audit" element={<HotelAuditPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

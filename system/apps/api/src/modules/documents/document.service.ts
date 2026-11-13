@@ -798,6 +798,8 @@ export class DocumentService {
           if (ps) throw new ConflictException(`Invoice of property sale ${ps.sale.number}: cancel the sale in Property (Permen PUPR 11/2019 refund)`);
           const lj = await tx.logisticsJob.findFirst({ where: { invoiceId: id, status: 'INVOICED' }, select: { number: true } });
           if (lj) throw new ConflictException(`Invoice of logistics job ${lj.number}: cancel it from the job in Logistics`);
+          const hr = await tx.hotelReservation.findFirst({ where: { invoiceId: id }, select: { number: true } });
+          if (hr) throw new ConflictException(`City ledger invoice of hotel folio ${hr.number}: the guest has checked out on it`);
         }
         if (!opts.skipPermission && def.code === 'PI') {
           const cl = await tx.subcontractClaim.findFirst({ where: { invoiceId: id, status: 'APPROVED' }, select: { number: true } });

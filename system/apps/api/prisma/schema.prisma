@@ -6994,3 +6994,142 @@ model CoopShuMember {
   @@index([runId])
   @@map("coop_shu_members")
 }
+
+// ----------------------------------------------------------------------------
+// Hotel: room types and rooms, reservations, check-in / out, guest folios, night audit; PBJT jasa perhotelan
+// (UU 1/2022, on the amount incl. service charge; not a PPN object), service charge (Permenaker 7/2016),
+// foreign guest reports (APOA, UU Keimigrasian Art. 72 as amended by UU 63/2024)
+// ----------------------------------------------------------------------------
+
+model HotelConfig {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @unique @db.Uuid
+  name           String   @default("Hotel") @db.VarChar(150)
+  /// the date the night audit closes next (business date)
+  businessDate   DateTime @db.Date
+  pbjtPct        Decimal  @default(10) @db.Decimal(5, 2)
+  servicePct     Decimal  @default(0) @db.Decimal(5, 2)
+  /// service charge pooled for the staff (Permenaker 7/2016) or kept as income
+  serviceToStaff Boolean  @default(true)
+  checkoutTime   String   @default("12:00") @db.VarChar(5)
+  updatedAt      DateTime @updatedAt
+
+  @@map("hotel_configs")
+}
+
+model HotelRoomType {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  code      String   @db.VarChar(20)
+  name      String   @db.VarChar(100)
+  capacity  Int      @default(2)
+  /// rate a night before service charge and PBJT
+  rate      Decimal  @db.Decimal(18, 2)
+  weekendRate Decimal? @db.Decimal(18, 2)
+  breakfast Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, code])
+  @@map("hotel_room_types")
+}
+
+model HotelRoom {
+  id         String  @id @default(uuid()) @db.Uuid
+  companyId  String  @db.Uuid
+  number     String  @db.VarChar(10)
+  floor      String? @db.VarChar(10)
+  roomTypeId String  @db.Uuid
+  /// VACANT_CLEAN | VACANT_DIRTY | OCCUPIED | OUT_OF_ORDER
+  status     String  @default("VACANT_CLEAN") @db.VarChar(14)
+  notes      String? @db.VarChar(200)
+
+  @@unique([companyId, number])
+  @@map("hotel_rooms")
+}
+
+model HotelReservation {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  number         String    @db.VarChar(40)
+  guestName      String    @db.VarChar(150)
+  guestPhone     String?   @db.VarChar(30)
+  guestEmail     String?   @db.VarChar(150)
+  /// ISO country code of the nationality (ID = Indonesian)
+  nationality    String    @default("ID") @db.VarChar(2)
+  /// KTP | PASSPORT | KITAS | SIM | OTHER
+  idType         String?   @db.VarChar(10)
+  /// encrypted
+  idNumber       String?   @db.VarChar(255)
+  /// company billed through the city ledger
+  customerId     String?   @db.Uuid
+  /// WALK_IN | DIRECT | OTA | CORPORATE | GROUP
+  source         String    @default("DIRECT") @db.VarChar(10)
+  sourceRef      String?   @db.VarChar(80)
+  roomTypeId     String    @db.Uuid
+  roomId         String?   @db.Uuid
+  arrival        DateTime  @db.Date
+  departure      DateTime  @db.Date
+  adults         Int       @default(1)
+  children       Int       @default(0)
+  /// a night before service charge and PBJT
+  rate           Decimal   @db.Decimal(18, 2)
+  /// TENTATIVE | CONFIRMED | CHECKED_IN | CHECKED_OUT | CANCELLED | NO_SHOW
+  status         String    @default("CONFIRMED") @db.VarChar(12)
+  checkedInAt    DateTime?
+  checkedOutAt   DateTime?
+  /// foreign guest reported to immigration (APOA) within 24 hours of the check-in
+  apoaReportedAt DateTime?
+  apoaRef        String?   @db.VarChar(60)
+  invoiceId      String?   @db.Uuid
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@index([companyId, arrival])
+  @@map("hotel_reservations")
+}
+
+/// a charge or a receipt on a guest folio (signed: charges +, receipts -)
+model HotelFolioLine {
+  id            String   @id @default(uuid()) @db.Uuid
+  reservationId String   @db.Uuid
+  /// business date
+  date          DateTime @db.Date
+  /// ROOM | FNB | MINIBAR | LAUNDRY | OTHER | DEPOSIT | PAYMENT | REFUND | CITY_LEDGER
+  kind          String   @db.VarChar(12)
+  description   String   @db.VarChar(200)
+  amount        Decimal  @db.Decimal(18, 2)
+  service       Decimal  @default(0) @db.Decimal(18, 2)
+  tax           Decimal  @default(0) @db.Decimal(18, 2)
+  total         Decimal  @db.Decimal(18, 2)
+  bankAccountId String?  @db.Uuid
+  /// POSTED | VOID
+  status        String   @default("POSTED") @db.VarChar(6)
+  createdAt     DateTime @default(now())
+  createdById   String?  @db.Uuid
+
+  @@index([reservationId])
+  @@index([date])
+  @@map("hotel_folio_lines")
+}
+
+model HotelNightAudit {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid
+  businessDate   DateTime @db.Date
+  roomsAvailable Int
+  roomsSold      Int
+  roomRevenue    Decimal  @db.Decimal(18, 2)
+  service        Decimal  @db.Decimal(18, 2)
+  tax            Decimal  @db.Decimal(18, 2)
+  noShows        Int      @default(0)
+  createdAt      DateTime @default(now())
+  createdById    String?  @db.Uuid
+
+  @@unique([companyId, businessDate])
+  @@map("hotel_night_audits")
+}

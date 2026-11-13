@@ -409,6 +409,12 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['coop.products', 'coop', 'Savings & Loan Products', 'settings-2', '/coop/products', 'coop.read'],
   ['coop.shu', 'coop', 'Collectibility & SHU', 'pie-chart', '/coop/shu', 'coop.read'],
 
+  ['hotel', null, 'Hotel', 'bed-double', null, null],
+  ['hotel.frontdesk', 'hotel', 'Front Desk', 'concierge-bell', '/hotel/front-desk', 'hotel.read'],
+  ['hotel.reservations', 'hotel', 'Reservations', 'calendar-days', '/hotel/reservations', 'hotel.read'],
+  ['hotel.rooms', 'hotel', 'Rooms & Rates', 'door-open', '/hotel/rooms', 'hotel.read'],
+  ['hotel.audit', 'hotel', 'Night Audit & Reports', 'moon', '/hotel/audit', 'hotel.read'],
+
   ['purchase', null, 'Purchase', 'shopping-bag', null, null],
   ['purchase.requests', 'purchase', 'Purchase Requests', 'file-question', '/documents/PR', 'purchase.request.read'],
   ['purchase.orders', 'purchase', 'Purchase Orders', 'clipboard-check', '/documents/PO', 'purchase.order.read'],
