@@ -44,6 +44,7 @@ export async function vatRegister(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise
       npwp: p?.npwp ?? '',
       dpp: r2(sign * (n(d.subtotal) - n(d.discountTotal)) * rate),
       ppn: r2(sign * n(d.taxTotal) * rate),
+      ppnbm: r2(sign * n(d.luxuryTaxTotal) * rate),
       missing: d.taxTotal && n(d.taxTotal) > 0 && !d.taxInvoiceNumber ? (ret ? 'No nota retur no.' : 'No tax invoice no.') : '',
     };
   });
@@ -58,10 +59,11 @@ export async function vatRegister(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise
       { key: 'npwp', label: 'NPWP' },
       { key: 'dpp', label: 'DPP (tax base)', type: 'money' },
       { key: 'ppn', label: 'PPN', type: 'money' },
+      ...(docType === 'SI' && rows.some((r) => r.ppnbm) ? [{ key: 'ppnbm', label: 'PPnBM', type: 'money' as const }] : []),
       { key: 'missing', label: 'Check' },
     ],
     rows: withTax,
-    totals: { dpp: r2(withTax.reduce((a, r) => a + r.dpp, 0)), ppn: r2(withTax.reduce((a, r) => a + r.ppn, 0)) },
+    totals: { dpp: r2(withTax.reduce((a, r) => a + r.dpp, 0)), ppn: r2(withTax.reduce((a, r) => a + r.ppn, 0)), ppnbm: r2(withTax.reduce((a, r) => a + r.ppnbm, 0)) },
   };
 }
 

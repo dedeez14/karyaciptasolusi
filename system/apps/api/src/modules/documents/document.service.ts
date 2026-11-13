@@ -11,6 +11,7 @@ import { RequestCtx } from '../../common/context/request-context';
 import { D, round, sum, ZERO } from '../../common/utils/money';
 import { paged } from '../../common/utils/query';
 import { JournalService, PostingLine } from '../accounting/journal.service';
+import { ppnbmTerms } from './ppnbm';
 import { InventoryService } from './inventory.service';
 import { LotService } from './lot.service';
 import { DOC_MAP, DocTypeDef } from './document.registry';
@@ -240,6 +241,9 @@ export class DocumentService {
     const taxes = await this.prisma.tax.findMany({ where: { id: { in: [...taxIds] }, companyId, deletedAt: null, kind: 'VAT' } });
     if (taxes.length !== taxIds.size) throw new BadRequestException('One or more taxes are invalid. Lines take VAT (PPN) only; withholding tax (PPh 23 / 4(2)) is recorded on the payment.');
     const txm = new Map(taxes.map((t) => [t.id, t]));
+    // PPnBM (PP 73/2019 jo 74/2021): charged once, by the manufacturer / importer, on sales documents of a PKP
+    const ppnbmOn = def.taxField === 'saleTaxId' && salesVat && products.some((p) => p.luxuryGroup) && (await this.settings.bool('sales.ppnbmCollector', companyId, false));
+    const ppnbmStage2 = ppnbmOn ? await this.settings.bool('automotive.ppnbmStage2', companyId, false) : false;
     const uomIds = [...new Set(input.lines.map((l) => l.uomId).filter(Boolean) as string[])];
     if (uomIds.length && (await this.prisma.uom.count({ where: { id: { in: uomIds }, companyId } })) !== uomIds.length) throw new BadRequestException('Invalid unit of measure');
 
@@ -257,6 +261,9 @@ export class DocumentService {
       // PMK 131/2024: PPN 12% is charged on "DPP nilai lain" = 11/12 of the price (except luxury goods)
       const base = tx ? subtotal.minus(discount).times(tx.baseNumerator).div(tx.baseDenominator) : ZERO;
       const tax = round(base.times(rate).div(100));
+      const lux = ppnbmOn ? ppnbmTerms(p?.luxuryGroup, ppnbmStage2) : null;
+      if (lux && (!tx || tx.baseNumerator !== tx.baseDenominator)) throw new BadRequestException(`Line ${i + 1}: goods subject to PPnBM carry PPN 12% on the full price (PMK 131/2024): choose the full-price PPN`);
+      const luxTax = lux ? round(subtotal.minus(discount).times(lux.basePct).div(100).times(lux.rate).div(100)) : ZERO;
       return {
         lineNo: i + 1,
         productId: p?.id ?? null,
@@ -270,7 +277,10 @@ export class DocumentService {
         lineSubtotal: subtotal,
         lineDiscount: discount,
         lineTax: tax,
-        lineTotal: subtotal.minus(discount).plus(tax),
+        luxuryRate: D(lux?.rate ?? 0),
+        luxuryBasePct: D(lux?.basePct ?? 0),
+        lineLuxuryTax: luxTax,
+        lineTotal: subtotal.minus(discount).plus(tax).plus(luxTax),
         sourceLineId: l.sourceLineId ?? null,
         lotNo: p?.trackLots ? l.lotNo ?? null : null,
         expiryDate: p?.trackLots ? l.expiryDate ?? null : null,
@@ -280,6 +290,7 @@ export class DocumentService {
     const subtotal = sum(lines.map((l) => l.lineSubtotal));
     const discountTotal = sum(lines.map((l) => l.lineDiscount));
     const taxTotal = sum(lines.map((l) => l.lineTax));
+    const luxuryTaxTotal = sum(lines.map((l) => l.lineLuxuryTax));
     let dueDate = input.dueDate ?? null;
     if (!dueDate && def.dueDate) dueDate = new Date(input.date.getTime() + (term?.days ?? 0) * 86_400_000);
     const company = await this.prisma.company.findUniqueOrThrow({ where: { id: companyId }, select: { currencyCode: true } });
@@ -303,7 +314,8 @@ export class DocumentService {
       subtotal,
       discountTotal,
       taxTotal,
-      grandTotal: subtotal.minus(discountTotal).plus(taxTotal),
+      luxuryTaxTotal,
+      grandTotal: subtotal.minus(discountTotal).plus(taxTotal).plus(luxuryTaxTotal),
     };
     return { header, lines };
   }
@@ -509,6 +521,7 @@ export class DocumentService {
           const t = l.taxId ? tm.get(l.taxId) : undefined;
           j.push({ accountId: t?.salesAccountId, key: t?.salesAccountId ? undefined : 'TAX_OUT', credit: D(l.lineTax).times(rate), description: t?.name });
         }
+        if (D(l.lineLuxuryTax).gt(0)) j.push({ key: 'PPNBM_OUT', credit: D(l.lineLuxuryTax).times(rate), description: `PPnBM ${Number(l.luxuryRate)}% x DPP ${Number(l.luxuryBasePct)}%` });
       }
       if (def.code === 'PI') {
         const acc = isStock ? null : p?.expenseAccountId ?? null;
@@ -565,6 +578,7 @@ export class DocumentService {
       }
       j.push({ key: 'SALES_RETURN', debit: net, description: l.description ?? p?.name ?? undefined, ...party });
       if (tax.gt(0)) j.push({ accountId: t?.salesAccountId, key: t?.salesAccountId ? undefined : 'TAX_OUT', debit: tax, description: `${t?.name ?? 'PPN'} - nota retur` });
+      if (D(l.lineLuxuryTax).gt(0)) j.push({ key: 'PPNBM_OUT', debit: D(l.lineLuxuryTax).times(rate), description: 'PPnBM - nota retur' });
       return;
     }
     if (isStock && p) {

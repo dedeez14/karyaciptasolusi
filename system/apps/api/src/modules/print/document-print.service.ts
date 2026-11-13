@@ -117,6 +117,10 @@ export class DocumentPrintService {
         const rates = [...new Set(taxes.map((t) => Number(t.rate)))];
         totals.push({ label: rates.length === 1 ? `PPN ${rates[0]}%` : 'PPN', value: m(doc.taxTotal) });
       }
+      if (D(doc.luxuryTaxTotal ?? 0).gt(0)) {
+        const terms = [...new Set(doc.lines.filter((l: any) => D(l.lineLuxuryTax ?? 0).gt(0)).map((l: any) => `${Number(l.luxuryRate)}% x DPP ${Number(l.luxuryBasePct)}%`))];
+        totals.push({ label: `PPnBM${terms.length === 1 ? ` ${terms[0]}` : ''}`, value: m(doc.luxuryTaxTotal) });
+      }
       totals.push({ label: `Total (${doc.currencyCode})`, value: m(doc.grandTotal), bold: !def.payable || D(doc.paidAmount).isZero() });
       if (def.payable && D(doc.paidAmount).gt(0)) {
         totals.push({ label: 'Paid', value: `-${m(doc.paidAmount)}` });

@@ -85,6 +85,11 @@ const BondedDocumentPage = lazy(() => bondedPages().then((m) => ({ default: m.Do
 const BondedReportsPage = lazy(() => bondedPages().then((m) => ({ default: m.ReportsPage })));
 const BondedQuotaPage = lazy(() => bondedPages().then((m) => ({ default: m.QuotaPage })));
 const BondedKitePage = lazy(() => bondedPages().then((m) => ({ default: m.KitePage })));
+const automotivePages = () => import('@/features/automotive/AutomotivePages');
+const AutoVehiclesPage = lazy(() => automotivePages().then((m) => ({ default: m.VehiclesPage })));
+const AutoVehiclePage = lazy(() => automotivePages().then((m) => ({ default: m.VehiclePage })));
+const AutoModelsPage = lazy(() => automotivePages().then((m) => ({ default: m.ModelsPage })));
+const AutoPpnbmPage = lazy(() => automotivePages().then((m) => ({ default: m.PpnbmPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -265,6 +270,10 @@ export default function App() {
             <Route path="bonded/reports" element={<BondedReportsPage />} />
             <Route path="bonded/quota" element={<BondedQuotaPage />} />
             <Route path="bonded/kite" element={<BondedKitePage />} />
+            <Route path="automotive/vehicles" element={<AutoVehiclesPage />} />
+            <Route path="automotive/vehicles/:id" element={<AutoVehiclePage />} />
+            <Route path="automotive/models" element={<AutoModelsPage />} />
+            <Route path="automotive/ppnbm" element={<AutoPpnbmPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

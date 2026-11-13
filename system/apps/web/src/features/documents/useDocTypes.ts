@@ -87,6 +87,8 @@ export interface TradeDoc {
   subtotal: string;
   discountTotal: string;
   taxTotal: string;
+  /** PPnBM (motor vehicles) included in the grand total */
+  luxuryTaxTotal?: string;
   grandTotal: string;
   paidAmount: string;
   balance: string;

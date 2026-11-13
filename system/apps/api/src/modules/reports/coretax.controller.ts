@@ -106,8 +106,8 @@ export class CoretaxController {
             el('OtherTaxBase', n2(other)),
             el('VATRate', Number(t.rate)),
             el('VAT', n2(Number(l.lineTax) * rate)),
-            el('STLGRate', 0),
-            el('STLG', 0),
+            el('STLGRate', Number(l.luxuryRate)),
+            el('STLG', n2(Number(l.lineLuxuryTax) * rate)),
             '</GoodService>',
           ].join('');
         })

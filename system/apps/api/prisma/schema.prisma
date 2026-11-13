@@ -553,6 +553,8 @@ model Product {
   auxiliaryMaterial   Boolean     @default(false)
   /// bonded zone IT Inventory class: RAW | AUX | FG | CAPITAL | RND | FUEL | OFFICE | SCRAP (empty = not reported)
   customsClass        String?     @db.VarChar(8)
+  /// PPnBM group of a motor vehicle (PP 74/2021 article, e.g. P4, P25, P36): charged on sales when the company collects PPnBM
+  luxuryGroup         String?     @db.VarChar(6)
   halalRequired       Boolean     @default(false)
   bpomRequired        Boolean     @default(false)
   sniRequired         Boolean     @default(false)
@@ -1342,6 +1344,8 @@ model TradeDocument {
   subtotal         Decimal   @default(0) @db.Decimal(18, 2)
   discountTotal    Decimal   @default(0) @db.Decimal(18, 2)
   taxTotal         Decimal   @default(0) @db.Decimal(18, 2)
+  /// PPnBM charged on the lines (included in the grand total)
+  luxuryTaxTotal   Decimal   @default(0) @db.Decimal(18, 2)
   grandTotal       Decimal   @default(0) @db.Decimal(18, 2)
   paidAmount       Decimal   @default(0) @db.Decimal(18, 2)
   /// invoices: part settled by credit / debit notes (included in paidAmount); credit notes: part applied to invoices
@@ -1384,6 +1388,10 @@ model TradeDocumentLine {
   lineSubtotal Decimal   @default(0) @db.Decimal(18, 2)
   lineDiscount Decimal   @default(0) @db.Decimal(18, 2)
   lineTax      Decimal   @default(0) @db.Decimal(18, 2)
+  /// PPnBM: rate and DPP share of the price (motor vehicles, PP 74/2021), and the amount
+  luxuryRate    Decimal   @default(0) @db.Decimal(9, 4)
+  luxuryBasePct Decimal   @default(0) @db.Decimal(9, 4)
+  lineLuxuryTax Decimal   @default(0) @db.Decimal(18, 2)
   lineTotal    Decimal   @default(0) @db.Decimal(18, 2)
   unitCost     Decimal   @default(0) @db.Decimal(18, 4)
   processedQty Decimal   @default(0) @db.Decimal(18, 4) // qty already converted downstream
@@ -5330,4 +5338,98 @@ model CustomsAllocation {
   @@index([sourceLineId])
   @@index([targetDocId])
   @@map("customs_allocations")
+}
+
+// ----------------------------------------------------------------------------
+// Automotive: vehicle types (SUT, specification, PPnBM group), units by VIN / engine number with their SRUT
+// ----------------------------------------------------------------------------
+
+/// Vehicle type (one type test certificate, SUT): specification that drives the PPnBM group and the BPKB data
+model VehicleModel {
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @db.Uuid
+  code              String    @db.VarChar(30)
+  brand             String    @db.VarChar(60)
+  model             String    @db.VarChar(80)
+  typeName          String    @db.VarChar(120)
+  variant           String?   @db.VarChar(80)
+  /// PASSENGER | MPV | DOUBLE_CABIN | PICKUP | TRUCK | BUS | MOTORCYCLE | GOLF | OTHER
+  category          String    @db.VarChar(15)
+  /// PETROL | DIESEL | HEV | MHEV | PHEV | BEV | FCEV | FLEXY
+  fuel              String    @db.VarChar(6)
+  dieselEngine      Boolean   @default(false)
+  lcgc              Boolean   @default(false)
+  engineCc          Int?
+  /// electric motor power (kW) for electric vehicles
+  motorKw           Decimal?  @db.Decimal(9, 2)
+  seats             Int?
+  kmPerL            Decimal?  @db.Decimal(9, 2)
+  co2               Decimal?  @db.Decimal(9, 2)
+  /// fuel / emission test certificate (Kemenhub) the figures come from
+  emissionCertNo    String?   @db.VarChar(60)
+  sutNumber         String?   @db.VarChar(60)
+  sutDate           DateTime? @db.Date
+  /// manufacturer code (WMI, Surat Penetapan Kode Perusahaan, Permenperin 23/2021) and check-digit rule
+  wmi               String?   @db.VarChar(3)
+  requireCheckDigit Boolean   @default(false)
+  /// stock product of the type (its luxuryGroup is kept in step with the model)
+  productId         String?   @db.Uuid
+  luxuryGroup       String?   @db.VarChar(6)
+  /// TKDN % (EV incentives need >= 40% until 2026, 60% from 2027)
+  tkdnPct           Decimal?  @db.Decimal(9, 2)
+  notes             String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdById       String?   @db.Uuid
+  updatedById       String?   @db.Uuid
+
+  @@unique([companyId, code])
+  @@map("vehicle_models")
+}
+
+/// One vehicle by VIN (NIK) and engine number, its SRUT, sale and the data for the faktur kendaraan / BPKB
+model Vehicle {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  modelId          String    @db.Uuid
+  vin              String    @db.VarChar(17)
+  engineNo         String    @db.VarChar(30)
+  colour           String    @db.VarChar(40)
+  yearMade         Int
+  modelYear        Int?
+  productionDate   DateTime? @db.Date
+  /// stock document it came in on (goods receipt / production)
+  inDocument       String?   @db.VarChar(40)
+  warehouseId      String?   @db.Uuid
+  srutNumber       String?   @db.VarChar(60)
+  srutDate         DateTime? @db.Date
+  /// customs document number for imported (CBU) units
+  customsDocNo     String?   @db.VarChar(60)
+  /// IN_STOCK | RESERVED | SOLD | CANCELLED
+  status           String    @default("IN_STOCK") @db.VarChar(10)
+  customerId       String?   @db.Uuid
+  salesOrderId     String?   @db.Uuid
+  invoiceId        String?   @db.Uuid
+  deliveryNumber   String?   @db.VarChar(40)
+  deliveredAt      DateTime? @db.Date
+  /// faktur kendaraan number given to the buyer for the BPKB
+  fakturNo         String?   @db.VarChar(60)
+  /// owner as registered (may differ from the paying customer, e.g. leasing)
+  ownerName        String?   @db.VarChar(200)
+  /// owner NIK / NIB, encrypted (UU PDP)
+  ownerIdNo        String?   @db.VarChar(300)
+  ownerAddress     String?   @db.VarChar(300)
+  /// on-the-road price build-up: NJKB, BBNKB, PKB, opsen, SWDKLLJ, PNBP
+  otr              Json?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+
+  @@unique([companyId, vin])
+  @@unique([companyId, engineNo])
+  @@index([companyId, modelId, status])
+  @@map("vehicles")
 }
