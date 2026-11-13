@@ -5433,3 +5433,165 @@ model Vehicle {
   @@index([companyId, modelId, status])
   @@map("vehicles")
 }
+
+// ----------------------------------------------------------------------------
+// Carton / corrugated box: flutes, board grades, box specifications, estimates, tooling (plates, dies)
+// ----------------------------------------------------------------------------
+
+/// Flute profile as run on the plant's corrugator: caliper and take-up measured on the plant's own board
+model CartonFlute {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  code      String   @db.VarChar(6)
+  name      String   @db.VarChar(60)
+  /// 1 single wall, 2 double wall
+  walls     Int      @default(1)
+  caliper   Decimal  @db.Decimal(9, 2)
+  takeUp1   Decimal  @db.Decimal(9, 4)
+  takeUp2   Decimal? @db.Decimal(9, 4)
+  /// mm added to the length / width panels and to the depth (score to score from the inside dimensions)
+  allowLW   Decimal  @db.Decimal(9, 2)
+  allowH    Decimal  @db.Decimal(9, 2)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code])
+  @@map("carton_flutes")
+}
+
+/// Board grade: flute and paper layers (liner / medium with gsm), its measured or estimated ECT
+model CartonGrade {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  code      String   @db.VarChar(30)
+  name      String   @db.VarChar(120)
+  fluteId   String   @db.Uuid
+  /// [{ role: LINER | MEDIUM, productId, gsm, pricePerKg? }] outside to inside
+  layers    Json
+  /// edge crush (N/m), measured (ISO 3037) or from the paper makers' SCT
+  ectNm     Decimal? @db.Decimal(12, 2)
+  burstKpa  Decimal? @db.Decimal(12, 2)
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdById String? @db.Uuid
+  updatedById String? @db.Uuid
+
+  @@unique([companyId, code])
+  @@map("carton_grades")
+}
+
+/// Box specification of a customer item: style, inside dimensions, board, print, finishing and its compliance data
+model CartonSpec {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  code             String    @db.VarChar(30)
+  name             String    @db.VarChar(150)
+  customerId       String?   @db.Uuid
+  /// finished-goods stock product the box is sold as
+  productId        String?   @db.Uuid
+  /// FEFCO style code (0201, 0200, 0203, 0300, 0427) or SHEET
+  style            String    @db.VarChar(6)
+  lengthMm         Decimal   @db.Decimal(9, 1)
+  widthMm          Decimal   @db.Decimal(9, 1)
+  heightMm         Decimal   @default(0) @db.Decimal(9, 1)
+  gradeId          String    @db.Uuid
+  colours          Int       @default(0)
+  printCoveragePct Decimal   @default(0) @db.Decimal(5, 2)
+  /// GLUE | STITCH | TAPE | NONE
+  joint            String    @default("GLUE") @db.VarChar(6)
+  dieCut           Boolean   @default(false)
+  /// blank from the die drawing (overrides the formula), mm
+  blankLengthMm    Decimal?  @db.Decimal(9, 1)
+  blankWidthMm     Decimal?  @db.Decimal(9, 1)
+  bundleQty        Int       @default(25)
+  /// stacking: gross weight of a filled box (kg), boxes stacked, safety factor -> required BCT
+  grossKg          Decimal?  @db.Decimal(9, 2)
+  stackHeight      Int?
+  safetyFactor     Decimal   @default(4) @db.Decimal(5, 2)
+  /// food contact (BPOM 11/2026): NONE | INDIRECT | DIRECT; food type DRY | FATTY | MOIST | HOT
+  foodContact      String    @default("NONE") @db.VarChar(8)
+  foodType         String?   @db.VarChar(6)
+  inkType          String?   @db.VarChar(60)
+  printSide        String?   @db.VarChar(10)
+  migrationReport  String?   @db.VarChar(120)
+  migrationDate    DateTime? @db.Date
+  declarationUntil DateTime? @db.Date
+  recycledPct      Decimal?  @db.Decimal(5, 2)
+  /// BPOM approval of recycled material in direct contact (BPOM 11/2026 Art. 9-11)
+  recycledApproval String?   @db.VarChar(120)
+  /// animal-derived inputs (e.g. animal glue): halal certification needed for direct-contact boxes (from 17 Oct 2028)
+  animalInput      Boolean   @default(false)
+  halalCertNo      String?   @db.VarChar(80)
+  notes            String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdById      String?   @db.Uuid
+  updatedById      String?   @db.Uuid
+
+  @@unique([companyId, code])
+  @@map("carton_specs")
+}
+
+/// Cost estimate of a box spec at quantity breaks, with the rates used; becomes a sales quotation
+model CartonEstimate {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  number      String   @db.VarChar(40)
+  specId      String   @db.Uuid
+  customerId  String?  @db.Uuid
+  date        DateTime @db.Date
+  /// GOODS (box from our board) | MAKLON (customer's board: converting service, PPh 23 jasa maklon)
+  kind        String   @default("GOODS") @db.VarChar(6)
+  quantities  Json
+  /// rates, board, blank and tooling used, and the result per quantity
+  inputs      Json
+  result      Json
+  toolingCharge Decimal @default(0) @db.Decimal(18, 2)
+  billToolingSeparately Boolean @default(true)
+  quotationId String?  @db.Uuid
+  /// DRAFT | QUOTED | WON | LOST
+  status      String   @default("DRAFT") @db.VarChar(6)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, specId])
+  @@map("carton_estimates")
+}
+
+/// Printing plate (klise) or cutting die (pisau pond) of a spec: who owns it, where it is, impressions against its life
+model CartonTool {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  code            String    @db.VarChar(30)
+  /// PLATE | DIE
+  kind            String    @db.VarChar(5)
+  specId          String?   @db.Uuid
+  customerId      String?   @db.Uuid
+  /// COMPANY | CUSTOMER (paid by the customer)
+  owner           String    @default("COMPANY") @db.VarChar(8)
+  colour          String?   @db.VarChar(40)
+  cost            Decimal   @default(0) @db.Decimal(18, 2)
+  madeOn          DateTime? @db.Date
+  location        String?   @db.VarChar(80)
+  impressions     Int       @default(0)
+  lifeImpressions Int?
+  /// ACTIVE | RETIRED
+  status          String    @default("ACTIVE") @db.VarChar(8)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   @db.Uuid
+  updatedById     String?   @db.Uuid
+
+  @@unique([companyId, code])
+  @@index([companyId, specId])
+  @@map("carton_tools")
+}

@@ -58,6 +58,7 @@ const GROUPS: Record<string, { label: string; icon: string }> = {
   agri: { label: "Agriculture", icon: "palmtree" },
   customs: { label: "Customs (KB / KITE)", icon: "container" },
   automotive: { label: "Automotive", icon: "car" },
+  carton: { label: "Carton & Box", icon: "package" },
   privacy: { label: "Privacy (UU PDP)", icon: "user-lock" },
   integration: { label: "Integrations", icon: "plug" },
 };

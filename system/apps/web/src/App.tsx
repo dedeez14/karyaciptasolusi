@@ -90,6 +90,14 @@ const AutoVehiclesPage = lazy(() => automotivePages().then((m) => ({ default: m.
 const AutoVehiclePage = lazy(() => automotivePages().then((m) => ({ default: m.VehiclePage })));
 const AutoModelsPage = lazy(() => automotivePages().then((m) => ({ default: m.ModelsPage })));
 const AutoPpnbmPage = lazy(() => automotivePages().then((m) => ({ default: m.PpnbmPage })));
+const cartonPages = () => import('@/features/carton/CartonPages');
+const CartonEstimatesPage = lazy(() => cartonPages().then((m) => ({ default: m.EstimatesPage })));
+const CartonEstimatePage = lazy(() => cartonPages().then((m) => ({ default: m.EstimatePage })));
+const CartonSpecsPage = lazy(() => cartonPages().then((m) => ({ default: m.SpecsPage })));
+const CartonSpecPage = lazy(() => cartonPages().then((m) => ({ default: m.SpecPage })));
+const CartonGradesPage = lazy(() => cartonPages().then((m) => ({ default: m.GradesPage })));
+const CartonTrimPage = lazy(() => cartonPages().then((m) => ({ default: m.TrimPage })));
+const CartonToolsPage = lazy(() => cartonPages().then((m) => ({ default: m.ToolsPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -274,6 +282,13 @@ export default function App() {
             <Route path="automotive/vehicles/:id" element={<AutoVehiclePage />} />
             <Route path="automotive/models" element={<AutoModelsPage />} />
             <Route path="automotive/ppnbm" element={<AutoPpnbmPage />} />
+            <Route path="carton/estimates" element={<CartonEstimatesPage />} />
+            <Route path="carton/estimates/:id" element={<CartonEstimatePage />} />
+            <Route path="carton/specs" element={<CartonSpecsPage />} />
+            <Route path="carton/specs/:id" element={<CartonSpecPage />} />
+            <Route path="carton/grades" element={<CartonGradesPage />} />
+            <Route path="carton/trim" element={<CartonTrimPage />} />
+            <Route path="carton/tools" element={<CartonToolsPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />
