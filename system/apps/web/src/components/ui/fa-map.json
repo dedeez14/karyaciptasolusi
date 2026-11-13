@@ -343,5 +343,11 @@
  "egg": "egg",
  "fish": "fish",
  "syringe": "syringe",
- "sprout": "seedling"
+ "sprout": "seedling",
+ "clipboard-plus": "clipboard-medical",
+ "forklift": "forklift",
+ "graduation-cap": "graduation-cap",
+ "pill": "pills",
+ "school": "school",
+ "stethoscope": "stethoscope"
 }

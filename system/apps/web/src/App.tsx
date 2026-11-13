@@ -153,6 +153,16 @@ const ClinicVisitPage = lazy(() => clinicPages().then((m) => ({ default: m.Visit
 const ClinicPatientsPage = lazy(() => clinicPages().then((m) => ({ default: m.PatientsPage })));
 const ClinicSetupPage = lazy(() => clinicPages().then((m) => ({ default: m.SetupPage })));
 const ClinicReportsPage = lazy(() => clinicPages().then((m) => ({ default: m.ReportsPage })));
+const rentalPages = () => import('@/features/rental/RentalPages');
+const RentalContractsPage = lazy(() => rentalPages().then((m) => ({ default: m.ContractsPage })));
+const RentalContractPage = lazy(() => rentalPages().then((m) => ({ default: m.ContractPage })));
+const RentalCalendarPage = lazy(() => rentalPages().then((m) => ({ default: m.CalendarPage })));
+const RentalUnitsPage = lazy(() => rentalPages().then((m) => ({ default: m.UnitsPage })));
+const schoolPages = () => import('@/features/school/SchoolPages');
+const SchoolStudentsPage = lazy(() => schoolPages().then((m) => ({ default: m.StudentsPage })));
+const SchoolStudentPage = lazy(() => schoolPages().then((m) => ({ default: m.StudentPage })));
+const SchoolBillingPage = lazy(() => schoolPages().then((m) => ({ default: m.BillingPage })));
+const SchoolSetupPage = lazy(() => schoolPages().then((m) => ({ default: m.SetupPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -390,6 +400,14 @@ export default function App() {
             <Route path="clinic/patients" element={<ClinicPatientsPage />} />
             <Route path="clinic/setup" element={<ClinicSetupPage />} />
             <Route path="clinic/reports" element={<ClinicReportsPage />} />
+            <Route path="rental/contracts" element={<RentalContractsPage />} />
+            <Route path="rental/contracts/:id" element={<RentalContractPage />} />
+            <Route path="rental/calendar" element={<RentalCalendarPage />} />
+            <Route path="rental/units" element={<RentalUnitsPage />} />
+            <Route path="school/students" element={<SchoolStudentsPage />} />
+            <Route path="school/students/:id" element={<SchoolStudentPage />} />
+            <Route path="school/billing" element={<SchoolBillingPage />} />
+            <Route path="school/setup" element={<SchoolSetupPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

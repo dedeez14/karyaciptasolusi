@@ -7332,3 +7332,256 @@ model ClinicFeeRun {
   @@index([companyId, period])
   @@map("clinic_fee_runs")
 }
+
+// ----------------------------------------------------------------------------
+// Equipment rental: units with day / week / month rates and a meter (hour meter, km) allowance, contracts reserved
+// against the units free on the dates, handover and return with meter readings, billing per month or at the end
+// (PPN on the rent; the lessee withholds PPh 23 2% when paying), refundable security deposits (a liability, forfeited
+// deposits are compensation without PPN)
+// ----------------------------------------------------------------------------
+
+model RentalUnit {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  code           String    @db.VarChar(30)
+  name           String    @db.VarChar(150)
+  category       String?   @db.VarChar(60)
+  serialNo       String?   @db.VarChar(60)
+  fixedAssetId   String?   @db.Uuid
+  /// NONE | HOUR | KM
+  meterUnit      String    @default("NONE") @db.VarChar(5)
+  meter          Decimal   @default(0) @db.Decimal(18, 1)
+  rateDay        Decimal   @default(0) @db.Decimal(18, 2)
+  rateWeek       Decimal   @default(0) @db.Decimal(18, 2)
+  rateMonth      Decimal   @default(0) @db.Decimal(18, 2)
+  /// meter units included per month of rent, prorated by days
+  meterAllowance Decimal   @default(0) @db.Decimal(18, 1)
+  excessRate     Decimal   @default(0) @db.Decimal(18, 2)
+  /// AVAILABLE | MAINTENANCE | RETIRED (on rent is read from the contracts)
+  status         String    @default("AVAILABLE") @db.VarChar(12)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([companyId, code])
+  @@map("rental_units")
+}
+
+model RentalContract {
+  id           String       @id @default(uuid()) @db.Uuid
+  companyId    String       @db.Uuid
+  number       String       @db.VarChar(30)
+  customerId   String       @db.Uuid
+  site         String?      @db.VarChar(300)
+  startDate    DateTime     @db.Date
+  endDate      DateTime     @db.Date
+  /// DAY | WEEK | MONTH: the rate the rent is charged at
+  basis        String       @db.VarChar(5)
+  /// MONTHLY (each calendar month) | END (at the return)
+  billing      String       @db.VarChar(7)
+  withOperator Boolean      @default(false)
+  deposit      Decimal      @default(0) @db.Decimal(18, 2)
+  depositHeld  Decimal      @default(0) @db.Decimal(18, 2)
+  /// RESERVED | ON_RENT | RETURNED | CLOSED | CANCELLED
+  status       String       @default("RESERVED") @db.VarChar(9)
+  billedTo     DateTime?    @db.Date
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  createdById  String?      @db.Uuid
+  lines        RentalLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@map("rental_contracts")
+}
+
+model RentalLine {
+  id             String         @id @default(uuid()) @db.Uuid
+  contractId     String         @db.Uuid
+  unitId         String         @db.Uuid
+  rate           Decimal        @db.Decimal(18, 2)
+  meterAllowance Decimal        @default(0) @db.Decimal(18, 1)
+  excessRate     Decimal        @default(0) @db.Decimal(18, 2)
+  outDate        DateTime?      @db.Date
+  outMeter       Decimal?       @db.Decimal(18, 1)
+  returnDate     DateTime?      @db.Date
+  returnMeter    Decimal?       @db.Decimal(18, 1)
+  /// meter reading up to which the usage is billed
+  billedMeter    Decimal?       @db.Decimal(18, 1)
+  condition      String?        @db.VarChar(500)
+  contract       RentalContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([unitId])
+  @@map("rental_lines")
+}
+
+model RentalMeterReading {
+  id        String   @id @default(uuid()) @db.Uuid
+  lineId    String   @db.Uuid
+  date      DateTime @db.Date
+  reading   Decimal  @db.Decimal(18, 1)
+  createdAt DateTime @default(now())
+
+  @@index([lineId, date])
+  @@map("rental_meter_readings")
+}
+
+model RentalBill {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  contractId String   @db.Uuid
+  periodFrom DateTime @db.Date
+  periodTo   DateTime @db.Date
+  invoiceId  String?  @db.Uuid
+  amount     Decimal  @db.Decimal(18, 2)
+  /// [{lineId, unitId, rent, excess, meter, prevMeter}] and the previous billedTo, to undo
+  detail     Json
+  prevTo     DateTime? @db.Date
+  /// POSTED | CANCELLED
+  status     String   @default("POSTED") @db.VarChar(9)
+  createdAt  DateTime @default(now())
+
+  @@index([contractId])
+  @@map("rental_bills")
+}
+
+model RentalDeposit {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  contractId    String   @db.Uuid
+  /// RECEIVED | REFUNDED | FORFEITED
+  kind          String   @db.VarChar(9)
+  amount        Decimal  @db.Decimal(18, 2)
+  date          DateTime @db.Date
+  bankAccountId String?  @db.Uuid
+  note          String?  @db.VarChar(300)
+  /// POSTED | CANCELLED
+  status        String   @default("POSTED") @db.VarChar(9)
+  createdAt     DateTime @default(now())
+
+  @@index([contractId])
+  @@map("rental_deposits")
+}
+
+// ----------------------------------------------------------------------------
+// School: classes per academic year, students from admission (PPDB) to graduation with NIS / NISN, fee types and
+// rates per grade (entry, monthly SPP, annual, items), scholarships, billing runs (education by a licensed unit is
+// PPN-exempt, PP 49/2022 Art. 16; items sold apart carry PPN for a PKP), arrears per class, promotion at year end
+// ----------------------------------------------------------------------------
+
+model SchoolConfig {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @unique @db.Uuid
+  name          String    @default("Sekolah") @db.VarChar(150)
+  /// Nomor Pokok Sekolah Nasional, 8 digits
+  npsn          String?   @db.VarChar(8)
+  /// FORMAL | NONFORMAL
+  kind          String    @default("FORMAL") @db.VarChar(9)
+  licenceNo     String?   @db.VarChar(80)
+  licenceExpiry DateTime? @db.Date
+  /// e.g. 2026/2027
+  academicYear  String    @default("2026/2027") @db.VarChar(9)
+  /// first month of the academic year (7 = July)
+  firstMonth    Int       @default(7)
+  /// invoices fall due on this day of the month
+  dueDay        Int       @default(10)
+  maxGrade      Int       @default(6)
+  updatedAt     DateTime  @updatedAt
+
+  @@map("school_configs")
+}
+
+model SchoolClass {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @db.Uuid
+  academicYear String   @db.VarChar(9)
+  grade        Int
+  name         String   @db.VarChar(30)
+  homeroomId   String?  @db.Uuid
+  createdAt    DateTime @default(now())
+
+  @@unique([companyId, academicYear, name])
+  @@map("school_classes")
+}
+
+model SchoolStudent {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  regNumber     String    @db.VarChar(30)
+  nis           String?   @db.VarChar(20)
+  /// 10 digits
+  nisn          String?   @db.VarChar(10)
+  name          String    @db.VarChar(150)
+  /// M | F
+  sex           String    @db.VarChar(1)
+  birthDate     DateTime  @db.Date
+  /// encrypted
+  nik           String?   @db.VarChar(255)
+  guardianName  String?   @db.VarChar(150)
+  guardianPhone String?   @db.VarChar(30)
+  guardianEmail String?   @db.VarChar(150)
+  address       String?   @db.VarChar(300)
+  grade         Int
+  classId       String?   @db.Uuid
+  /// APPLICANT | ACTIVE | GRADUATED | LEFT | REJECTED
+  status        String    @default("APPLICANT") @db.VarChar(9)
+  enrolledOn    DateTime? @db.Date
+  leftOn        DateTime? @db.Date
+  customerId    String?   @db.Uuid
+  notes         String?   @db.VarChar(500)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([companyId, regNumber])
+  @@index([companyId, status])
+  @@map("school_students")
+}
+
+model SchoolFee {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  code      String   @db.VarChar(20)
+  name      String   @db.VarChar(150)
+  /// ENTRY (at enrolment) | MONTHLY | ANNUAL (first month of the year) | ITEM (goods sold apart: books, uniforms)
+  kind      String   @db.VarChar(7)
+  productId String?  @db.Uuid
+  /// {"1": 500000, "2": 500000, ...} amount per grade
+  rates     Json
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, code])
+  @@map("school_fees")
+}
+
+model SchoolDiscount {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @db.Uuid
+  studentId String    @db.Uuid
+  feeId     String    @db.Uuid
+  pct       Decimal   @db.Decimal(5, 2)
+  reason    String?   @db.VarChar(150)
+  validTo   DateTime? @db.Date
+  createdAt DateTime  @default(now())
+
+  @@unique([studentId, feeId])
+  @@map("school_discounts")
+}
+
+model SchoolBill {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  studentId String   @db.Uuid
+  /// YYYY-MM of a billing run, ENTRY, or ITEM-<date>
+  period    String   @db.VarChar(20)
+  invoiceId String   @db.Uuid
+  amount    Decimal  @db.Decimal(18, 2)
+  /// POSTED | CANCELLED
+  status    String   @default("POSTED") @db.VarChar(9)
+  createdAt DateTime @default(now())
+
+  @@index([companyId, period])
+  @@index([studentId])
+  @@map("school_bills")
+}
