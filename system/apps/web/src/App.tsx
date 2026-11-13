@@ -112,6 +112,9 @@ const DistSettlementsPage = lazy(() => distPages().then((m) => ({ default: m.Set
 const DistCreditPage = lazy(() => distPages().then((m) => ({ default: m.CreditPage })));
 const DistSchemesPage = lazy(() => distPages().then((m) => ({ default: m.SchemesPage })));
 const DistClaimsPage = lazy(() => distPages().then((m) => ({ default: m.ClaimsPage })));
+const lcPages = () => import('@/features/landedcost/LandedCostPages');
+const LandedCostsPage = lazy(() => lcPages().then((m) => ({ default: m.LandedCostsPage })));
+const LandedCostFormPage = lazy(() => lcPages().then((m) => ({ default: m.LandedCostFormPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -315,6 +318,8 @@ export default function App() {
             <Route path="distribution/credit" element={<DistCreditPage />} />
             <Route path="distribution/schemes" element={<DistSchemesPage />} />
             <Route path="distribution/claims" element={<DistClaimsPage />} />
+            <Route path="purchase/landed-costs" element={<LandedCostsPage />} />
+            <Route path="purchase/landed-costs/:id" element={<LandedCostFormPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

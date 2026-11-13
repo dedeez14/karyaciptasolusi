@@ -6097,3 +6097,120 @@ model PrincipalClaim {
   @@unique([companyId, number])
   @@map("principal_claims")
 }
+
+// ----------------------------------------------------------------------------
+// Landed cost: import duties and taxes (PIB) and charges (freight, insurance, broker, port, trucking) added to the
+// cost of goods received (SAK EP Bab 13 / PSAK 202: duties and non-recoverable taxes, transport and handling)
+// ----------------------------------------------------------------------------
+
+model LandedCost {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  branchId       String?   @db.Uuid
+  number         String    @db.VarChar(40)
+  date           DateTime  @db.Date
+  /// DRAFT | POSTED | CANCELLED
+  status         String    @default("DRAFT") @db.VarChar(10)
+  supplierId     String?   @db.Uuid
+  reference      String?   @db.VarChar(100)
+  /// customs import declaration (PIB, BC 2.0) of the goods; empty = charges only
+  pibNo          String?   @db.VarChar(20)
+  pibDate        DateTime? @db.Date
+  /// EXW | FCA | FOB | CFR | CIF | DAP | DDP...: freight / insurance not in the price are added to the customs value (CIF)
+  incoterm       String    @default("CIF") @db.VarChar(3)
+  currencyCode   String    @default("IDR") @db.VarChar(3)
+  /// NDPBM: the exchange rate for duties (the Minister of Finance's weekly rate)
+  ndpbm          Decimal   @default(1) @db.Decimal(18, 6)
+  freightFx      Decimal   @default(0) @db.Decimal(18, 2)
+  insuranceFx    Decimal   @default(0) @db.Decimal(18, 2)
+  /// importer with API (Angka Pengenal Importir, by the NIB): PPh 22 2.5% on other goods, 7.5% without
+  apiHolder      Boolean   @default(true)
+  /// PKP: import PPN is input tax; not PKP: part of the cost
+  ppnCreditable  Boolean   @default(true)
+  /// amounts on the SPPB / billing when they differ from the computed ones (null = computed)
+  bmActual       Decimal?  @db.Decimal(18, 2)
+  ppnActual      Decimal?  @db.Decimal(18, 2)
+  pph22Actual    Decimal?  @db.Decimal(18, 2)
+  customsValue   Decimal   @default(0) @db.Decimal(18, 2)
+  bm             Decimal   @default(0) @db.Decimal(18, 2)
+  bmad           Decimal   @default(0) @db.Decimal(18, 2)
+  ppn            Decimal   @default(0) @db.Decimal(18, 2)
+  ppnbm          Decimal   @default(0) @db.Decimal(18, 2)
+  pph22          Decimal   @default(0) @db.Decimal(18, 2)
+  charges        Decimal   @default(0) @db.Decimal(18, 2)
+  /// added to stock still on hand / charged to cost of sales (goods already sold)
+  toInventory    Decimal   @default(0) @db.Decimal(18, 2)
+  toCogs         Decimal   @default(0) @db.Decimal(18, 2)
+  notes          String?
+  postedAt       DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+
+  lines       LandedCostLine[]
+  chargeLines LandedCostCharge[]
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@map("landed_costs")
+}
+
+/// one goods-receipt line the costs are spread over
+model LandedCostLine {
+  id            String   @id @default(uuid()) @db.Uuid
+  landedCostId  String   @db.Uuid
+  receiptId     String   @db.Uuid
+  receiptLineId String   @db.Uuid
+  productId     String   @db.Uuid
+  warehouseId   String   @db.Uuid
+  qty           Decimal  @db.Decimal(18, 4)
+  /// price on the receipt, in its currency and in rupiah
+  valueFx       Decimal  @default(0) @db.Decimal(18, 2)
+  value         Decimal  @default(0) @db.Decimal(18, 2)
+  weight        Decimal  @default(0) @db.Decimal(18, 4)
+  hsCode        String?  @db.VarChar(12)
+  /// tariff rates: import duty (MFN / FTA), additional duties (anti-dumping, safeguard), PPnBM, PPh 22
+  bmPct         Decimal  @default(0) @db.Decimal(9, 4)
+  bmadPct       Decimal  @default(0) @db.Decimal(9, 4)
+  ppnbmPct      Decimal  @default(0) @db.Decimal(9, 4)
+  pph22Pct      Decimal? @db.Decimal(9, 4)
+  customsValue  Decimal  @default(0) @db.Decimal(18, 2)
+  bm            Decimal  @default(0) @db.Decimal(18, 2)
+  bmad          Decimal  @default(0) @db.Decimal(18, 2)
+  ppn           Decimal  @default(0) @db.Decimal(18, 2)
+  ppnbm         Decimal  @default(0) @db.Decimal(18, 2)
+  pph22         Decimal  @default(0) @db.Decimal(18, 2)
+  charges       Decimal  @default(0) @db.Decimal(18, 2)
+  /// at posting: stock on hand in the warehouse, the part added to it and the part charged to cost of sales
+  qtyOnHand     Decimal  @default(0) @db.Decimal(18, 4)
+  toInventory   Decimal  @default(0) @db.Decimal(18, 2)
+  toCogs        Decimal  @default(0) @db.Decimal(18, 2)
+
+  landedCost LandedCost @relation(fields: [landedCostId], references: [id], onDelete: Cascade)
+
+  @@index([landedCostId])
+  @@index([receiptLineId])
+  @@map("landed_cost_lines")
+}
+
+/// a charge spread over the lines: from a purchase invoice line booked to Landed Costs Clearing, or entered (booked there by an expense / payment)
+model LandedCostCharge {
+  id           String   @id @default(uuid()) @db.Uuid
+  landedCostId String   @db.Uuid
+  /// FREIGHT | INSURANCE | BROKER | PORT | TRUCKING | STORAGE | OTHER
+  type         String   @db.VarChar(10)
+  description  String?  @db.VarChar(200)
+  amount       Decimal  @db.Decimal(18, 2)
+  /// VALUE | QTY | WEIGHT
+  method       String   @default("VALUE") @db.VarChar(6)
+  sourceDocId  String?  @db.Uuid
+  sourceLineId String?  @db.Uuid
+
+  landedCost LandedCost @relation(fields: [landedCostId], references: [id], onDelete: Cascade)
+
+  @@index([landedCostId])
+  @@index([sourceLineId])
+  @@map("landed_cost_charges")
+}

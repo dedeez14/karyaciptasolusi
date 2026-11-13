@@ -781,6 +781,10 @@ export class DocumentService {
           released = apps.map((a) => a.invoiceId);
           await tx.creditApplication.deleteMany({ where: { creditNoteId: id } });
         } else if (D(doc.paidAmount).gt(0)) throw new ConflictException(D(doc.creditedAmount).gt(0) ? 'Document is settled by payments or credit notes. Cancel those first.' : 'Document has payments. Cancel the payments first.');
+        if (def.code === 'GR' || def.code === 'PI') {
+          const lc = await tx.landedCost.findFirst({ where: { status: { not: 'CANCELLED' }, ...(def.code === 'GR' ? { lines: { some: { receiptId: id } } } : { chargeLines: { some: { sourceDocId: id } } }) }, select: { number: true } });
+          if (lc) throw new ConflictException(`Landed cost ${lc.number} uses this document: cancel it first`);
+        }
         if (doc.status !== 'DRAFT') {
           if (def.stock) {
             await this.inventory.reverse(tx, id, allowNegative);

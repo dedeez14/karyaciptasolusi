@@ -115,6 +115,8 @@ export function permissionCatalog(): PermissionDef[] {
     ['purchase.payment.read', 'View supplier payments'],
     ['purchase.payment.create', 'Record supplier payments'],
     ['purchase.payment.cancel', 'Cancel supplier payments'],
+    ['purchase.landedcost.manage', 'Prepare landed costs: import duties and charges spread over goods receipts'],
+    ['purchase.landedcost.post', 'Post and cancel landed costs (adds them to the stock value)'],
     ['inventory.stock.read', 'View stock levels'],
     ['accounting.journal.read', 'View journals'],
     ['accounting.journal.create', 'Create draft journals'],

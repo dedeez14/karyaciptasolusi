@@ -74,6 +74,45 @@ export class InventoryService {
     return { unitCost, totalCost };
   }
 
+  /** Locks the balance of a product in a warehouse and returns it (zero when there is none). */
+  async balanceForUpdate(tx: Tx, productId: string, warehouseId: string): Promise<{ qty: Prisma.Decimal; avgCost: Prisma.Decimal }> {
+    const [bal] = await tx.$queryRaw<{ qty: Prisma.Decimal; avgCost: Prisma.Decimal }[]>`
+      SELECT qty, "avgCost" FROM stock_balances WHERE "productId" = ${productId}::uuid AND "warehouseId" = ${warehouseId}::uuid FOR UPDATE`;
+    return bal ? { qty: D(bal.qty), avgCost: D(bal.avgCost) } : { qty: ZERO, avgCost: ZERO };
+  }
+
+  /**
+   * Adds value to (or takes it from) the stock on hand without moving any quantity: landed costs. The average cost of the
+   * balance changes; a movement of quantity 0 keeps the value history. Value taken out never goes below zero; returns the
+   * amount applied.
+   */
+  async revalue(tx: Tx, r: { companyId: string; branchId?: string | null; productId: string; warehouseId: string; date: Date; amount: Prisma.Decimal; docType: string; documentId: string; documentNumber: string }): Promise<Prisma.Decimal> {
+    const bal = await this.balanceForUpdate(tx, r.productId, r.warehouseId);
+    if (bal.qty.lte(0) || r.amount.isZero()) return ZERO;
+    const value = bal.qty.times(bal.avgCost);
+    const applied = round(r.amount.lt(0) && r.amount.abs().gt(value) ? value.neg() : r.amount);
+    const newAvg = value.plus(applied).div(bal.qty);
+    await tx.stockBalance.update({ where: { productId_warehouseId: { productId: r.productId, warehouseId: r.warehouseId } }, data: { avgCost: (newAvg.lt(0) ? ZERO : newAvg).toDecimalPlaces(4) } });
+    await tx.stockMovement.create({
+      data: {
+        companyId: r.companyId,
+        branchId: r.branchId ?? null,
+        productId: r.productId,
+        warehouseId: r.warehouseId,
+        date: r.date,
+        qty: ZERO,
+        unitCost: ZERO,
+        totalCost: applied,
+        balanceQty: bal.qty,
+        docType: r.docType,
+        documentId: r.documentId,
+        documentNumber: r.documentNumber,
+        createdById: RequestCtx.get()?.user?.id,
+      },
+    });
+    return applied;
+  }
+
   /** Reverses all movements of a document (used on cancellation). */
   async reverse(tx: Tx, documentId: string, allowNegative: boolean) {
     const moves = await tx.stockMovement.findMany({ where: { documentId }, orderBy: { createdAt: 'desc' } });
