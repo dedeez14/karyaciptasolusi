@@ -83,6 +83,7 @@ import { LANDED_COST_CONTROLLERS, LANDED_COST_PROVIDERS } from './modules/landed
 import { CONSTRUCTION_CONTROLLERS, CONSTRUCTION_PROVIDERS } from './modules/construction';
 import { PROPERTY_CONTROLLERS, PROPERTY_PROVIDERS } from './modules/property';
 import { LOGISTICS_CONTROLLERS, LOGISTICS_PROVIDERS } from './modules/logistics';
+import { COOP_CONTROLLERS, COOP_PROVIDERS } from './modules/coop';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
 import { BANKREC_CONTROLLERS, BANKREC_PROVIDERS } from './modules/bankrec';
@@ -177,6 +178,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...CONSTRUCTION_CONTROLLERS,
     ...PROPERTY_CONTROLLERS,
     ...LOGISTICS_CONTROLLERS,
+    ...COOP_CONTROLLERS,
     ...POS_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
     ...HELPDESK_CONTROLLERS,
@@ -253,6 +255,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...CONSTRUCTION_PROVIDERS,
     ...PROPERTY_PROVIDERS,
     ...LOGISTICS_PROVIDERS,
+    ...COOP_PROVIDERS,
     ...POS_PROVIDERS,
     ...EXPENSES_PROVIDERS,
     ...HELPDESK_PROVIDERS,

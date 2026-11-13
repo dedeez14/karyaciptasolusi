@@ -6731,3 +6731,266 @@ model JobCarrierCost {
   @@index([sourceLineId])
   @@map("job_carrier_costs")
 }
+
+// ----------------------------------------------------------------------------
+// Cooperative (UU 25/1992; savings & loans Permenkop UKM 8/2023; accounting Permenkop UKM 2/2024 / SAK EP): members,
+// savings (pokok / wajib as equity, sukarela / berjangka as liabilities) with interest and PPh final PP 15/2009, member
+// loans with schedules, collectibility and allowance, SHU distribution by the members meeting
+// ----------------------------------------------------------------------------
+
+model CoopMember {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  number      String    @db.VarChar(30)
+  name        String    @db.VarChar(150)
+  /// INDIVIDUAL | ENTITY (another cooperative / legal entity: PPh 23 on savings interest instead of the final 10%)
+  kind        String    @default("INDIVIDUAL") @db.VarChar(10)
+  /// NIK / NPWP, encrypted
+  idNumber    String?   @db.VarChar(255)
+  phone       String?   @db.VarChar(30)
+  address     String?   @db.VarChar(300)
+  employeeId  String?   @db.Uuid
+  customerId  String?   @db.Uuid
+  joinDate    DateTime  @db.Date
+  /// ACTIVE | LEFT
+  status      String    @default("ACTIVE") @db.VarChar(8)
+  leftDate    DateTime? @db.Date
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@map("coop_members")
+}
+
+model CoopSavingProduct {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  code       String   @db.VarChar(20)
+  name       String   @db.VarChar(100)
+  /// PRINCIPAL (pokok, once) | MANDATORY (wajib, periodic) | VOLUNTARY (sukarela) | TERM (berjangka)
+  kind       String   @db.VarChar(10)
+  /// pokok: the amount; wajib: the amount per month
+  amount     Decimal  @default(0) @db.Decimal(18, 2)
+  /// interest per year (at most 9% for savings, Permenkop UKM 8/2023)
+  ratePct    Decimal  @default(0) @db.Decimal(6, 3)
+  termMonths Int?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@unique([companyId, code])
+  @@map("coop_saving_products")
+}
+
+model CoopSavingAccount {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  number       String    @db.VarChar(30)
+  memberId     String    @db.Uuid
+  productId    String    @db.Uuid
+  balance      Decimal   @default(0) @db.Decimal(18, 2)
+  openedAt     DateTime  @db.Date
+  maturityDate DateTime? @db.Date
+  /// ACTIVE | CLOSED
+  status       String    @default("ACTIVE") @db.VarChar(8)
+
+  txns CoopSavingTxn[]
+
+  @@unique([companyId, number])
+  @@index([memberId])
+  @@map("coop_saving_accounts")
+}
+
+model CoopSavingTxn {
+  id           String   @id @default(uuid()) @db.Uuid
+  accountId    String   @db.Uuid
+  date         DateTime @db.Date
+  /// DEPOSIT | WITHDRAW | INTEREST | TAX | LOAN (deduction on a loan) | SHU | CLOSE
+  kind         String   @db.VarChar(8)
+  /// signed: + into the account, - out of it
+  amount       Decimal  @db.Decimal(18, 2)
+  balanceAfter Decimal  @db.Decimal(18, 2)
+  reference    String?  @db.VarChar(100)
+  /// interest run, loan or SHU run it came from
+  sourceId     String?  @db.Uuid
+  status       String   @default("POSTED") @db.VarChar(10)
+  createdAt    DateTime @default(now())
+  createdById  String?  @db.Uuid
+
+  account CoopSavingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, date])
+  @@index([sourceId])
+  @@map("coop_saving_txns")
+}
+
+/// savings interest credited for a month, with the PPh withheld (PP 15/2009: 10% final above Rp240,000 a month for individuals)
+model CoopInterestRun {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  period      String   @db.VarChar(7)
+  interest    Decimal  @db.Decimal(18, 2)
+  tax         Decimal  @db.Decimal(18, 2)
+  /// POSTED | CANCELLED
+  status      String   @default("POSTED") @db.VarChar(10)
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@index([companyId, period])
+  @@map("coop_interest_runs")
+}
+
+model CoopLoanProduct {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  code      String   @db.VarChar(20)
+  name      String   @db.VarChar(100)
+  /// interest per year, at most 24% (Permenkop UKM 8/2023 Art. 27)
+  ratePct   Decimal  @db.Decimal(6, 3)
+  /// FLAT | ANNUITY (effective)
+  method    String   @default("FLAT") @db.VarChar(8)
+  adminPct  Decimal  @default(0) @db.Decimal(6, 3)
+  /// part of the loan put into the member's voluntary savings (risk reduction, Art. 29)
+  savingPct Decimal  @default(0) @db.Decimal(6, 3)
+  /// late charge per month on the instalment overdue
+  latePct   Decimal  @default(0) @db.Decimal(6, 3)
+  maxTerm   Int      @default(36)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, code])
+  @@map("coop_loan_products")
+}
+
+model CoopLoan {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @db.Uuid
+  number          String    @db.VarChar(40)
+  memberId        String    @db.Uuid
+  productId       String    @db.Uuid
+  applicationDate DateTime  @db.Date
+  principal       Decimal   @db.Decimal(18, 2)
+  ratePct         Decimal   @db.Decimal(6, 3)
+  method          String    @db.VarChar(8)
+  termMonths      Int
+  firstDue        DateTime  @db.Date
+  adminFee        Decimal   @default(0) @db.Decimal(18, 2)
+  savingDeduction Decimal   @default(0) @db.Decimal(18, 2)
+  purpose         String?   @db.VarChar(200)
+  collateral      String?   @db.VarChar(300)
+  guarantor       String?   @db.VarChar(150)
+  /// APPLIED | ACTIVE | PAID | WRITTEN_OFF | CANCELLED
+  status          String    @default("APPLIED") @db.VarChar(12)
+  disbursedAt     DateTime? @db.Date
+  bankAccountId   String?   @db.Uuid
+  outstanding     Decimal   @default(0) @db.Decimal(18, 2)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   @db.Uuid
+
+  schedule CoopLoanInstallment[]
+  payments CoopLoanPayment[]
+
+  @@unique([companyId, number])
+  @@index([memberId])
+  @@map("coop_loans")
+}
+
+model CoopLoanInstallment {
+  id            String    @id @default(uuid()) @db.Uuid
+  loanId        String    @db.Uuid
+  seq           Int
+  dueDate       DateTime  @db.Date
+  principal     Decimal   @db.Decimal(18, 2)
+  interest      Decimal   @db.Decimal(18, 2)
+  paidPrincipal Decimal   @default(0) @db.Decimal(18, 2)
+  paidInterest  Decimal   @default(0) @db.Decimal(18, 2)
+  paidAt        DateTime? @db.Date
+
+  loan CoopLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@map("coop_loan_installments")
+}
+
+model CoopLoanPayment {
+  id            String   @id @default(uuid()) @db.Uuid
+  loanId        String   @db.Uuid
+  date          DateTime @db.Date
+  amount        Decimal  @db.Decimal(18, 2)
+  principal     Decimal  @db.Decimal(18, 2)
+  interest      Decimal  @db.Decimal(18, 2)
+  lateFee       Decimal  @default(0) @db.Decimal(18, 2)
+  bankAccountId String   @db.Uuid
+  /// how the instalments were paid: [{ id, principal, interest }]
+  allocation    Json
+  /// POSTED | CANCELLED
+  status        String   @default("POSTED") @db.VarChar(10)
+  createdAt     DateTime @default(now())
+  createdById   String?  @db.Uuid
+
+  loan CoopLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@map("coop_loan_payments")
+}
+
+/// allowance for loan losses brought to what the collectibility requires
+model CoopProvision {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  date      DateTime @db.Date
+  required  Decimal  @db.Decimal(18, 2)
+  previous  Decimal  @db.Decimal(18, 2)
+  delta     Decimal  @db.Decimal(18, 2)
+  detail    Json
+  status    String   @default("POSTED") @db.VarChar(10)
+  createdAt DateTime @default(now())
+
+  @@index([companyId, date])
+  @@map("coop_provisions")
+}
+
+/// SHU of a financial year distributed as the members meeting (RAT) decided
+model CoopShuRun {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  year       Int
+  date       DateTime @db.Date
+  shu        Decimal  @db.Decimal(18, 2)
+  /// percentages: reserve, capital, transactions, board, staff, education, social
+  split      Json
+  reserve    Decimal  @db.Decimal(18, 2)
+  capitalPart Decimal @db.Decimal(18, 2)
+  txnPart    Decimal  @db.Decimal(18, 2)
+  funds      Decimal  @db.Decimal(18, 2)
+  /// PAYABLE (SHU payable to members) | SAVINGS (credited to their voluntary savings)
+  payout     String   @default("PAYABLE") @db.VarChar(8)
+  ratNotes   String?  @db.VarChar(300)
+  status     String   @default("POSTED") @db.VarChar(10)
+  createdAt  DateTime @default(now())
+  createdById String? @db.Uuid
+
+  members CoopShuMember[]
+
+  @@index([companyId, year])
+  @@map("coop_shu_runs")
+}
+
+model CoopShuMember {
+  id          String  @id @default(uuid()) @db.Uuid
+  runId       String  @db.Uuid
+  memberId    String  @db.Uuid
+  capitalBase Decimal @db.Decimal(18, 2)
+  txnBase     Decimal @db.Decimal(18, 2)
+  capitalShu  Decimal @db.Decimal(18, 2)
+  txnShu      Decimal @db.Decimal(18, 2)
+  total       Decimal @db.Decimal(18, 2)
+
+  run CoopShuRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@map("coop_shu_members")
+}
