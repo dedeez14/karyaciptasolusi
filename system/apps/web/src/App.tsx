@@ -66,6 +66,15 @@ const ContractsPage = lazy(() => farmPages().then((m) => ({ default: m.Contracts
 const PartnershipReportPage = lazy(() => farmPages().then((m) => ({ default: m.PartnershipReportPage })));
 const plantationPages = () => import('@/features/plantation/PlantationPages');
 const millPages = () => import('@/features/mill/MillPages');
+const herdPages = () => import('@/features/herd/HerdPages');
+const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
+const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
+const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
+const HerdMilkPage = lazy(() => herdPages().then((m) => ({ default: m.MilkPage })));
+const HerdMilkSalesPage = lazy(() => herdPages().then((m) => ({ default: m.MilkSalesPage })));
+const HerdFeedingPage = lazy(() => herdPages().then((m) => ({ default: m.FeedingPage })));
+const HerdHealthPage = lazy(() => herdPages().then((m) => ({ default: m.HealthPage })));
+const HerdFatteningPage = lazy(() => herdPages().then((m) => ({ default: m.FatteningPage })));
 const MillDailyListPage = lazy(() => millPages().then((m) => ({ default: m.DailyListPage })));
 const MillDailyPage = lazy(() => millPages().then((m) => ({ default: m.DailyPage })));
 const MillIntakesPage = lazy(() => millPages().then((m) => ({ default: m.IntakesPage })));
@@ -215,6 +224,14 @@ export default function App() {
             <Route path="mill/prices" element={<MillPricesPage />} />
             <Route path="mill/performance" element={<MillPerformancePage />} />
             <Route path="mill/tanks" element={<MillTanksPage />} />
+            <Route path="herd" element={<HerdHerdOverviewPage />} />
+            <Route path="herd/animals" element={<HerdAnimalsPage />} />
+            <Route path="herd/animals/:id" element={<HerdAnimalPage />} />
+            <Route path="herd/milk" element={<HerdMilkPage />} />
+            <Route path="herd/milk-sales" element={<HerdMilkSalesPage />} />
+            <Route path="herd/feeding" element={<HerdFeedingPage />} />
+            <Route path="herd/health" element={<HerdHealthPage />} />
+            <Route path="herd/fattening" element={<HerdFatteningPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

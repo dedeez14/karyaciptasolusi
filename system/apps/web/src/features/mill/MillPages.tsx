@@ -551,7 +551,7 @@ ${d.soundings.map((s) => `<tr><td>${esc(tanks.find((t) => t.id === s.tankId)?.na
           </Field>
           <Field
             label="Processing cost"
-            help={lists.data?.costPerTon ? `Empty: ${fmtMoney(lists.data.costPerTon, 0)} per ton processed (Settings)` : 'Empty: the cost per ton in Settings > Plantation & Mill'}
+            help={lists.data?.costPerTon ? `Empty: ${fmtMoney(lists.data.costPerTon, 0)} per ton processed (Settings)` : 'Empty: the cost per ton in Settings > Agriculture'}
             error={errors.conversionCost}
           >
             <NumberInput disabled={!editable} decimals={0} min={0} value={f.conversionCost} onChange={(v) => setF({ ...f, conversionCost: v })} />
@@ -760,7 +760,7 @@ ${d.soundings.map((s) => `<tr><td>${esc(tanks.find((t) => t.id === s.tankId)?.na
           </p>
         )}
       </Card>
-      <Card title="Quality and losses" subtitle="Laboratory results of the day; figures above the limits in Settings > Plantation & Mill are marked">
+      <Card title="Quality and losses" subtitle="Laboratory results of the day; figures above the limits in Settings > Agriculture are marked">
         {(['cpo', 'kernel', 'loss'] as const).map((g) => (
           <div key={g} className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {QUALITY.filter((x) => x.group === g).map((x) => {

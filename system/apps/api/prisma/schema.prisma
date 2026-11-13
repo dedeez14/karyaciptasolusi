@@ -4546,3 +4546,269 @@ model MillSounding {
   @@unique([dailyId, tankId])
   @@map("mill_soundings")
 }
+
+// ----------------------------------------------------------------------------
+// Herd: cattle / buffalo / goats / sheep kept by head (breeding, dairy, fattening),
+// weighings, reproduction, health, feeding by pen, milk recording and deliveries, exits
+// ----------------------------------------------------------------------------
+
+/// One animal of the herd, identified by its ear tag
+model Animal {
+  id                 String    @id @default(uuid()) @db.Uuid
+  companyId          String    @db.Uuid
+  branchId           String?   @db.Uuid
+  tagNo              String    @db.VarChar(40)
+  /// national livestock ID / registration (iSIKHNAS) or RFID
+  nationalId         String?   @db.VarChar(60)
+  name               String?   @db.VarChar(100)
+  /// CATTLE | BUFFALO | GOAT | SHEEP
+  species            String    @default("CATTLE") @db.VarChar(8)
+  breed              String?   @db.VarChar(80)
+  /// F | M
+  sex                String    @db.VarChar(1)
+  /// DAIRY | BREEDING | FATTENING
+  purpose            String    @db.VarChar(10)
+  birthDate          DateTime? @db.Date
+  birthWeightKg      Decimal?  @db.Decimal(8, 2)
+  /// BORN | PURCHASED | OPENING
+  origin             String    @db.VarChar(10)
+  damId              String?   @db.Uuid
+  /// sire: bull tag or semen code (straw)
+  sire               String?   @db.VarChar(60)
+  siteId             String    @db.Uuid
+  unitId             String?   @db.Uuid
+  /// ACTIVE | SOLD | DEAD | CULLED
+  status             String    @default("ACTIVE") @db.VarChar(8)
+  /// reproduction: OPEN | SERVED | PREGNANT
+  reproStatus        String    @default("OPEN") @db.VarChar(8)
+  lactating          Boolean   @default(false)
+  lactationNo        Int       @default(0)
+  lastCalving        DateTime? @db.Date
+  lastService        DateTime? @db.Date
+  servicesSinceCalving Int     @default(0)
+  expectedCalving    DateTime? @db.Date
+  dryOffDate         DateTime? @db.Date
+  lastWeightKg       Decimal?  @db.Decimal(8, 2)
+  lastWeighDate      DateTime? @db.Date
+  /// drugs: milk / meat may not be sold before these dates
+  milkWithdrawalUntil DateTime? @db.Date
+  meatWithdrawalUntil DateTime? @db.Date
+  acquisitionDate    DateTime  @db.Date
+  acquisitionCost    Decimal   @default(0) @db.Decimal(18, 2)
+  supplierId         String?   @db.Uuid
+  purchaseDocId      String?   @db.Uuid
+  /// cost carried while growing / fattening (biological asset at cost)
+  carryingCost       Decimal   @default(0) @db.Decimal(18, 2)
+  /// productive animal (cow in milk / breeding cow or bull): fixed asset depreciated over its productive life
+  fixedAssetId       String?   @db.Uuid
+  productiveDate     DateTime? @db.Date
+  exitDate           DateTime? @db.Date
+  exitReason         String?   @db.VarChar(150)
+  exitWeightKg       Decimal?  @db.Decimal(8, 2)
+  exitValue          Decimal?  @db.Decimal(18, 2)
+  exitCost           Decimal?  @db.Decimal(18, 2)
+  saleDocId          String?   @db.Uuid
+  customerId         String?   @db.Uuid
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  createdById        String?   @db.Uuid
+  updatedById        String?   @db.Uuid
+  deletedAt          DateTime?
+
+  @@unique([companyId, tagNo])
+  @@index([companyId, status])
+  @@index([unitId])
+  @@map("animals")
+}
+
+model AnimalWeight {
+  id        String   @id @default(uuid()) @db.Uuid
+  animalId  String   @db.Uuid
+  date      DateTime @db.Date
+  kg        Decimal  @db.Decimal(8, 2)
+  /// body condition score (1-5)
+  bcs       Decimal? @db.Decimal(3, 1)
+  notes     String?  @db.VarChar(300)
+  createdAt DateTime @default(now())
+  createdById String? @db.Uuid
+
+  @@index([animalId, date])
+  @@map("animal_weights")
+}
+
+/// Reproduction and other events of an animal
+model AnimalEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  animalId    String   @db.Uuid
+  date        DateTime @db.Date
+  /// HEAT | SERVICE | PREG_CHECK | CALVING | ABORTION | DRY_OFF | MOVE | PRODUCTIVE | NOTE
+  type        String   @db.VarChar(10)
+  /// service: AI | NATURAL; calving: NORMAL | ASSISTED | CAESAREAN
+  method      String?  @db.VarChar(10)
+  /// bull tag / semen code
+  sire        String?  @db.VarChar(60)
+  /// inseminator / vet
+  technician  String?  @db.VarChar(100)
+  /// pregnancy check: POSITIVE | NEGATIVE; calving: LIVE | STILLBORN
+  result      String?  @db.VarChar(10)
+  fromUnitId  String?  @db.Uuid
+  toUnitId    String?  @db.Uuid
+  /// calves born (ids), other details
+  data        Json?
+  notes       String?  @db.VarChar(500)
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@index([animalId, date])
+  @@map("animal_events")
+}
+
+/// Vaccination / treatment of an animal (product from stock, withdrawal periods)
+model AnimalTreatment {
+  id                 String    @id @default(uuid()) @db.Uuid
+  animalId           String    @db.Uuid
+  companyId          String    @db.Uuid
+  date               DateTime  @db.Date
+  /// VACCINE | MEDICINE | VITAMIN | DEWORMING | OTHER
+  kind               String    @db.VarChar(10)
+  description        String    @db.VarChar(200)
+  /// disease / diagnosis (PMK, LSD, mastitis...)
+  diagnosis          String?   @db.VarChar(150)
+  productId          String?   @db.Uuid
+  qty                Decimal   @default(0) @db.Decimal(14, 4)
+  cost               Decimal   @default(0) @db.Decimal(18, 2)
+  milkWithdrawalDays Int       @default(0)
+  meatWithdrawalDays Int       @default(0)
+  vet                String?   @db.VarChar(100)
+  /// treatments given together (one stock issue) share a batch
+  batchId            String    @db.Uuid
+  notes              String?   @db.VarChar(500)
+  createdAt          DateTime  @default(now())
+  createdById        String?   @db.Uuid
+
+  @@index([animalId, date])
+  @@index([batchId])
+  @@map("animal_treatments")
+}
+
+/// Cost charged to an animal (feed, health, rearing): capitalised while growing, expensed once productive
+model AnimalCost {
+  id          String   @id @default(uuid()) @db.Uuid
+  animalId    String   @db.Uuid
+  date        DateTime @db.Date
+  /// PURCHASE | FEED | HEALTH | OTHER
+  kind        String   @db.VarChar(10)
+  amount      Decimal  @db.Decimal(18, 2)
+  capitalised Boolean  @default(true)
+  sourceType  String   @db.VarChar(10)
+  sourceId    String   @db.Uuid
+  createdAt   DateTime @default(now())
+
+  @@index([animalId, date])
+  @@index([sourceId])
+  @@map("animal_costs")
+}
+
+/// Feed given to a pen, its cost shared by the animals in it
+model HerdFeeding {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  branchId    String?   @db.Uuid
+  number      String    @db.VarChar(40)
+  date        DateTime  @db.Date
+  unitId      String    @db.Uuid
+  productId   String    @db.Uuid
+  warehouseId String    @db.Uuid
+  qty         Decimal   @db.Decimal(14, 3)
+  cost        Decimal   @default(0) @db.Decimal(18, 2)
+  heads       Int       @default(0)
+  /// POSTED | CANCELLED
+  status      String    @default("POSTED") @db.VarChar(10)
+  notes       String?   @db.VarChar(500)
+  createdAt   DateTime  @default(now())
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@map("herd_feedings")
+}
+
+/// Milk of one cow at one milking
+model MilkRecord {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  animalId    String   @db.Uuid
+  date        DateTime @db.Date
+  /// AM | PM
+  session     String   @db.VarChar(2)
+  liters      Decimal  @db.Decimal(8, 2)
+  /// milk under a drug withdrawal period, thrown away
+  discarded   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@unique([animalId, date, session])
+  @@index([companyId, date])
+  @@map("milk_records")
+}
+
+/// Milk price of a buyer from a date: base price adjusted for fat, total solids and bacteria count
+model MilkPriceScheme {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  customerId    String    @db.Uuid
+  effectiveDate DateTime  @db.Date
+  basePrice     Decimal   @db.Decimal(18, 2)
+  fatStd        Decimal   @default(0) @db.Decimal(5, 2)
+  /// price change per 0.1 % fat above / below the standard
+  fatStep       Decimal   @default(0) @db.Decimal(18, 2)
+  tsStd         Decimal   @default(0) @db.Decimal(5, 2)
+  tsStep        Decimal   @default(0) @db.Decimal(18, 2)
+  /// [{ maxTpc, adj }] ascending by maxTpc (CFU/ml); above the last grade: rejectAbove or the last adj
+  tpcGrades     Json?
+  notes         String?   @db.VarChar(300)
+  createdAt     DateTime  @default(now())
+  createdById   String?   @db.Uuid
+  deletedAt     DateTime?
+
+  @@index([companyId, customerId, effectiveDate])
+  @@map("milk_price_schemes")
+}
+
+/// Milk handed over to a buyer (KUD / milk processor) with its quality test and price
+model MilkDelivery {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @db.Uuid
+  branchId     String?   @db.Uuid
+  number       String    @db.VarChar(40)
+  date         DateTime  @db.Date
+  /// AM | PM | DAY
+  session      String    @default("DAY") @db.VarChar(3)
+  customerId   String    @db.Uuid
+  liters       Decimal   @db.Decimal(12, 2)
+  fat          Decimal?  @db.Decimal(5, 2)
+  snf          Decimal?  @db.Decimal(5, 2)
+  ts           Decimal?  @db.Decimal(5, 2)
+  protein      Decimal?  @db.Decimal(5, 2)
+  /// total plate count (CFU / ml)
+  tpc          Decimal?  @db.Decimal(14, 0)
+  density      Decimal?  @db.Decimal(6, 4)
+  alcoholTest  Boolean?
+  rejected     Boolean   @default(false)
+  pricePerLiter Decimal  @default(0) @db.Decimal(18, 2)
+  priceDetail  Json?
+  amount       Decimal   @default(0) @db.Decimal(18, 2)
+  /// POSTED | CANCELLED
+  status       String    @default("POSTED") @db.VarChar(10)
+  invoiceDocId String?   @db.Uuid
+  notes        String?   @db.VarChar(500)
+  createdAt    DateTime  @default(now())
+  createdById  String?   @db.Uuid
+  updatedById  String?   @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@map("milk_deliveries")
+}

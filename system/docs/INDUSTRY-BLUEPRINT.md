@@ -211,6 +211,9 @@ The goal is to avoid building one separate app per industry. Most lines share th
   - ear tag, weighings, ADG, rations, treatments;
   - breeding: heat, AI/service, pregnancy check, calving, S/C ratio.
 - **Dairy:** milk per cow per milking, lactation, fat/SNF/TPC (drives the price paid).
+- **Cattle & dairy built:** animals by ear tag (go-live history, bought with GRNI + draft supplier invoice, born at calving), weighings / ADG, reproduction (service, pregnancy check, calving, dry-off; recomputed from the events), health with milk / meat withdrawal, pen feeding shared by the animals, milking per cow, milk deliveries priced by the buyer's scheme (base, fat, TS, TPC grade) and invoiced per period, sales / culls / deaths, feedlot report, breeding board.
+  - Facts used: fresh / pasteurised milk without additions is PPN-exempt, code 08 (PP 49/2022 Lampiran item h, read); raw milk SNI 3141:2024 (draft read): fat >= 3.0, protein >= 2.8, TS >= 10.8, SNF >= 7.8 %, density >= 1.0270, alcohol test negative; dairy / breeding cattle depreciate for tax in group 2, 8 years, from the month sales begin, labour excluded (PMK 72/2023 Art. 12 (c), 13-15, read); beef / fattening cattle are cost of goods sold (DJP FAQ); movements need the Sertifikat Veteriner (valid 30 days) and SKKH (Permentan 17/2023, read); feeder imports: <= 450 kg, <= 48 months, fattened >= 4 months, 5% breeders (Permentan 41/2019, read); Permentan 26/2017 on milk was amended twice (33/2018), partnership with milk processors now voluntary.
+  - **[unverified]:** final SNI 3141:2024 limits; individual identification duty (IDENTIK / iSIKHNAS ear tag) beyond the FMD programme; withdrawal periods (no regulatory table: from the drug label).
 - **Aquaculture:** pond → stocking → feeding (feed trays) → water quality (DO, pH, salinity) → sampling → partial / final harvest. KPIs: SR, FCR, ADG, tonnes per ha.
 
 ### Plantations (oil palm and others)
