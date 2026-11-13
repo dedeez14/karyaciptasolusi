@@ -5595,3 +5595,196 @@ model CartonTool {
   @@index([companyId, specId])
   @@map("carton_tools")
 }
+
+// ----------------------------------------------------------------------------
+// Paint: colour standards, tinting bases and colorants, tint formulas and shop tinting, colour lab, SDS / GHS
+// ----------------------------------------------------------------------------
+
+/// Colour standard (fan deck / customer colour) measured in CIELAB, D65/10
+model PaintColour {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  code        String   @db.VarChar(30)
+  name        String   @db.VarChar(120)
+  collection  String?  @db.VarChar(60)
+  L           Decimal  @db.Decimal(9, 3)
+  a           Decimal  @db.Decimal(9, 3)
+  b           Decimal  @db.Decimal(9, 3)
+  /// pass limit in dE2000 (empty = the default in Settings)
+  tolerance   Decimal? @db.Decimal(6, 3)
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+
+  @@unique([companyId, code])
+  @@map("paint_colours")
+}
+
+/// Tinting base of a product line: base type and the most colorant it takes
+model PaintBase {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid
+  code           String   @db.VarChar(30)
+  name           String   @db.VarChar(120)
+  productLine    String?  @db.VarChar(60)
+  /// PASTEL | MEDIUM | DEEP | ACCENT | CLEAR
+  baseType       String   @db.VarChar(8)
+  /// most colorant as % of the can volume (pastel ~3%, deep ~6%, accent ~12.5%)
+  maxColorantPct Decimal  @db.Decimal(6, 2)
+  /// stock products of the base by can size: [{ productId, litres }]
+  cans           Json
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([companyId, code])
+  @@map("paint_bases")
+}
+
+/// Colorant of the tinting machine, stocked as a product (its stock unit holds unitMl millilitres)
+model PaintColorant {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  code      String   @db.VarChar(20)
+  name      String   @db.VarChar(80)
+  productId String   @db.Uuid
+  unitMl    Decimal  @default(1000) @db.Decimal(12, 3)
+  hex       String?  @db.VarChar(7)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code])
+  @@map("paint_colorants")
+}
+
+/// Tint formula of a colour on a base: colorant ml per litre of base; approved after a drawdown within tolerance
+model TintFormula {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  colourId    String    @db.Uuid
+  baseId      String    @db.Uuid
+  version     Int       @default(1)
+  /// [{ colorantId, mlPerLitre }]
+  lines       Json
+  /// drawdown of the formula measured against the colour standard
+  drawL       Decimal?  @db.Decimal(9, 3)
+  drawA       Decimal?  @db.Decimal(9, 3)
+  drawB       Decimal?  @db.Decimal(9, 3)
+  dE00        Decimal?  @db.Decimal(6, 3)
+  /// DRAFT | APPROVED | RETIRED
+  status      String    @default("DRAFT") @db.VarChar(8)
+  approvedAt  DateTime?
+  approvedById String?  @db.Uuid
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+
+  @@index([companyId, colourId, baseId])
+  @@map("tint_formulas")
+}
+
+/// Paint tinted at the shop: base cans and colorants out of stock at cost, a draft invoice for the tinted cans
+model TintJob {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @db.Uuid
+  branchId     String?  @db.Uuid
+  number       String   @db.VarChar(40)
+  date         DateTime @db.Date
+  warehouseId  String   @db.Uuid
+  customerId   String?  @db.Uuid
+  colourId     String   @db.Uuid
+  formulaId    String   @db.Uuid
+  baseProductId String  @db.Uuid
+  canLitres    Decimal  @db.Decimal(9, 3)
+  cans         Int
+  /// per colorant: ml per can, total ml, dispenser units per can
+  dispensed    Json
+  baseCost     Decimal  @default(0) @db.Decimal(18, 2)
+  colorantCost Decimal  @default(0) @db.Decimal(18, 2)
+  tintFee      Decimal  @default(0) @db.Decimal(18, 2)
+  unitPrice    Decimal  @default(0) @db.Decimal(18, 2)
+  invoiceId    String?  @db.Uuid
+  /// DONE | CANCELLED
+  status       String   @default("DONE") @db.VarChar(10)
+  notes        String?
+  createdAt    DateTime @default(now())
+  createdById  String?  @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@map("tint_jobs")
+}
+
+/// Colour check of a production batch against its standard, with the tinter additions issued to the work order
+model ColourCheck {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  number      String   @db.VarChar(40)
+  workOrderId String?  @db.Uuid
+  productId   String   @db.Uuid
+  lotNo       String?  @db.VarChar(60)
+  colourId    String   @db.Uuid
+  /// 1, 2, 3... per batch
+  seq         Int      @default(1)
+  L           Decimal  @db.Decimal(9, 3)
+  a           Decimal  @db.Decimal(9, 3)
+  b           Decimal  @db.Decimal(9, 3)
+  dE76        Decimal  @db.Decimal(6, 3)
+  dE00        Decimal  @db.Decimal(6, 3)
+  tolerance   Decimal  @db.Decimal(6, 3)
+  pass        Boolean
+  /// the trial against the standard: lighter / darker, redder / greener, yellower / bluer
+  reading     String?  @db.VarChar(80)
+  /// tinters added after this check: [{ productId, qty }] (issued to the work order)
+  additions   Json?
+  notes       String?
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@unique([companyId, number])
+  @@index([companyId, workOrderId])
+  @@map("colour_checks")
+}
+
+/// Safety data sheet (LDK / SDS) and GHS label data of a product (Permenperin 87/2009 jo 23/2013, Kepmenaker 187/1999)
+model ProductSds {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  productId      String    @db.Uuid
+  version        String    @db.VarChar(20)
+  revisionDate   DateTime  @db.Date
+  /// review at every change and at least every 5 years (Permenperin 23/2013 Art. 11)
+  nextReview     DateTime  @db.Date
+  language       String    @default("ID") @db.VarChar(10)
+  hazardClasses  String?   @db.VarChar(500)
+  /// GHS01 ... GHS09
+  pictograms     Json
+  /// DANGER (Bahaya) | WARNING (Awas) | NONE
+  signalWord     String    @default("NONE") @db.VarChar(8)
+  hStatements    Json
+  pStatements    Json
+  /// hazardous components: [{ name, cas, pct }]
+  components     Json
+  flashPointC    Decimal?  @db.Decimal(7, 2)
+  boilingPointC  Decimal?  @db.Decimal(7, 2)
+  unNumber       String?   @db.VarChar(10)
+  shippingName   String?   @db.VarChar(120)
+  transportClass String?   @db.VarChar(10)
+  packingGroup   String?   @db.VarChar(4)
+  leadPpm        Decimal?  @db.Decimal(10, 2)
+  vocGL          Decimal?  @db.Decimal(10, 2)
+  notes          String?
+  isCurrent      Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+
+  @@index([companyId, productId])
+  @@map("product_sds")
+}

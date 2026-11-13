@@ -98,6 +98,12 @@ const CartonSpecPage = lazy(() => cartonPages().then((m) => ({ default: m.SpecPa
 const CartonGradesPage = lazy(() => cartonPages().then((m) => ({ default: m.GradesPage })));
 const CartonTrimPage = lazy(() => cartonPages().then((m) => ({ default: m.TrimPage })));
 const CartonToolsPage = lazy(() => cartonPages().then((m) => ({ default: m.ToolsPage })));
+const paintPages = () => import('@/features/paint/PaintPages');
+const PaintTintPage = lazy(() => paintPages().then((m) => ({ default: m.TintPage })));
+const PaintColoursPage = lazy(() => paintPages().then((m) => ({ default: m.ColoursPage })));
+const PaintBasesPage = lazy(() => paintPages().then((m) => ({ default: m.BasesPage })));
+const PaintLabPage = lazy(() => paintPages().then((m) => ({ default: m.LabPage })));
+const PaintSdsPage = lazy(() => paintPages().then((m) => ({ default: m.SdsPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -289,6 +295,11 @@ export default function App() {
             <Route path="carton/grades" element={<CartonGradesPage />} />
             <Route path="carton/trim" element={<CartonTrimPage />} />
             <Route path="carton/tools" element={<CartonToolsPage />} />
+            <Route path="paint/tint" element={<PaintTintPage />} />
+            <Route path="paint/colours" element={<PaintColoursPage />} />
+            <Route path="paint/bases" element={<PaintBasesPage />} />
+            <Route path="paint/lab" element={<PaintLabPage />} />
+            <Route path="paint/sds" element={<PaintSdsPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

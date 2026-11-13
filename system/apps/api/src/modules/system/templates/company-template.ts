@@ -226,6 +226,8 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['GARMENT_RECEIPT', 'Garment Finished Goods Receipt', 'FGR/{YYYY}/', 'YEARLY'],
   ['CUSTOMS_DOC', 'Customs Document (BC)', 'BCD/{YYYY}/', 'YEARLY'],
   ['CARTON_ESTIMATE', 'Carton Estimate', 'EST/{YYYY}/', 'YEARLY'],
+  ['TINT_JOB', 'Tinting Job', 'TNT/{YYYY}/', 'YEARLY'],
+  ['COLOUR_CHECK', 'Colour Check', 'CLR/{YYYY}/', 'YEARLY'],
   ['POS', 'POS Receipt', 'POS/{YYYY}/{MM}/', 'MONTHLY'],
   ['POS_SESSION', 'POS Shift', 'SHIFT/{YYYY}/', 'YEARLY'],
   ['POS_MEMBER', 'Member Number', 'MBR-', 'NEVER'],
