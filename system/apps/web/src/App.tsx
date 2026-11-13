@@ -147,6 +147,12 @@ const HotelReservationsPage = lazy(() => hotelPages().then((m) => ({ default: m.
 const HotelReservationPage = lazy(() => hotelPages().then((m) => ({ default: m.ReservationPage })));
 const HotelRoomsPage = lazy(() => hotelPages().then((m) => ({ default: m.RoomsPage })));
 const HotelAuditPage = lazy(() => hotelPages().then((m) => ({ default: m.AuditPage })));
+const clinicPages = () => import('@/features/clinic/ClinicPages');
+const ClinicQueuePage = lazy(() => clinicPages().then((m) => ({ default: m.QueuePage })));
+const ClinicVisitPage = lazy(() => clinicPages().then((m) => ({ default: m.VisitPage })));
+const ClinicPatientsPage = lazy(() => clinicPages().then((m) => ({ default: m.PatientsPage })));
+const ClinicSetupPage = lazy(() => clinicPages().then((m) => ({ default: m.SetupPage })));
+const ClinicReportsPage = lazy(() => clinicPages().then((m) => ({ default: m.ReportsPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -379,6 +385,11 @@ export default function App() {
             <Route path="hotel/reservations/:id" element={<HotelReservationPage />} />
             <Route path="hotel/rooms" element={<HotelRoomsPage />} />
             <Route path="hotel/audit" element={<HotelAuditPage />} />
+            <Route path="clinic/queue" element={<ClinicQueuePage />} />
+            <Route path="clinic/visits/:id" element={<ClinicVisitPage />} />
+            <Route path="clinic/patients" element={<ClinicPatientsPage />} />
+            <Route path="clinic/setup" element={<ClinicSetupPage />} />
+            <Route path="clinic/reports" element={<ClinicReportsPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />

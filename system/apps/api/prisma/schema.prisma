@@ -7133,3 +7133,202 @@ model HotelNightAudit {
   @@unique([companyId, businessDate])
   @@map("hotel_night_audits")
 }
+
+// ----------------------------------------------------------------------------
+// Clinic: patients (medical record number, identity encrypted), practitioners with STR / SIP, tariffs, visits with
+// the electronic medical record (Permenkes 24/2022: SOAP encrypted, every read logged), prescriptions dispensed FEFO,
+// billing (medical services PPN-exempt PP 49/2022, medicines PPN), BPJS capitation, practitioner fees with PPh 21
+// (PMK 168/2023), controlled medicines report (SIPNAP)
+// ----------------------------------------------------------------------------
+
+model ClinicConfig {
+  id                  String   @id @default(uuid()) @db.Uuid
+  companyId           String   @unique @db.Uuid
+  name                String   @default("Klinik") @db.VarChar(150)
+  /// FKTP / clinic codes for BPJS and SATUSEHAT
+  facilityCode        String?  @db.VarChar(30)
+  pharmacyWarehouseId String?  @db.Uuid
+  walkInCustomerId    String?  @db.Uuid
+  bpjsCustomerId      String?  @db.Uuid
+  updatedAt           DateTime @updatedAt
+
+  @@map("clinic_configs")
+}
+
+model ClinicPatient {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  rmNumber    String    @db.VarChar(30)
+  name        String    @db.VarChar(150)
+  /// M | F
+  sex         String    @db.VarChar(1)
+  birthDate   DateTime  @db.Date
+  /// NIK and BPJS number, encrypted
+  nik         String?   @db.VarChar(255)
+  bpjsNo      String?   @db.VarChar(255)
+  phone       String?   @db.VarChar(30)
+  address     String?   @db.VarChar(300)
+  /// encrypted
+  allergies   String?
+  bloodType   String?   @db.VarChar(3)
+  customerId  String?   @db.Uuid
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+
+  @@unique([companyId, rmNumber])
+  @@index([companyId, name])
+  @@map("clinic_patients")
+}
+
+model ClinicPractitioner {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  name        String    @db.VarChar(150)
+  /// DOCTOR | DENTIST | MIDWIFE | NURSE | OTHER
+  profession  String    @db.VarChar(10)
+  strNo       String?   @db.VarChar(40)
+  strExpiry   DateTime? @db.Date
+  sipNo       String?   @db.VarChar(60)
+  sipExpiry   DateTime? @db.Date
+  employeeId  String?   @db.Uuid
+  /// an employee is paid through the payroll; otherwise fees with PPh 21 bukan pegawai
+  isEmployee  Boolean   @default(false)
+  /// share of the service tariffs paid to the practitioner
+  feePct      Decimal   @default(0) @db.Decimal(5, 2)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@index([companyId])
+  @@map("clinic_practitioners")
+}
+
+model ClinicService {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  code      String   @db.VarChar(20)
+  name      String   @db.VarChar(150)
+  /// CONSULT | PROCEDURE | LAB | OTHER
+  kind      String   @default("CONSULT") @db.VarChar(10)
+  price     Decimal  @db.Decimal(18, 2)
+  /// counts toward the practitioner's fee
+  feeable   Boolean  @default(true)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, code])
+  @@map("clinic_services")
+}
+
+/// medicines under narcotics / psychotropics / precursor reporting (SIPNAP)
+model ClinicControlledDrug {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  productId String   @db.Uuid
+  /// NARKOTIKA | PSIKOTROPIKA | PREKURSOR
+  class     String   @db.VarChar(12)
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, productId])
+  @@map("clinic_controlled_drugs")
+}
+
+model ClinicVisit {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @db.Uuid
+  number         String    @db.VarChar(40)
+  patientId      String    @db.Uuid
+  practitionerId String    @db.Uuid
+  date           DateTime  @db.Date
+  queueNo        Int
+  /// GENERAL | BPJS | INSURANCE | CORPORATE
+  payer          String    @default("GENERAL") @db.VarChar(10)
+  /// insurer / company billed
+  customerId     String?   @db.Uuid
+  /// WAITING | IN_EXAM | DONE | BILLED | CANCELLED
+  status         String    @default("WAITING") @db.VarChar(8)
+  /// SOAP, encrypted: subjective (complaint), objective (examination), plan
+  subjective     String?
+  objective      String?
+  plan           String?
+  /// vital signs (tekanan darah, nadi, suhu, napas, berat, tinggi, SpO2)
+  vitals         Json?
+  /// [{ code (ICD-10), name, primary }]
+  diagnoses      Json?
+  referral       String?   @db.VarChar(300)
+  followUp       DateTime? @db.Date
+  practitionerFee Decimal  @default(0) @db.Decimal(18, 2)
+  /// doctor services billed (the gross for PPh 21, PMK 168/2023)
+  feeGross       Decimal   @default(0) @db.Decimal(18, 2)
+  feeRunId       String?   @db.Uuid
+  invoiceId      String?   @db.Uuid
+  deliveryId     String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdById    String?   @db.Uuid
+
+  items ClinicVisitItem[]
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@index([patientId])
+  @@map("clinic_visits")
+}
+
+model ClinicVisitItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  visitId     String  @db.Uuid
+  /// SERVICE | DRUG
+  kind        String  @db.VarChar(8)
+  serviceId   String? @db.Uuid
+  productId   String? @db.Uuid
+  description String  @db.VarChar(200)
+  qty         Decimal @db.Decimal(12, 2)
+  price       Decimal @db.Decimal(18, 2)
+  /// signa: how to take it
+  dosage      String? @db.VarChar(120)
+
+  visit ClinicVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId])
+  @@map("clinic_visit_items")
+}
+
+/// JKN capitation of a month from BPJS Kesehatan
+model ClinicCapitation {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  period        String   @db.VarChar(7)
+  members       Int
+  amount        Decimal  @db.Decimal(18, 2)
+  withheld      Decimal  @default(0) @db.Decimal(18, 2)
+  bankAccountId String   @db.Uuid
+  date          DateTime @db.Date
+  /// POSTED | CANCELLED
+  status        String   @default("POSTED") @db.VarChar(10)
+  createdAt     DateTime @default(now())
+
+  @@index([companyId, period])
+  @@map("clinic_capitations")
+}
+
+/// practitioner fees of a month with the PPh 21 bukan pegawai (PMK 168/2023)
+model ClinicFeeRun {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid
+  period         String   @db.VarChar(7)
+  practitionerId String   @db.Uuid
+  visits         Int
+  gross          Decimal  @db.Decimal(18, 2)
+  fee            Decimal  @db.Decimal(18, 2)
+  base           Decimal  @db.Decimal(18, 2)
+  pph21          Decimal  @db.Decimal(18, 2)
+  net            Decimal  @db.Decimal(18, 2)
+  /// POSTED | CANCELLED
+  status         String   @default("POSTED") @db.VarChar(10)
+  createdAt      DateTime @default(now())
+
+  @@index([companyId, period])
+  @@map("clinic_fee_runs")
+}

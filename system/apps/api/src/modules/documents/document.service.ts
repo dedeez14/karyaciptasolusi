@@ -800,6 +800,12 @@ export class DocumentService {
           if (lj) throw new ConflictException(`Invoice of logistics job ${lj.number}: cancel it from the job in Logistics`);
           const hr = await tx.hotelReservation.findFirst({ where: { invoiceId: id }, select: { number: true } });
           if (hr) throw new ConflictException(`City ledger invoice of hotel folio ${hr.number}: the guest has checked out on it`);
+          const cv = await tx.clinicVisit.findFirst({ where: { invoiceId: id, status: 'BILLED' }, select: { number: true } });
+          if (cv) throw new ConflictException(`Invoice of clinic visit ${cv.number}: undo the billing in Clinic`);
+        }
+        if (!opts.skipPermission && def.code === 'DO') {
+          const cd = await tx.clinicVisit.findFirst({ where: { deliveryId: id, status: 'BILLED' }, select: { number: true } });
+          if (cd) throw new ConflictException(`Medicines dispensed on clinic visit ${cd.number}: undo the billing in Clinic`);
         }
         if (!opts.skipPermission && def.code === 'PI') {
           const cl = await tx.subcontractClaim.findFirst({ where: { invoiceId: id, status: 'APPROVED' }, select: { number: true } });

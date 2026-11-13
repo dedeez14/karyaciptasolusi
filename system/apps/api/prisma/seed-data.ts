@@ -415,6 +415,12 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['hotel.rooms', 'hotel', 'Rooms & Rates', 'door-open', '/hotel/rooms', 'hotel.read'],
   ['hotel.audit', 'hotel', 'Night Audit & Reports', 'moon', '/hotel/audit', 'hotel.read'],
 
+  ['clinic', null, 'Clinic', 'stethoscope', null, null],
+  ['clinic.queue', 'clinic', 'Registration & Queue', 'clipboard-plus', '/clinic/queue', 'clinic.read'],
+  ['clinic.patients', 'clinic', 'Patients', 'user-round', '/clinic/patients', 'clinic.read'],
+  ['clinic.setup', 'clinic', 'Practitioners & Tariffs', 'pill', '/clinic/setup', 'clinic.read'],
+  ['clinic.reports', 'clinic', 'Billing & Reports', 'activity', '/clinic/reports', 'clinic.read'],
+
   ['purchase', null, 'Purchase', 'shopping-bag', null, null],
   ['purchase.requests', 'purchase', 'Purchase Requests', 'file-question', '/documents/PR', 'purchase.request.read'],
   ['purchase.orders', 'purchase', 'Purchase Orders', 'clipboard-check', '/documents/PO', 'purchase.order.read'],
