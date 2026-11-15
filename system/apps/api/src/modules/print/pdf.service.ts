@@ -332,6 +332,23 @@ export class PdfService {
       ['Terms & Conditions', d.terms],
     ] as const) {
       if (!text) continue;
+      // payment details written as "Label: value" lines are printed as two aligned columns
+      const rows = label === 'Payment Information' ? text.split('\n').map((l) => /^([^:]{1,32}):\s+(.+)$/.exec(l.trim())) : [];
+      if (rows.length > 1 && rows.every(Boolean)) {
+        const lw = 96;
+        y = this.ensure(doc, y + 10, rows.length * 13 + 18);
+        const start = y;
+        doc.font('Helvetica-Bold').fontSize(6.8).fillColor(accent).text(label.toUpperCase(), L + 12, y, { width: W - 14, characterSpacing: 0.7 });
+        let ry = doc.y + 3;
+        for (const m of rows) {
+          doc.font('Helvetica').fontSize(8.3).fillColor(GREY).text(m![1], L + 12, ry, { width: lw - 6, lineBreak: false });
+          doc.font('Helvetica-Bold').fontSize(8.3).fillColor(body).text(m![2], L + 12 + lw, ry, { width: W - 14 - lw });
+          ry = doc.y + 2;
+        }
+        y = ry - 2;
+        doc.rect(L, start - 1, 2.2, Math.max(12, y - start + 1)).fill(soft);
+        continue;
+      }
       doc.font('Helvetica').fontSize(8.3);
       const h = doc.heightOfString(text, { width: W - 14 }) + 18;
       y = this.ensure(doc, y + 10, Math.min(h, 120));
