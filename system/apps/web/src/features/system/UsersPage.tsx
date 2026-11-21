@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type Paged } from '@/lib/api';
-import { fmtDateTime } from '@/lib/format';
+import { fmtDateTime, plural } from '@/lib/format';
 import { useListState } from '@/hooks/useListState';
 import { useSession } from '@/stores/session';
 import { AsyncSelect, Badge, Button, Card, confirm, DataTable, Drawer, Dropdown, Field, Icon, Input, Modal, Pagination, PageHeader, Select, Switch, toast, type Column } from '@/components/ui';
+import { useLookupOptions } from '@/hooks/useLookups';
 
 interface Assignment {
   id?: string;
@@ -24,6 +25,7 @@ interface UserRow {
   isActive: boolean;
   isSuperAdmin: boolean;
   mustChangePassword: boolean;
+  mfaEnabled: boolean;
   lastLoginAt: string | null;
   lastLoginIp: string | null;
   lockedUntil: string | null;
@@ -41,6 +43,7 @@ interface Role {
 const isLocked = (u: UserRow) => !!u.lockedUntil && new Date(u.lockedUntil) > new Date();
 
 export default function UsersPage() {
+  const recordStatus = useLookupOptions('RECORD_STATUS');
   const ls = useListState();
   const qc = useQueryClient();
   const { can, me } = useSession();
@@ -92,7 +95,16 @@ export default function UsersPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (u) => (isLocked(u) ? <Badge tone="red">Locked</Badge> : u.isActive ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>),
+      render: (u) => (
+        <span className="flex flex-wrap items-center gap-1">
+          {isLocked(u) ? <Badge tone="red">Locked</Badge> : u.isActive ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
+          {u.mfaEnabled && (
+            <Badge tone="blue">
+              <Icon name="shield-check" className="h-3 w-3" /> 2FA
+            </Badge>
+          )}
+        </span>
+      ),
     },
     { key: 'lastLoginAt', header: 'Last sign in', render: (u) => (u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : <span className="text-slate-300">Never</span>) },
   ];
@@ -101,7 +113,7 @@ export default function UsersPage() {
     <div>
       <PageHeader
         title="Users"
-        subtitle={list.data ? `${list.data.meta.total} users` : undefined}
+        subtitle={list.data ? plural(list.data.meta.total, 'user') : undefined}
         actions={
           can('system.user.create') && (
             <Button icon="user-plus" onClick={() => setEditing(null)}>
@@ -111,7 +123,7 @@ export default function UsersPage() {
         }
       />
       <Card bodyClass="p-0">
-        <div className="flex flex-col gap-2 border-b border-slate-100 p-3 sm:flex-row dark:border-slate-800">
+        <div className="flex flex-col gap-2 border-b border-line p-3 sm:flex-row">
           <form
             className="relative flex-1"
             onSubmit={(e) => {
@@ -122,7 +134,7 @@ export default function UsersPage() {
             <Icon name="search" className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
             <Input className="pl-9" placeholder="Search name, username, email..." value={ls.searchInput} onChange={(e) => ls.setSearchInput(e.target.value)} onBlur={() => ls.setSearch(ls.searchInput)} />
           </form>
-          <Select className="sm:w-44" value={ls.filters.isActive ?? ''} onChange={(e) => ls.setFilter('isActive', e.target.value)} placeholder="All statuses" options={[{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }]} />
+          <Select className="sm:w-44" value={ls.filters.isActive ?? ''} onChange={(e) => ls.setFilter('isActive', e.target.value)} placeholder="All statuses" options={recordStatus} />
         </div>
         <DataTable
           columns={columns}
@@ -136,6 +148,15 @@ export default function UsersPage() {
               items={[
                 { label: 'Edit', icon: 'pencil', onClick: () => setEditing(u), hidden: !can('system.user.update') },
                 { label: 'Reset password', icon: 'key-round', onClick: () => setResetFor(u), hidden: !can('system.user.reset-password') },
+                {
+                  label: 'Reset two-factor sign-in',
+                  icon: 'shield-off',
+                  hidden: !u.mfaEnabled || !can('system.user.update') || u.id === me?.user.id,
+                  onClick: async () => {
+                    if (!(await confirm({ title: 'Reset two-factor sign-in?', message: `${u.fullName} is signed out and sets up an authenticator app again at the next sign-in. Use this when the phone was lost.`, confirmText: 'Reset', danger: true }))) return;
+                    act(() => api.post(`/system/users/${u.id}/reset-mfa`), 'Two-factor sign-in reset');
+                  },
+                },
                 { label: 'Unlock account', icon: 'lock-open', onClick: () => act(() => api.post(`/system/users/${u.id}/unlock`), 'Account unlocked'), hidden: !isLocked(u) || !can('system.user.update') },
                 'divider',
                 {
@@ -217,7 +238,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null | undefined
       }
     >
       <div className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Full name" required error={errors.fullName}>
             <Input value={form.fullName ?? ''} onChange={(e) => set('fullName', e.target.value)} />
           </Field>
@@ -259,7 +280,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null | undefined
           </div>
           <div className="space-y-2">
             {assignments.map((a, i) => (
-              <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 p-2 sm:grid-cols-[1fr_1fr_1fr_auto] dark:border-slate-700">
+              <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-line p-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
                 <AsyncSelect resource="companies" value={a.companyId} onChange={(v) => setAssignments((s) => s.map((x, j) => (j === i ? { ...x, companyId: v ?? '' } : x)))} placeholder="Company" />
                 <AsyncSelect resource="branches" value={a.branchId} onChange={(v) => setAssignments((s) => s.map((x, j) => (j === i ? { ...x, branchId: v } : x)))} placeholder="All branches" />
                 <Select value={a.roleId} onChange={(e) => setAssignments((s) => s.map((x, j) => (j === i ? { ...x, roleId: e.target.value } : x)))} options={(roles.data ?? []).map((r) => ({ value: r.id, label: r.name }))} placeholder="Select role" />
@@ -270,7 +291,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null | undefined
           </div>
         </div>
         {isEdit && user && (
-          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/50">
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs">
             <span className="text-slate-500">Created</span>
             <span>{fmtDateTime(user.createdAt)}</span>
             <span className="text-slate-500">Last sign in</span>

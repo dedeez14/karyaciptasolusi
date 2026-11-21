@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { applyTheme } from '@/lib/theme';
 import { api, refreshToken, session } from '@/lib/api';
 import { setLocale } from '@/lib/format';
 
@@ -12,7 +13,7 @@ export interface MenuNode {
 }
 
 export interface Me {
-  user: { id: string; username: string; email: string; fullName: string; mustChangePassword: boolean; isSuperAdmin: boolean; lastLoginAt: string | null };
+  user: { id: string; username: string; email: string; fullName: string; mustChangePassword: boolean; isSuperAdmin: boolean; lastLoginAt: string | null; mfaEnabled: boolean; mfaSetupRequired: boolean };
   company: { id: string; code: string; name: string; currencyCode: string; logoFileId: string | null };
   branchId: string | null;
   dataScope: string;
@@ -20,7 +21,10 @@ export interface Me {
   companies: { id: string; code: string; name: string }[];
   branches: { id: string; code: string; name: string }[];
   menus: MenuNode[];
-  prefs: { locale: string; idleTimeoutMinutes: number; appName: string };
+  prefs: { locale: string; idleTimeoutMinutes: number; appName: string; timezone: string; vatPayer?: boolean; brandColor?: string; accentColor?: string };
+  clock: { enabled: boolean; timezone: string; format24h: boolean; showSeconds: boolean; showDate: boolean; label: string };
+  /** employee record linked to this user (self-service attendance) */
+  employeeId: string | null;
 }
 
 interface SessionState {
@@ -28,8 +32,13 @@ interface SessionState {
   me: Me | null;
   perms: Set<string>;
   bootstrap: () => Promise<void>;
-  login: (username: string, password: string) => Promise<void>;
+  /** returns a challenge when the account uses two-factor sign-in */
+  login: (username: string, password: string) => Promise<{ mfaToken?: string }>;
+  verifyMfa: (mfaToken: string, code: string) => Promise<void>;
+  /** local development only: the API signs in its DEV_AUTO_LOGIN user when opened on localhost */
+  devLogin: () => Promise<void>;
   logout: () => Promise<void>;
+  verifiedLogin: (accessToken: string) => Promise<void>;
   reload: () => Promise<void>;
   switchCompany: (companyId: string) => Promise<void>;
   switchBranch: (branchId: string | null) => Promise<void>;
@@ -58,6 +67,7 @@ export const useSession = create<SessionState>((set, get) => ({
     saveCtx(me.company.id, me.branchId);
     setLocale(me.prefs.locale);
     document.title = me.prefs.appName;
+    applyTheme(me.prefs.brandColor, me.prefs.accentColor);
     set({ me, perms: new Set(me.permissions), status: 'authenticated' });
   },
 
@@ -82,8 +92,24 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   async login(username, password) {
-    const r = await api.post<{ accessToken: string }>('/auth/login', { username, password });
-    session.setToken(r.accessToken);
+    const r = await api.post<{ accessToken?: string; mfaRequired?: boolean; mfaToken?: string }>('/auth/login', { username, password });
+    if (r.mfaRequired && r.mfaToken) return { mfaToken: r.mfaToken };
+    await get().verifiedLogin(r.accessToken!);
+    return {};
+  },
+
+  async devLogin() {
+    const r = await api.post<{ accessToken: string }>('/auth/dev-login');
+    await get().verifiedLogin(r.accessToken);
+  },
+
+  async verifyMfa(mfaToken, code) {
+    const r = await api.post<{ accessToken: string }>('/auth/mfa/verify', { mfaToken, code });
+    await get().verifiedLogin(r.accessToken);
+  },
+
+  async verifiedLogin(accessToken: string) {
+    session.setToken(accessToken);
     const ctx = loadCtx();
     session.setContext(ctx.c, ctx.b);
     try {

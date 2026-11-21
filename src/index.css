@@ -3,13 +3,21 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * Warna brand PT Karya Cipta Solusi (dari logo): navy #1d4f7a + gold #f8b810.
+   * Didefinisikan SEKALI di sini sebagai kanal RGB agar bisa dipakai Tailwind
+   * (bg-brand, text-gold, bg-brand/10, ...) maupun inline style: rgb(var(--brand) / 0.1).
+   * Nilai hex yang sama dipakai di src/lib/brand.ts untuk canvas/animasi JS.
+   */
   :root {
-    --brand-primary: #2563EB;
-    --brand-primary-dark: #1D4ED8;
-    --brand-tint: #EFF6FF;
-    --brand-tint-strong: #DBEAFE;
-    --brand-navy: #0F4C81;
-    --brand-navy-light: #1E6BAF;
+    --brand: 29 79 122;            /* #1d4f7a navy utama */
+    --brand-dark: 22 61 95;        /* #163d5f */
+    --brand-darker: 15 42 64;      /* #0f2a40 (juga teks di atas gold) */
+    --brand-light: 47 106 154;     /* #2f6a9a */
+    --brand-tint: 238 244 249;     /* #eef4f9 */
+    --brand-tint-strong: 215 229 240; /* #d7e5f0 */
+    --gold: 248 184 16;            /* #f8b810 aksen */
+    --gold-dark: 224 165 14;       /* #e0a50e hover */
     --surface-soft: #F8FAFC;
     --text-dark: #0F172A;
     --text-gray: #475569;
@@ -26,59 +34,89 @@
     font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
     font-weight: 700;
   }
+
+  /* Fokus keyboard yang jelas: navy di latar terang, gold di latar gelap (.on-dark) */
+  :focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: 2px;
+  }
+  .on-dark :focus-visible {
+    outline-color: rgb(var(--gold));
+  }
 }
 
 @layer components {
-  /* ===== BUTTONS ===== */
+  /* ===== BUTTONS (semua tombol min. 44px agar mudah disentuh) ===== */
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200;
-    background: linear-gradient(135deg, #2563EB, #1D4ED8);
+    min-height: 44px;
+    background: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-dark)));
     color: white;
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    box-shadow: 0 4px 14px rgb(var(--brand) / 0.28), inset 0 1px 0 rgba(255,255,255,0.15);
   }
   .btn-primary:hover {
-    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
-    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+    background: linear-gradient(135deg, rgb(var(--brand-dark)), rgb(var(--brand-darker)));
+    box-shadow: 0 6px 20px rgb(var(--brand) / 0.38), inset 0 1px 0 rgba(255,255,255,0.15);
     transform: translateY(-1px);
   }
   .btn-primary:active {
     transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+    box-shadow: 0 2px 8px rgb(var(--brand) / 0.25);
+  }
+
+  /* CTA utama: gold dengan teks navy gelap (kontras ~8:1). Jangan pakai teks putih di atas gold. */
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200;
+    min-height: 44px;
+    background: rgb(var(--gold));
+    color: rgb(var(--brand-darker));
+    box-shadow: 0 4px 14px rgb(var(--gold) / 0.35), inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .btn-gold:hover {
+    background: rgb(var(--gold-dark));
+    box-shadow: 0 6px 20px rgb(var(--gold) / 0.45), inset 0 1px 0 rgba(255,255,255,0.35);
+    transform: translateY(-1px);
+  }
+  .btn-gold:active {
+    transform: translateY(0);
   }
 
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200;
+    min-height: 44px;
     background: white;
     border: 1.5px solid #E2E8F0;
     color: #0F172A;
     box-shadow: 0 1px 4px rgba(0,0,0,0.02);
   }
   .btn-secondary:hover {
-    border-color: #2563EB80;
+    border-color: rgb(var(--brand) / 0.5);
     background: #F8FAFC;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+    box-shadow: 0 4px 12px rgb(var(--brand) / 0.08);
     transform: translateY(-1px);
   }
 
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200;
+    min-height: 44px;
     background: transparent;
     color: #475569;
   }
   .btn-ghost:hover {
-    background: #DBEAFE;
-    color: #1D4ED8;
+    background: rgb(var(--brand-tint-strong));
+    color: rgb(var(--brand));
   }
 
   .btn-blue {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200;
-    background: linear-gradient(135deg, #0F4C81, #1E6BAF);
+    min-height: 44px;
+    background: linear-gradient(135deg, rgb(var(--brand-dark)), rgb(var(--brand-light)));
     color: white;
-    box-shadow: 0 4px 14px rgba(15, 76, 129, 0.25);
+    box-shadow: 0 4px 14px rgb(var(--brand-dark) / 0.25);
   }
   .btn-blue:hover {
-    background: linear-gradient(135deg, #1E6BAF, #0F4C81);
-    box-shadow: 0 6px 20px rgba(15, 76, 129, 0.35);
+    background: linear-gradient(135deg, rgb(var(--brand-light)), rgb(var(--brand-dark)));
+    box-shadow: 0 6px 20px rgb(var(--brand-dark) / 0.35);
     transform: translateY(-1px);
   }
 
@@ -89,6 +127,7 @@
   /* ===== INPUTS ===== */
   .input-field {
     @apply w-full px-4 py-3 rounded-xl text-sm transition-all duration-200;
+    min-height: 44px;
     background: white;
     border: 1.5px solid #E2E8F0;
     color: #0F172A;
@@ -100,51 +139,80 @@
   .input-field:hover {
     border-color: #CBD5E1;
   }
-  .input-field:focus {
-    border-color: #2563EB;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 1px 4px rgba(37, 99, 235, 0.06);
+  .input-field:focus,
+  .input-field:focus-visible {
+    outline: none;
+    border-color: rgb(var(--brand));
+    box-shadow: 0 0 0 3px rgb(var(--brand) / 0.18), 0 1px 4px rgb(var(--brand) / 0.06);
+  }
+  .input-field[aria-invalid='true'] {
+    border-color: #DC2626;
   }
 
   .input-white {
     @apply w-full px-4 py-3 rounded-xl text-sm transition-all duration-200;
+    min-height: 44px;
     background: rgba(255,255,255,0.1);
-    border: 1.5px solid rgba(255,255,255,0.2);
+    border: 1.5px solid rgba(255,255,255,0.3);
     color: white;
     outline: none;
   }
   .input-white::placeholder {
-    color: rgba(255,255,255,0.5);
+    color: rgba(255,255,255,0.65);
   }
-  .input-white:focus {
-    background: rgba(255,255,255,0.2);
-    border-color: rgba(255,255,255,0.4);
+  .input-white:focus,
+  .input-white:focus-visible {
+    outline: none;
+    background: rgba(255,255,255,0.18);
+    border-color: rgb(var(--gold));
+    box-shadow: 0 0 0 3px rgb(var(--gold) / 0.35);
+  }
+
+  /* Judul: kata aksen navy dengan garis bawah gold tipis */
+  .text-accent {
+    color: rgb(var(--brand));
+    background-image: linear-gradient(rgb(var(--gold)), rgb(var(--gold)));
+    background-repeat: no-repeat;
+    background-size: 100% 0.12em;
+    background-position: 0 94%;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
   }
 
   /* ===== CARDS ===== */
   .warm-card {
     @apply bg-white rounded-2xl transition-all duration-300;
     border: 1px solid #E2E8F0;
-    box-shadow: 0 1px 8px rgba(37, 99, 235, 0.04), 0 0 1px rgba(0,0,0,0.02);
+    box-shadow: 0 1px 8px rgb(var(--brand) / 0.04), 0 0 1px rgba(0,0,0,0.02);
   }
   .warm-card:hover {
-    border-color: #2563EB40;
-    box-shadow: 0 8px 30px rgba(37, 99, 235, 0.1), 0 0 1px rgba(0,0,0,0.04);
+    border-color: rgb(var(--brand) / 0.25);
+    box-shadow: 0 8px 30px rgb(var(--brand) / 0.1), 0 0 1px rgba(0,0,0,0.04);
     transform: translateY(-3px);
   }
 
   .warm-card-static {
     @apply bg-white rounded-2xl;
     border: 1px solid #E2E8F0;
-    box-shadow: 0 1px 8px rgba(37, 99, 235, 0.04);
+    box-shadow: 0 1px 8px rgb(var(--brand) / 0.04);
   }
 
   /* ===== SECTION BADGE ===== */
   .section-badge {
     @apply inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-[0.18em];
-    background: linear-gradient(135deg, #DBEAFE, #EFF6FF);
-    color: #1D4ED8;
-    border: 1px solid #E2E8F0;
-    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.08);
+    background: linear-gradient(135deg, rgb(var(--brand-tint-strong)), rgb(var(--brand-tint)));
+    color: rgb(var(--brand));
+    border: 1px solid rgb(var(--brand-tint-strong));
+    box-shadow: 0 1px 4px rgb(var(--brand) / 0.08);
+  }
+  /* titik gold kecil sebagai aksen brand */
+  .section-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: rgb(var(--gold));
+    flex-shrink: 0;
   }
 
   /* ===== GLOW BORDER ===== */
@@ -157,7 +225,7 @@
     inset: -1px;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, #2563EB20, transparent 50%, #1D4ED820);
+    background: linear-gradient(135deg, rgb(var(--brand) / 0.12), transparent 50%, rgb(var(--gold) / 0.2));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
@@ -187,7 +255,7 @@
   /* ===== PRELOADER ===== */
   .preloader {
     @apply fixed inset-0 z-[100] flex items-center justify-center;
-    background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #DBEAFE 100%);
+    background: linear-gradient(135deg, #F8FAFC 0%, rgb(var(--brand-tint)) 50%, rgb(var(--brand-tint-strong)) 100%);
     transition: opacity 0.6s ease, visibility 0.6s ease;
   }
   .preloader.loaded {
@@ -197,11 +265,11 @@
   }
   .preloader-bar {
     @apply w-32 h-[3px] rounded-full overflow-hidden mt-5;
-    background: #2563EB30;
+    background: rgb(var(--brand) / 0.18);
   }
   .preloader-bar-inner {
     @apply h-full rounded-full;
-    background: linear-gradient(90deg, #2563EB, #1D4ED8);
+    background: linear-gradient(90deg, rgb(var(--brand)), rgb(var(--gold)));
     animation: preloader-progress 0.9s ease-out forwards;
   }
   @keyframes preloader-progress {
@@ -221,7 +289,7 @@
   /* ===== TYPING CURSOR ===== */
   .typing-cursor::after {
     content: '|';
-    @apply text-[#1D4ED8] font-light ml-0.5;
+    @apply text-brand font-light ml-0.5;
     animation: blink 0.8s step-end infinite;
   }
   @keyframes blink {
@@ -231,7 +299,7 @@
 
   /* ===== SCROLLBAR ===== */
   ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: #EFF6FF; }
-  ::-webkit-scrollbar-thumb { background: #2563EB; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #1D4ED8; }
+  ::-webkit-scrollbar-track { background: rgb(var(--brand-tint)); }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--brand)); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--brand-dark)); }
 }

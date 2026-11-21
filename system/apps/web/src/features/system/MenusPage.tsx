@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { useSession } from '@/stores/session';
-import { Badge, Button, Card, cn, confirm, Field, Icon, Input, Modal, PageHeader, Select, Spinner, Switch, toast } from '@/components/ui';
+import { Badge, Button, Card, cn, confirm, Field, Icon, Input, Modal, PageHeader, Select, Spinner, Switch, toast, NumberInput } from '@/components/ui';
 
 interface MenuRow {
   id: string;
@@ -65,7 +65,7 @@ export default function MenusPage() {
       const isCollapsed = collapsed.has(m.id);
       return (
         <div key={m.id}>
-          <div className={cn('flex items-center gap-2 border-b border-slate-100 py-2 pr-2 dark:border-slate-800', !m.isActive && 'opacity-50')} style={{ paddingLeft: 12 + depth * 24 }}>
+          <div className={cn('flex items-center gap-2 border-b border-line py-2 pr-2', !m.isActive && 'opacity-50')} style={{ paddingLeft: 12 + depth * 24 }}>
             {kids.length ? (
               <button type="button" onClick={() => setCollapsed((c) => (c.has(m.id) ? new Set([...c].filter((x) => x !== m.id)) : new Set([...c, m.id])))} aria-label="Toggle">
                 <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} className="h-4 w-4 text-slate-400" />
@@ -168,7 +168,7 @@ function MenuForm({ menu, menus, onClose, onSaved }: { menu: Partial<MenuRow> | 
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Label" required error={errors.label}>
           <Input value={form.label ?? ''} onChange={(e) => setForm({ ...form, label: e.target.value })} />
         </Field>
@@ -177,7 +177,7 @@ function MenuForm({ menu, menus, onClose, onSaved }: { menu: Partial<MenuRow> | 
         </Field>
         <Field label="Icon" error={errors.icon} help="Lucide icon name, e.g. receipt">
           <div className="flex gap-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100">
               <Icon name={form.icon || 'circle'} className="h-4 w-4" />
             </span>
             <Input value={form.icon ?? ''} onChange={(e) => setForm({ ...form, icon: e.target.value.toLowerCase() })} />
@@ -193,7 +193,7 @@ function MenuForm({ menu, menus, onClose, onSaved }: { menu: Partial<MenuRow> | 
           <Select value={form.permissionCode ?? ''} onChange={(e) => setForm({ ...form, permissionCode: e.target.value || null })} options={(perms.data ?? []).map((p) => ({ value: p.code, label: p.code }))} placeholder="(Everyone)" />
         </Field>
         <Field label="Sort order">
-          <Input type="number" value={form.sortOrder ?? 0} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+          <NumberInput decimals={0} grouping={false} min={0} max={9999} value={form.sortOrder ?? 0} onChange={(v) => setForm({ ...form, sortOrder: v === '' ? 0 : Number(v) })} />
         </Field>
         <Field label="Visible">
           <div className="pt-2">

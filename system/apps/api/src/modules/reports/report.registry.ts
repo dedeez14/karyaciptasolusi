@@ -1,5 +1,9 @@
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../common/prisma/prisma.service';
+import { budgetVsActual } from './budget-report';
+import { vatRegister, vatSummary } from './vat-report';
+import { cashFlowStatement, comparisonRange, equityStatement } from './financial-statements';
+import { withholdingRegister, fiscalDepreciation } from './tax-reports';
 
 export interface ReportParam {
   name: string;
@@ -31,7 +35,21 @@ export interface ReportCtx {
   prisma: PrismaService;
   companyId: string;
   p: Record<string, string | undefined>;
+  /** decrypts a field encrypted at rest (NPWP, ...) */
+  decrypt?: (value: string | null | undefined) => string | null;
+  /** permission check of the current user */
+  can?: (code: string) => boolean;
+  /** branches the user is limited to (null = all); only used by branch aware reports */
+  branchIds?: string[] | null;
 }
+
+/** sales / purchase documents and payments of the branches the user may see (documents without a branch stay visible) */
+const branchOf = (ctx: ReportCtx) => (ctx.branchIds ? { OR: [{ branchId: { in: ctx.branchIds } }, { branchId: null }] } : {});
+/** stock: warehouses of the user's branches (warehouses without a branch stay visible) */
+const warehouseSql = (ctx: ReportCtx, column: string) =>
+  ctx.branchIds ? Prisma.sql`AND ${Prisma.raw(column)} IN (SELECT id FROM warehouses WHERE "branchId" IS NULL OR "branchId" IN (${Prisma.join(ctx.branchIds.map((b) => Prisma.sql`${b}::uuid`))}))` : Prisma.empty;
+const branchSql = (ctx: ReportCtx, alias: string) =>
+  ctx.branchIds ? Prisma.sql`AND (${Prisma.raw(`${alias}."branchId"`)} IS NULL OR ${Prisma.raw(`${alias}."branchId"`)} IN (${Prisma.join(ctx.branchIds.map((b) => Prisma.sql`${b}::uuid`))}))` : Prisma.empty;
 
 export interface ReportDef {
   key: string;
@@ -39,6 +57,8 @@ export interface ReportDef {
   module: 'sales' | 'purchase' | 'inventory' | 'accounting' | 'crm' | 'hris';
   description: string;
   params: ReportParam[];
+  /** filters to the user's branches; other reports cover the whole company and need company-wide data access */
+  branchAware?: boolean;
   run: (ctx: ReportCtx) => Promise<ReportResult>;
 }
 
@@ -52,12 +72,23 @@ const range: ReportParam[] = [
   { name: 'to', label: 'To', type: 'date', required: true, default: 'today' },
 ];
 const asOfParam: ReportParam[] = [{ name: 'asOf', label: 'As of', type: 'date', required: true, default: 'today' }];
+const compareParam: ReportParam = {
+  name: 'compare',
+  label: 'Compare with',
+  type: 'select',
+  default: 'none',
+  options: [
+    { value: 'none', label: 'No comparison' },
+    { value: 'previous', label: 'Previous period' },
+    { value: 'year', label: 'Same period last year' },
+  ],
+};
 const totalsOf = (rows: Record<string, unknown>[], keys: string[]) => Object.fromEntries(keys.map((k) => [k, rows.reduce((a, r) => a + n(r[k]), 0)]));
 
 async function register(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportResult> {
   const { prisma, companyId, p } = ctx;
   const docs = await prisma.tradeDocument.findMany({
-    where: { companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, date: { gte: from(p), lte: to(p) }, ...(p.status ? { status: p.status as any } : {}) },
+    where: { ...branchOf(ctx), companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, date: { gte: from(p), lte: to(p) }, ...(p.status ? { status: p.status as any } : {}) },
     orderBy: [{ date: 'asc' }, { number: 'asc' }],
   });
   const ids = docs.map((d) => (docType === 'SI' ? d.customerId : d.supplierId)).filter(Boolean) as string[];
@@ -99,7 +130,7 @@ async function byPartner(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportRe
   const field = docType === 'SI' ? 'customerId' : 'supplierId';
   const g = await prisma.tradeDocument.groupBy({
     by: [field],
-    where: { companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, date: { gte: from(p), lte: to(p) } },
+    where: { ...branchOf(ctx), companyId, docType, deletedAt: null, status: { not: 'CANCELLED' }, date: { gte: from(p), lte: to(p) } },
     _sum: { grandTotal: true, paidAmount: true, taxTotal: true },
     _count: { _all: true },
   });
@@ -135,7 +166,7 @@ async function byProduct(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportRe
     JOIN trade_documents d ON d.id = l."documentId"
     LEFT JOIN products pr ON pr.id = l."productId"
     WHERE d."companyId" = ${companyId}::uuid AND d."docType" = ${docType} AND d."deletedAt" IS NULL
-      AND d.status <> 'CANCELLED' AND d.date BETWEEN ${from(p)} AND ${to(p)}
+      AND d.status <> 'CANCELLED' AND d.date BETWEEN ${from(p)} AND ${to(p)} ${branchSql(ctx, 'd')}
     GROUP BY 1, 2 ORDER BY amount DESC`;
   const out = rows.map((r) => ({ code: r.code ?? '', name: r.name ?? '', qty: n(r.qty), docs: Number(r.docs), amount: n(r.amount) }));
   return {
@@ -156,16 +187,18 @@ async function byProduct(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportRe
 async function aging(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportResult> {
   const { prisma, companyId, p } = ctx;
   const date = asOf(p);
-  const docs = await prisma.tradeDocument.findMany({ where: { companyId, docType, deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL'] }, date: { lte: date } } });
+  // open invoices, and credit / debit notes not yet applied (they lower what the partner owes, shown as not due)
+  const docs = await prisma.tradeDocument.findMany({ where: { ...branchOf(ctx), companyId, docType: { in: [docType, docType === 'SI' ? 'SR' : 'PRT'] }, deletedAt: null, status: { in: ['CONFIRMED', 'PARTIAL'] }, date: { lte: date } } });
   const field = docType === 'SI' ? 'customerId' : 'supplierId';
   const ids = docs.map((d) => d[field]).filter(Boolean) as string[];
   const partners = docType === 'SI' ? await prisma.customer.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : await prisma.supplier.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
   const pn = new Map(partners.map((x) => [x.id, x.name]));
   const agg = new Map<string, Record<string, number | string>>();
   for (const d of docs) {
-    const bal = n(d.grandTotal) - n(d.paidAmount);
-    if (bal <= 0) continue;
-    const days = Math.floor((date.getTime() - (d.dueDate ?? d.date).getTime()) / 86_400_000);
+    const credit = d.docType === 'SR' || d.docType === 'PRT';
+    const bal = (credit ? -1 : 1) * (n(d.grandTotal) - n(d.paidAmount));
+    if (bal === 0 || (!credit && bal < 0)) continue;
+    const days = credit ? 0 : Math.floor((date.getTime() - (d.dueDate ?? d.date).getTime()) / 86_400_000);
     const bucket = days <= 0 ? 'current' : days <= 30 ? 'd30' : days <= 60 ? 'd60' : days <= 90 ? 'd90' : 'd90p';
     const k = d[field] ?? 'none';
     const row = agg.get(k) ?? { partner: pn.get(k) ?? '-', current: 0, d30: 0, d60: 0, d90: 0, d90p: 0, total: 0 };
@@ -191,7 +224,7 @@ async function aging(ctx: ReportCtx, docType: 'SI' | 'PI'): Promise<ReportResult
 }
 
 type Bal = { id: string; code: string; name: string; type: string; opening: Prisma.Decimal; debit: Prisma.Decimal; credit: Prisma.Decimal };
-async function balances(ctx: ReportCtx, start: Date, end: Date) {
+async function balances(ctx: ReportCtx, start: Date, end: Date, opts: { excludeClosing?: boolean } = {}) {
   return ctx.prisma.$queryRaw<Bal[]>`
     SELECT a.id, a.code, a.name, a.type::text AS type,
       COALESCE(SUM(CASE WHEN e.date < ${start} THEN l.debit - l.credit ELSE 0 END), 0) AS opening,
@@ -200,33 +233,100 @@ async function balances(ctx: ReportCtx, start: Date, end: Date) {
     FROM accounts a
     JOIN journal_lines l ON l."accountId" = a.id
     JOIN journal_entries e ON e.id = l."entryId" AND e.status = 'POSTED' AND e.date <= ${end} AND e."deletedAt" IS NULL
+      ${opts.excludeClosing ? Prisma.sql`AND COALESCE(e."sourceType", '') <> 'CLOSING'` : Prisma.empty}
     WHERE a."companyId" = ${ctx.companyId}::uuid
     GROUP BY a.id ORDER BY a.code`;
 }
 
+async function statement(ctx: ReportCtx, kind: 'customer' | 'supplier'): Promise<ReportResult> {
+  const { prisma, companyId, p } = ctx;
+  const partnerId = kind === 'customer' ? p.customerId : p.supplierId;
+  if (!partnerId) return { columns: [], rows: [] };
+  const docType = kind === 'customer' ? 'SI' : 'PI';
+  const dir = kind === 'customer' ? 'IN' : 'OUT';
+  const field = kind === 'customer' ? 'customerId' : 'supplierId';
+  const docWhere = { ...branchOf(ctx), companyId, docType, deletedAt: null, status: { notIn: ['DRAFT', 'CANCELLED'] as any }, [field]: partnerId };
+  const noteWhere = { ...docWhere, docType: kind === 'customer' ? 'SR' : 'PRT' };
+  const payWhere = { ...branchOf(ctx), companyId, direction: dir as any, deletedAt: null, status: { not: 'CANCELLED' as any }, [field]: partnerId };
+  const [notesBefore, notes] = await Promise.all([
+    prisma.tradeDocument.aggregate({ where: { ...noteWhere, date: { lt: from(p) } }, _sum: { grandTotal: true } }),
+    prisma.tradeDocument.findMany({ where: { ...noteWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, reference: true, grandTotal: true } }),
+  ]);
+  const [docsBefore, paysBefore, docs, pays] = await Promise.all([
+    prisma.tradeDocument.aggregate({ where: { ...docWhere, date: { lt: from(p) } }, _sum: { grandTotal: true } }),
+    prisma.payment.aggregate({ where: { ...payWhere, date: { lt: from(p) } }, _sum: { amount: true, whtAmount: true } }),
+    prisma.tradeDocument.findMany({ where: { ...docWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, dueDate: true, grandTotal: true } }),
+    prisma.payment.findMany({ where: { ...payWhere, date: { gte: from(p), lte: to(p) } }, select: { date: true, number: true, reference: true, amount: true, whtAmount: true } }),
+  ]);
+  let bal = n(docsBefore._sum.grandTotal) - n(notesBefore._sum.grandTotal) - n(paysBefore._sum.amount) - n(paysBefore._sum.whtAmount);
+  const entries = [
+    ...docs.map((d) => ({ date: d.date, doc: d.number, desc: `Invoice${d.dueDate ? ` (due ${d.dueDate.toISOString().slice(0, 10)})` : ''}`, charge: n(d.grandTotal), payment: 0 })),
+    ...notes.map((x) => ({ date: x.date, doc: x.number, desc: `${kind === 'customer' ? 'Credit note' : 'Debit note'} (return)${x.reference ? ` - ${x.reference}` : ''}`, charge: 0, payment: n(x.grandTotal) })),
+    ...pays.map((x) => ({ date: x.date, doc: x.number, desc: `Payment${x.reference ? ` - ${x.reference}` : ''}${n(x.whtAmount) ? ` (incl. ${n(x.whtAmount).toLocaleString('id-ID')} tax withheld)` : ''}`, charge: 0, payment: n(x.amount) + n(x.whtAmount) })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime() || a.doc.localeCompare(b.doc));
+  const rows: Record<string, unknown>[] = [{ date: p.from, doc: '', desc: 'Opening balance', charge: 0, payment: 0, balance: bal }];
+  for (const e of entries) {
+    bal += e.charge - e.payment;
+    rows.push({ ...e, balance: bal });
+  }
+  return {
+    subtitle: period(p),
+    columns: [
+      { key: 'date', label: 'Date', type: 'date' },
+      { key: 'doc', label: 'Document' },
+      { key: 'desc', label: 'Description' },
+      { key: 'charge', label: kind === 'customer' ? 'Invoiced' : 'Billed', type: 'money' },
+      { key: 'payment', label: kind === 'customer' ? 'Received' : 'Paid', type: 'money' },
+      { key: 'balance', label: 'Balance', type: 'money' },
+    ],
+    rows,
+    totals: totalsOf(rows.slice(1), ['charge', 'payment']),
+  };
+}
+
 export const REPORTS: ReportDef[] = [
   // ------------------------------------------------------------- Sales
-  { key: 'sales-register', label: 'Sales Invoice Register', module: 'sales', description: 'All sales invoices with payment status', params: range, run: (c) => register(c, 'SI') },
-  { key: 'sales-by-customer', label: 'Sales by Customer', module: 'sales', description: 'Invoiced revenue grouped per customer', params: range, run: (c) => byPartner(c, 'SI') },
-  { key: 'sales-by-product', label: 'Sales by Product', module: 'sales', description: 'Quantity and revenue per product / service', params: range, run: (c) => byProduct(c, 'SI') },
-  { key: 'ar-aging', label: 'Receivables Aging', module: 'sales', description: 'Outstanding customer invoices by age', params: asOfParam, run: (c) => aging(c, 'SI') },
+  { key: 'sales-register', branchAware: true, label: 'Sales Invoice Register', module: 'sales', description: 'All sales invoices with payment status', params: range, run: (c) => register(c, 'SI') },
+  { key: 'sales-by-customer', branchAware: true, label: 'Sales by Customer', module: 'sales', description: 'Invoiced revenue grouped per customer', params: range, run: (c) => byPartner(c, 'SI') },
+  { key: 'sales-by-product', branchAware: true, label: 'Sales by Product', module: 'sales', description: 'Quantity and revenue per product / service', params: range, run: (c) => byProduct(c, 'SI') },
+  {
+    key: 'customer-statement',
+    branchAware: true,
+    label: 'Customer Statement',
+    module: 'sales',
+    description: 'Invoices, payments and running balance of one customer',
+    params: [{ name: 'customerId', label: 'Customer', type: 'relation', relation: 'customers', required: true }, { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' }, { name: 'to', label: 'To', type: 'date', required: true, default: 'today' }],
+    run: (c) => statement(c, 'customer'),
+  },
+  { key: 'ar-aging', branchAware: true, label: 'Receivables Aging', module: 'sales', description: 'Outstanding customer invoices by age', params: asOfParam, run: (c) => aging(c, 'SI') },
   {
     key: 'quotation-pipeline',
     label: 'Quotation Status',
     module: 'sales',
     description: 'Quotations issued and their conversion status',
     params: range,
-    run: async ({ prisma, companyId, p }) => {
-      const g = await prisma.tradeDocument.groupBy({ by: ['status'], where: { companyId, docType: 'SQ', deletedAt: null, date: { gte: from(p), lte: to(p) } }, _count: { _all: true }, _sum: { grandTotal: true } });
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId, p } = ctx;
+      const g = await prisma.tradeDocument.groupBy({ by: ['status'], where: { ...branchOf(ctx), companyId, docType: 'SQ', deletedAt: null, date: { gte: from(p), lte: to(p) } }, _count: { _all: true }, _sum: { grandTotal: true } });
       const rows = g.map((x) => ({ status: x.status, count: x._count._all, total: n(x._sum.grandTotal) }));
       return { subtitle: period(p), columns: [{ key: 'status', label: 'Status' }, { key: 'count', label: 'Quotations', type: 'number' }, { key: 'total', label: 'Value', type: 'money' }], rows, totals: totalsOf(rows, ['count', 'total']), chart: { type: 'pie', label: 'status', value: 'total' } };
     },
   },
   // ------------------------------------------------------------- Purchase
-  { key: 'purchase-register', label: 'Purchase Invoice Register', module: 'purchase', description: 'All supplier invoices with payment status', params: range, run: (c) => register(c, 'PI') },
-  { key: 'purchase-by-supplier', label: 'Purchases by Supplier', module: 'purchase', description: 'Purchases grouped per supplier', params: range, run: (c) => byPartner(c, 'PI') },
-  { key: 'purchase-by-product', label: 'Purchases by Product', module: 'purchase', description: 'Quantity and cost per purchased item', params: range, run: (c) => byProduct(c, 'PI') },
-  { key: 'ap-aging', label: 'Payables Aging', module: 'purchase', description: 'Outstanding supplier invoices by age', params: asOfParam, run: (c) => aging(c, 'PI') },
+  { key: 'purchase-register', branchAware: true, label: 'Purchase Invoice Register', module: 'purchase', description: 'All supplier invoices with payment status', params: range, run: (c) => register(c, 'PI') },
+  { key: 'purchase-by-supplier', branchAware: true, label: 'Purchases by Supplier', module: 'purchase', description: 'Purchases grouped per supplier', params: range, run: (c) => byPartner(c, 'PI') },
+  { key: 'purchase-by-product', branchAware: true, label: 'Purchases by Product', module: 'purchase', description: 'Quantity and cost per purchased item', params: range, run: (c) => byProduct(c, 'PI') },
+  {
+    key: 'supplier-statement',
+    branchAware: true,
+    label: 'Supplier Statement',
+    module: 'purchase',
+    description: 'Bills, payments and running balance of one supplier',
+    params: [{ name: 'supplierId', label: 'Supplier', type: 'relation', relation: 'suppliers', required: true }, { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' }, { name: 'to', label: 'To', type: 'date', required: true, default: 'today' }],
+    run: (c) => statement(c, 'supplier'),
+  },
+  { key: 'ap-aging', branchAware: true, label: 'Payables Aging', module: 'purchase', description: 'Outstanding supplier invoices by age', params: asOfParam, run: (c) => aging(c, 'PI') },
   // ------------------------------------------------------------- Inventory
   {
     key: 'stock-balance',
@@ -234,11 +334,13 @@ export const REPORTS: ReportDef[] = [
     module: 'inventory',
     description: 'Quantity on hand and value per product and warehouse',
     params: [{ name: 'warehouseId', label: 'Warehouse', type: 'relation', relation: 'warehouses' }],
-    run: async ({ prisma, companyId, p }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId, p } = ctx;
       const rows = await prisma.$queryRaw<any[]>`
         SELECT pr.code, pr.name, w.name AS warehouse, b.qty, b."avgCost" AS cost, (b.qty * b."avgCost") AS value, pr."minStock"
         FROM stock_balances b JOIN products pr ON pr.id = b."productId" JOIN warehouses w ON w.id = b."warehouseId"
-        WHERE b."companyId" = ${companyId}::uuid ${p.warehouseId ? Prisma.sql`AND b."warehouseId" = ${p.warehouseId}::uuid` : Prisma.empty}
+        WHERE b."companyId" = ${companyId}::uuid ${p.warehouseId ? Prisma.sql`AND b."warehouseId" = ${p.warehouseId}::uuid` : Prisma.empty} ${warehouseSql(ctx, 'b."warehouseId"')}
         ORDER BY pr.name, w.name`;
       const out = rows.map((r) => ({ code: r.code, name: r.name, warehouse: r.warehouse, qty: n(r.qty), cost: n(r.cost), value: n(r.value), status: n(r.qty) <= n(r.minStock) ? 'LOW' : 'OK' }));
       return {
@@ -262,13 +364,18 @@ export const REPORTS: ReportDef[] = [
     module: 'inventory',
     description: 'Movement history of a product',
     params: [{ name: 'productId', label: 'Product', type: 'relation', relation: 'products', required: true }, { name: 'warehouseId', label: 'Warehouse', type: 'relation', relation: 'warehouses' }, ...range],
-    run: async ({ prisma, companyId, p }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId, p } = ctx;
       if (!p.productId) return { columns: [], rows: [] };
-      const where = { companyId, productId: p.productId, ...(p.warehouseId ? { warehouseId: p.warehouseId } : {}) };
+      // warehouses of the user's branches only
+      const allowed = ctx.branchIds ? (await prisma.warehouse.findMany({ where: { companyId, OR: [{ branchId: { in: ctx.branchIds } }, { branchId: null }] }, select: { id: true } })).map((w) => w.id) : null;
+      const warehouseFilter = allowed ? { warehouseId: { in: p.warehouseId ? allowed.filter((w) => w === p.warehouseId) : allowed } } : p.warehouseId ? { warehouseId: p.warehouseId } : {};
+      const where = { companyId, productId: p.productId, ...warehouseFilter };
       const [opening, moves, whs] = await Promise.all([
         prisma.stockMovement.aggregate({ where: { ...where, date: { lt: from(p) } }, _sum: { qty: true } }),
         prisma.stockMovement.findMany({ where: { ...where, date: { gte: from(p), lte: to(p) } }, orderBy: [{ date: 'asc' }, { createdAt: 'asc' }] }),
-        prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } }),
+        prisma.warehouse.findMany({ where: { companyId, ...(ctx.branchIds ? { OR: [{ branchId: { in: ctx.branchIds } }, { branchId: null }] } : {}) }, select: { id: true, name: true } }),
       ]);
       const wn = new Map(whs.map((w) => [w.id, w.name]));
       let bal = n(opening._sum.qty);
@@ -298,10 +405,12 @@ export const REPORTS: ReportDef[] = [
     module: 'inventory',
     description: 'Stock products at or below their minimum level',
     params: [],
-    run: async ({ prisma, companyId }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId } = ctx;
       const rows = await prisma.$queryRaw<any[]>`
         SELECT pr.code, pr.name, pr."minStock", COALESCE(SUM(b.qty), 0) AS qty
-        FROM products pr LEFT JOIN stock_balances b ON b."productId" = pr.id
+        FROM products pr LEFT JOIN stock_balances b ON b."productId" = pr.id ${warehouseSql(ctx, 'b."warehouseId"')}
         WHERE pr."companyId" = ${companyId}::uuid AND pr.type = 'STOCK' AND pr."isActive" AND pr."deletedAt" IS NULL
         GROUP BY pr.id HAVING COALESCE(SUM(b.qty), 0) <= pr."minStock" ORDER BY pr.name`;
       return {
@@ -382,63 +491,176 @@ export const REPORTS: ReportDef[] = [
     key: 'profit-loss',
     label: 'Profit & Loss',
     module: 'accounting',
-    description: 'Income statement for the period',
-    params: range,
+    description: 'Laporan Laba Rugi: income and expenses for the period, optionally next to a comparison period (SAK EP)',
+    params: [...range, compareParam],
     run: async (c) => {
-      const b = (await balances(c, from(c.p), to(c.p))).filter((r) => r.type === 'INCOME' || r.type === 'EXPENSE');
+      const cur = (await balances(c, from(c.p), to(c.p), { excludeClosing: true })).filter((r) => r.type === 'INCOME' || r.type === 'EXPENSE');
+      const cmp = comparisonRange(c.p);
+      const prev = cmp ? (await balances(c, cmp.from, cmp.to, { excludeClosing: true })).filter((r) => r.type === 'INCOME' || r.type === 'EXPENSE') : [];
+      const val = (r: Bal) => (r.type === 'INCOME' ? n(r.credit) - n(r.debit) : n(r.debit) - n(r.credit));
+      const pm = new Map(prev.map((r) => [r.code, val(r)]));
       const rows: Record<string, unknown>[] = [];
-      let income = 0;
-      let expense = 0;
-      rows.push({ section: 'INCOME', code: '', name: '', amount: null });
-      for (const r of b.filter((x) => x.type === 'INCOME')) {
-        const v = n(r.credit) - n(r.debit);
-        if (!v) continue;
-        income += v;
-        rows.push({ section: '', code: r.code, name: r.name, amount: v });
+      const tot = { income: [0, 0], expense: [0, 0] };
+      for (const [type, title, key] of [
+        ['INCOME', 'INCOME', 'income'],
+        ['EXPENSE', 'EXPENSES', 'expense'],
+      ] as const) {
+        rows.push({ section: title, code: '', name: '', amount: null, previous: null });
+        const accounts = new Map<string, { name: string; a: number; b: number }>();
+        for (const r of cur.filter((x) => x.type === type)) accounts.set(r.code, { name: r.name, a: val(r), b: pm.get(r.code) ?? 0 });
+        for (const r of prev.filter((x) => x.type === type && !accounts.has(x.code))) accounts.set(r.code, { name: r.name, a: 0, b: val(r) });
+        for (const [code, v] of [...accounts.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
+          if (!v.a && !v.b) continue;
+          tot[key][0] += v.a;
+          tot[key][1] += v.b;
+          rows.push({ section: '', code, name: v.name, amount: v.a, previous: cmp ? v.b : null });
+        }
+        rows.push({ section: `Total ${title.charAt(0) + title.slice(1).toLowerCase()}`, code: '', name: '', amount: tot[key][0], previous: cmp ? tot[key][1] : null });
       }
-      rows.push({ section: 'Total Income', code: '', name: '', amount: income });
-      rows.push({ section: 'EXPENSES', code: '', name: '', amount: null });
-      for (const r of b.filter((x) => x.type === 'EXPENSE')) {
-        const v = n(r.debit) - n(r.credit);
-        if (!v) continue;
-        expense += v;
-        rows.push({ section: '', code: r.code, name: r.name, amount: v });
-      }
-      rows.push({ section: 'Total Expenses', code: '', name: '', amount: expense });
-      rows.push({ section: 'NET PROFIT / (LOSS)', code: '', name: '', amount: income - expense });
-      return { subtitle: period(c.p), columns: [{ key: 'section', label: 'Section' }, { key: 'code', label: 'Code' }, { key: 'name', label: 'Account' }, { key: 'amount', label: 'Amount', type: 'money' }], rows };
+      rows.push({ section: 'NET PROFIT / (LOSS)', code: '', name: '', amount: tot.income[0] - tot.expense[0], previous: cmp ? tot.income[1] - tot.expense[1] : null });
+      return {
+        subtitle: `${period(c.p)}${cmp ? ` · compared with ${cmp.label}` : ''}`,
+        columns: [{ key: 'section', label: 'Section' }, { key: 'code', label: 'Code' }, { key: 'name', label: 'Account' }, { key: 'amount', label: 'This period', type: 'money' }, ...(cmp ? [{ key: 'previous', label: 'Comparison', type: 'money' as const }] : [])],
+        rows,
+      };
     },
+  },
+  {
+    key: 'cash-flow',
+    label: 'Statement of Cash Flows',
+    module: 'accounting',
+    description: 'Laporan Arus Kas (indirect method): operating, investing and financing cash flows for the period (SAK EP)',
+    params: range,
+    run: (c) => cashFlowStatement(c),
+  },
+  {
+    key: 'equity-changes',
+    label: 'Statement of Changes in Equity',
+    module: 'accounting',
+    description: 'Laporan Perubahan Ekuitas: capital, retained earnings and profit from the start to the end of the period (SAK EP)',
+    params: [
+      { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' },
+      { name: 'to', label: 'To', type: 'date', required: true, default: 'today' },
+    ],
+    run: (c) => equityStatement(c),
+  },
+  {
+    key: 'withholding-tax',
+    label: 'Withholding Tax Register (PPh 23 / 4(2))',
+    module: 'accounting',
+    description: 'Income tax withheld on payments: by customers (prepaid tax) and from suppliers (to pay by the 15th and file in the SPT Masa PPh Unifikasi)',
+    params: [...range, { name: 'direction', label: 'Withheld', type: 'select', default: 'OUT', options: [{ value: 'OUT', label: 'By us (from suppliers)' }, { value: 'IN', label: 'By customers (from us)' }] }],
+    run: (c) => withholdingRegister(c),
+  },
+  {
+    key: 'fiscal-depreciation',
+    label: 'Fiscal Depreciation (Tax)',
+    module: 'accounting',
+    description: 'Depreciation for tax by group (PMK 72/2023) next to the book depreciation, and the fiscal correction for the SPT Tahunan',
+    params: [{ name: 'year', label: 'Year', type: 'select', default: String(new Date().getFullYear()), options: Array.from({ length: 6 }, (_, i) => String(new Date().getFullYear() - i)).map((y) => ({ value: y, label: y })) }],
+    run: (c) => fiscalDepreciation(c),
+  },
+  {
+    key: 'budget-vs-actual',
+    label: 'Budget vs Actual',
+    module: 'accounting',
+    description: 'Approved budget compared with posted figures per account',
+    params: [...range, { name: 'costCenterId', label: 'Cost center', type: 'relation', relation: 'cost-centers' }, { name: 'projectId', label: 'Project', type: 'relation', relation: 'projects' }],
+    run: (c) => budgetVsActual(c),
+  },
+  {
+    key: 'vat-output',
+    label: 'VAT Output (PPN Keluaran)',
+    module: 'accounting',
+    description: 'Sales invoices with tax invoice number, customer NPWP, tax base (DPP) and PPN',
+    params: range,
+    run: (c) => vatRegister(c, 'SI'),
+  },
+  {
+    key: 'vat-input',
+    label: 'VAT Input (PPN Masukan)',
+    module: 'accounting',
+    description: 'Purchase invoices with tax invoice number, supplier NPWP, tax base (DPP) and PPN',
+    params: range,
+    run: (c) => vatRegister(c, 'PI'),
+  },
+  {
+    key: 'vat-summary',
+    label: 'VAT Summary',
+    module: 'accounting',
+    description: 'Output and input VAT per month and the net amount to pay',
+    params: [
+      { name: 'from', label: 'From', type: 'date', required: true, default: 'yearStart' },
+      { name: 'to', label: 'To', type: 'date', required: true, default: 'today' },
+    ],
+    run: (c) => vatSummary(c),
   },
   {
     key: 'balance-sheet',
     label: 'Balance Sheet',
     module: 'accounting',
-    description: 'Financial position as of a date',
-    params: asOfParam,
+    description: 'Laporan Posisi Keuangan: assets, liabilities and equity as of a date, optionally next to the end of the previous year (SAK EP)',
+    params: [
+      ...asOfParam,
+      {
+        name: 'compare',
+        label: 'Compare with',
+        type: 'select',
+        default: 'none',
+        options: [
+          { value: 'none', label: 'No comparison' },
+          { value: 'yearEnd', label: 'End of the previous year' },
+          { value: 'year', label: 'Same date last year' },
+        ],
+      },
+    ],
     run: async (c) => {
-      const b = await balances(c, new Date('1970-01-01'), asOf(c.p));
-      const rows: Record<string, unknown>[] = [];
-      const block = (type: string, title: string, sign: 1 | -1) => {
-        rows.push({ section: title, code: '', name: '', amount: null });
-        let t = 0;
-        for (const r of b.filter((x) => x.type === type)) {
-          const v = sign * (n(r.debit) - n(r.credit) + n(r.opening));
-          if (!v) continue;
-          t += v;
-          rows.push({ section: '', code: r.code, name: r.name, amount: v });
+      const at = asOf(c.p);
+      const cmpAt = c.p.compare === 'yearEnd' ? new Date(Date.UTC(at.getUTCFullYear() - 1, 11, 31)) : c.p.compare === 'year' ? new Date(Date.UTC(at.getUTCFullYear() - 1, at.getUTCMonth(), at.getUTCDate())) : null;
+      const pos = async (d: Date) => {
+        const b = await balances(c, new Date('1970-01-01'), d);
+        const v = new Map<string, { name: string; type: string; v: number }>();
+        for (const r of b) {
+          const sign = r.type === 'ASSET' ? 1 : -1;
+          v.set(r.code, { name: r.name, type: r.type, v: sign * (n(r.debit) - n(r.credit) + n(r.opening)) });
         }
-        return t;
+        const pl = b.filter((x) => x.type === 'INCOME' || x.type === 'EXPENSE').reduce((a, r) => a + (n(r.credit) - n(r.debit) - n(r.opening)), 0);
+        return { v, pl };
       };
-      const assets = block('ASSET', 'ASSETS', 1);
-      rows.push({ section: 'Total Assets', code: '', name: '', amount: assets });
-      const liab = block('LIABILITY', 'LIABILITIES', -1);
-      rows.push({ section: 'Total Liabilities', code: '', name: '', amount: liab });
-      const eq = block('EQUITY', 'EQUITY', -1);
-      const pl = b.filter((x) => x.type === 'INCOME' || x.type === 'EXPENSE').reduce((a, r) => a + (n(r.credit) - n(r.debit) - n(r.opening)), 0);
-      rows.push({ section: '', code: '', name: 'Profit / (loss) not yet closed', amount: pl });
-      rows.push({ section: 'Total Equity', code: '', name: '', amount: eq + pl });
-      rows.push({ section: 'TOTAL LIABILITIES & EQUITY', code: '', name: '', amount: liab + eq + pl });
-      return { subtitle: `As of ${c.p.asOf}`, columns: [{ key: 'section', label: 'Section' }, { key: 'code', label: 'Code' }, { key: 'name', label: 'Account' }, { key: 'amount', label: 'Amount', type: 'money' }], rows };
+      const cur = await pos(at);
+      const prev = cmpAt ? await pos(cmpAt) : null;
+      const rows: Record<string, unknown>[] = [];
+      const block = (type: string, title: string) => {
+        rows.push({ section: title, code: '', name: '', amount: null, previous: null });
+        let t = 0;
+        let tp = 0;
+        const codes = new Set([...cur.v.keys(), ...(prev ? [...prev.v.keys()] : [])]);
+        for (const code of [...codes].sort()) {
+          const a = cur.v.get(code);
+          const b = prev?.v.get(code);
+          if ((a ?? b)!.type !== type) continue;
+          const va = a?.v ?? 0;
+          const vb = b?.v ?? 0;
+          if (!va && !vb) continue;
+          t += va;
+          tp += vb;
+          rows.push({ section: '', code, name: (a ?? b)!.name, amount: va, previous: prev ? vb : null });
+        }
+        return [t, tp];
+      };
+      const [assets, assetsP] = block('ASSET', 'ASSETS');
+      rows.push({ section: 'Total Assets', code: '', name: '', amount: assets, previous: prev ? assetsP : null });
+      const [liab, liabP] = block('LIABILITY', 'LIABILITIES');
+      rows.push({ section: 'Total Liabilities', code: '', name: '', amount: liab, previous: prev ? liabP : null });
+      const [eq, eqP] = block('EQUITY', 'EQUITY');
+      rows.push({ section: '', code: '', name: 'Profit / (loss) not yet closed', amount: cur.pl, previous: prev ? prev.pl : null });
+      rows.push({ section: 'Total Equity', code: '', name: '', amount: eq + cur.pl, previous: prev ? eqP + prev.pl : null });
+      rows.push({ section: 'TOTAL LIABILITIES & EQUITY', code: '', name: '', amount: liab + eq + cur.pl, previous: prev ? liabP + eqP + prev.pl : null });
+      return {
+        subtitle: `As of ${c.p.asOf}${cmpAt ? ` · compared with ${cmpAt.toISOString().slice(0, 10)}` : ''}`,
+        columns: [{ key: 'section', label: 'Section' }, { key: 'code', label: 'Code' }, { key: 'name', label: 'Account' }, { key: 'amount', label: c.p.asOf ?? 'Amount', type: 'money' }, ...(cmpAt ? [{ key: 'previous', label: cmpAt.toISOString().slice(0, 10), type: 'money' as const }] : [])],
+        rows,
+      };
     },
   },
   // ------------------------------------------------------------- CRM
@@ -448,10 +670,12 @@ export const REPORTS: ReportDef[] = [
     module: 'crm',
     description: 'Leads by source and status',
     params: [...range, { name: 'groupBy', label: 'Group by', type: 'select', default: 'sourceCode', options: [{ value: 'sourceCode', label: 'Source' }, { value: 'statusCode', label: 'Status' }, { value: 'industryCode', label: 'Industry' }] }],
-    run: async ({ prisma, companyId, p }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId, p } = ctx;
       const by = (['sourceCode', 'statusCode', 'industryCode'].includes(p.groupBy ?? '') ? p.groupBy : 'sourceCode') as 'sourceCode';
-      const g = await prisma.lead.groupBy({ by: [by], where: { companyId, deletedAt: null, createdAt: { gte: from(p), lte: new Date(to(p).getTime() + 86_399_999) } }, _count: { _all: true }, _sum: { estimatedValue: true } });
-      const converted = await prisma.lead.groupBy({ by: [by], where: { companyId, deletedAt: null, customerId: { not: null }, createdAt: { gte: from(p), lte: new Date(to(p).getTime() + 86_399_999) } }, _count: { _all: true } });
+      const g = await prisma.lead.groupBy({ by: [by], where: { ...branchOf(ctx), companyId, deletedAt: null, createdAt: { gte: from(p), lte: new Date(to(p).getTime() + 86_399_999) } }, _count: { _all: true }, _sum: { estimatedValue: true } });
+      const converted = await prisma.lead.groupBy({ by: [by], where: { ...branchOf(ctx), companyId, deletedAt: null, customerId: { not: null }, createdAt: { gte: from(p), lte: new Date(to(p).getTime() + 86_399_999) } }, _count: { _all: true } });
       const cm = new Map(converted.map((x: any) => [x[by], x._count._all]));
       const labels = new Map((await prisma.lookupValue.findMany({ where: { category: { in: ['LEAD_SOURCE', 'LEAD_STATUS', 'INDUSTRY'] } } })).map((l) => [l.code, l.name]));
       const rows = g.map((x: any) => ({ group: labels.get(x[by]) ?? x[by] ?? '(none)', leads: x._count._all, converted: cm.get(x[by]) ?? 0, rate: x._count._all ? Math.round(((cm.get(x[by]) ?? 0) / x._count._all) * 1000) / 10 : 0, value: n(x._sum.estimatedValue) }));
@@ -470,9 +694,11 @@ export const REPORTS: ReportDef[] = [
     module: 'crm',
     description: 'Open opportunities and weighted value by stage',
     params: [],
-    run: async ({ prisma, companyId }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId } = ctx;
       const stages = await prisma.pipelineStage.findMany({ where: { companyId, deletedAt: null }, orderBy: { sortOrder: 'asc' } });
-      const g = await prisma.opportunity.groupBy({ by: ['stageId'], where: { companyId, deletedAt: null }, _count: { _all: true }, _sum: { amount: true } });
+      const g = await prisma.opportunity.groupBy({ by: ['stageId'], where: { ...branchOf(ctx), companyId, deletedAt: null }, _count: { _all: true }, _sum: { amount: true } });
       const gm = new Map(g.map((x) => [x.stageId, x]));
       const rows = stages.map((s) => {
         const x = gm.get(s.id);
@@ -493,10 +719,12 @@ export const REPORTS: ReportDef[] = [
     module: 'crm',
     description: 'Leads, conversion and cost per campaign',
     params: [],
-    run: async ({ prisma, companyId }) => {
+    branchAware: true,
+    run: async (ctx) => {
+      const { prisma, companyId } = ctx;
       const camps = await prisma.campaign.findMany({ where: { companyId, deletedAt: null }, orderBy: { startDate: 'desc' } });
-      const leads = await prisma.lead.groupBy({ by: ['campaignId'], where: { companyId, deletedAt: null, campaignId: { not: null } }, _count: { _all: true } });
-      const conv = await prisma.lead.groupBy({ by: ['campaignId'], where: { companyId, deletedAt: null, campaignId: { not: null }, customerId: { not: null } }, _count: { _all: true } });
+      const leads = await prisma.lead.groupBy({ by: ['campaignId'], where: { ...branchOf(ctx), companyId, deletedAt: null, campaignId: { not: null } }, _count: { _all: true } });
+      const conv = await prisma.lead.groupBy({ by: ['campaignId'], where: { ...branchOf(ctx), companyId, deletedAt: null, campaignId: { not: null }, customerId: { not: null } }, _count: { _all: true } });
       const lm = new Map(leads.map((x) => [x.campaignId, x._count._all]));
       const cm = new Map(conv.map((x) => [x.campaignId, x._count._all]));
       const rows = camps.map((c) => {

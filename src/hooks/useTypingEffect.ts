@@ -12,7 +12,8 @@ export function useTypingEffect(
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    const currentText = texts[textIndex];
+    if (texts.length === 0) return;
+    const currentText = texts[textIndex % texts.length] ?? '';
     let timeout: ReturnType<typeof setTimeout>;
 
     if (isPaused) {

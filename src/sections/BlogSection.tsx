@@ -27,7 +27,7 @@ export default function BlogSection() {
             className="text-4xl lg:text-5xl font-bold text-[#0F172A] mb-3"
             style={{ fontFamily: "'Space Grotesk', sans-serif" }}
           >
-            Insight &amp; <span style={{ color: '#1D4ED8' }}>Tips</span>
+            Insight &amp; <span className="text-accent">Tips</span>
           </h2>
           <p className="text-[#475569] max-w-lg mx-auto text-sm">
             {blogPosts.length} artikel seputar website, SEO, dan digitalisasi bisnis — gratis dibaca
@@ -46,9 +46,9 @@ export default function BlogSection() {
             >
               <Link
                 to={`/blog/${article.slug}`}
-                className="group flex flex-col h-full bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden transition-all duration-300 hover:border-[#2563EB]/40 hover:shadow-xl hover:shadow-[#2563EB]/10 hover:-translate-y-1"
+                className="group flex flex-col h-full bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden transition-all duration-300 hover:border-brand/40 hover:shadow-xl hover:shadow-brand/10 hover:-translate-y-1"
               >
-                <div className="relative h-36 overflow-hidden flex-shrink-0 bg-[#EFF6FF]">
+                <div className="relative h-36 overflow-hidden flex-shrink-0 bg-brand-tint">
                   <img
                     src={article.image}
                     alt={article.title}
@@ -59,7 +59,7 @@ export default function BlogSection() {
                       (e.target as HTMLImageElement).style.visibility = 'hidden';
                     }}
                   />
-                  <span className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-white/90 backdrop-blur-sm text-[#1D4ED8] text-[10px] font-bold">
+                  <span className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-white/90 backdrop-blur-sm text-brand text-[10px] font-bold">
                     {article.category}
                   </span>
                 </div>
@@ -71,11 +71,11 @@ export default function BlogSection() {
                       <Clock size={10} /> {article.readTime}
                     </span>
                   </div>
-                  <h3 className="font-bold text-[#0F172A] text-sm leading-snug mb-2 group-hover:text-[#1D4ED8] transition-colors">
+                  <h3 className="font-bold text-[#0F172A] text-sm leading-snug mb-2 group-hover:text-brand transition-colors">
                     {article.title}
                   </h3>
                   <p className="text-xs text-[#475569] line-clamp-3 mb-3">{article.excerpt}</p>
-                  <span className="mt-auto flex items-center gap-1 text-[10px] font-bold text-[#1D4ED8]">
+                  <span className="mt-auto flex items-center gap-1 text-[10px] font-bold text-brand">
                     Baca selengkapnya <ArrowUpRight size={11} />
                   </span>
                 </div>

@@ -35,7 +35,7 @@ export default function TechStackSection() {
   return (
     <section className="relative py-24 lg:py-32 bg-white overflow-hidden">
       <div className="absolute inset-0 opacity-[0.015]" style={{
-        backgroundImage: 'radial-gradient(circle, #2563EB 1px, transparent 1px)',
+        backgroundImage: 'radial-gradient(circle, rgb(var(--brand)) 1px, transparent 1px)',
         backgroundSize: '30px 30px'
       }} />
 
@@ -43,7 +43,7 @@ export default function TechStackSection() {
         <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: easing }} className="text-center mb-12">
           <span className="section-badge mb-3">Teknologi</span>
           <h2 className="text-4xl lg:text-5xl font-bold text-[#0F172A] mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            Tech <span className="text-[#0F4C81]">Stack</span> Kami
+            Tech <span className="text-accent">Stack</span> Kami
           </h2>
           <p className="text-[#475569] max-w-lg mx-auto text-sm">Teknologi modern dan terpercaya yang kami gunakan untuk membangun solusi terbaik.</p>
         </motion.div>
@@ -65,12 +65,12 @@ export default function TechStackSection() {
           className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {filtered.map((tech) => (
             <div key={tech.name}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white border border-[#E2E8F0] hover:border-[#2563EB]/30 hover:shadow-md transition-all group">
+              className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white border border-[#E2E8F0] hover:border-brand/30 hover:shadow-md transition-all group">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
                 style={{ background: tech.color }}>
                 {tech.name.charAt(0)}
               </div>
-              <span className="text-xs font-semibold text-[#0F172A] group-hover:text-[#1D4ED8] transition-colors">{tech.name}</span>
+              <span className="text-xs font-semibold text-[#0F172A] group-hover:text-brand transition-colors">{tech.name}</span>
             </div>
           ))}
         </motion.div>

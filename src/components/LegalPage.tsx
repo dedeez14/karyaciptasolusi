@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { CalendarClock, ArrowUpRight } from 'lucide-react';
 import SubPageHeader from './SubPageHeader';
+import { useSite } from '../lib/siteContext';
 
 const easing = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -28,11 +29,12 @@ export default function LegalPage({
   children,
   footerNote,
 }: LegalPageProps) {
+  const { waLink } = useSite();
   return (
     <div className="min-h-[100dvh] bg-white">
       <SubPageHeader subtitle="Informasi Legal" />
 
-      <div className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F4C81, #1D4ED8)' }}>
+      <div className="on-dark relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgb(var(--brand-darker)), rgb(var(--brand)))' }}>
         <div
           className="absolute inset-0 opacity-[0.12]"
           style={{ backgroundImage: 'radial-gradient(circle, #fff 1.5px, transparent 1.5px)', backgroundSize: '30px 30px' }}
@@ -87,7 +89,7 @@ export default function LegalPage({
               <ul className="space-y-2.5 mt-3">
                 {s.bullets.map((b) => (
                   <li key={b} className="flex items-start gap-3 text-[16px] text-[#334155] leading-[1.75]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] mt-2.5 flex-shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-gold mt-2.5 flex-shrink-0" />
                     <span>{b}</span>
                   </li>
                 ))}
@@ -107,7 +109,7 @@ export default function LegalPage({
             Kembali ke Beranda
           </Link>
           <a
-            href="https://wa.me/6283898911244?text=Halo,%20saya%20ingin%20bertanya%20soal%20kebijakan%20data"
+            href={waLink('Halo, saya ingin bertanya soal kebijakan data')}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-primary"

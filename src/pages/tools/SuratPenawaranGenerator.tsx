@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
+import { useSite } from '../../lib/siteContext';
+import { addressOneLine } from '../../lib/site';
 
 function formatRupiah(n: number) {
   return 'Rp ' + n.toLocaleString('id-ID');
@@ -14,6 +16,8 @@ interface PenawaranItem {
 }
 
 export default function SuratPenawaranGenerator() {
+  const { company } = useSite().site;
+  const alamatKantor = addressOneLine(company.address);
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({ contentRef: printRef });
 
@@ -41,39 +45,39 @@ export default function SuratPenawaranGenerator() {
 
         <div className="grid grid-cols-2 gap-3">
           <div><label className="text-xs font-semibold text-[#475569] mb-1 block">No. Surat</label>
-            <input value={noSurat} onChange={e => setNoSurat(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
+            <input value={noSurat} onChange={e => setNoSurat(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-brand" /></div>
           <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Tanggal</label>
-            <input type="date" value={tanggal} onChange={e => setTanggal(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
+            <input type="date" value={tanggal} onChange={e => setTanggal(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-brand" /></div>
         </div>
 
         <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Kepada Yth.</label>
-          <input value={kepada} onChange={e => setKepada(e.target.value)} placeholder="Nama penerima" className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
+          <input value={kepada} onChange={e => setKepada(e.target.value)} placeholder="Nama penerima" className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-brand" /></div>
         <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Perusahaan</label>
-          <input value={perusahaan} onChange={e => setPerusahaan(e.target.value)} placeholder="Nama perusahaan klien" className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
+          <input value={perusahaan} onChange={e => setPerusahaan(e.target.value)} placeholder="Nama perusahaan klien" className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-brand" /></div>
         <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Alamat</label>
-          <textarea value={alamat} onChange={e => setAlamat(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
+          <textarea value={alamat} onChange={e => setAlamat(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-brand" /></div>
         <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Perihal</label>
-          <input value={perihal} onChange={e => setPerihal(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
+          <input value={perihal} onChange={e => setPerihal(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-brand" /></div>
 
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-semibold text-[#475569]">Daftar Penawaran</label>
-            <button onClick={addItem} className="flex items-center gap-1 text-xs font-semibold text-[#1D4ED8]"><Plus size={14} /> Tambah</button>
+            <button onClick={addItem} className="flex items-center gap-1 text-xs font-semibold text-brand"><Plus size={14} /> Tambah</button>
           </div>
           {items.map((item) => (
             <div key={item.id} className="grid grid-cols-12 gap-2 mb-2 items-end">
-              <div className="col-span-4"><input value={item.nama} onChange={e => updateItem(item.id, 'nama', e.target.value)} placeholder="Nama item" className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs focus:outline-none focus:border-[#2563EB]" /></div>
-              <div className="col-span-5"><input value={item.spesifikasi} onChange={e => updateItem(item.id, 'spesifikasi', e.target.value)} placeholder="Spesifikasi" className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs focus:outline-none focus:border-[#2563EB]" /></div>
-              <div className="col-span-2"><input type="number" value={item.harga} onChange={e => updateItem(item.id, 'harga', Number(e.target.value))} placeholder="Harga" className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs focus:outline-none focus:border-[#2563EB]" /></div>
+              <div className="col-span-4"><input value={item.nama} onChange={e => updateItem(item.id, 'nama', e.target.value)} placeholder="Nama item" className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs focus:outline-none focus:border-brand" /></div>
+              <div className="col-span-5"><input value={item.spesifikasi} onChange={e => updateItem(item.id, 'spesifikasi', e.target.value)} placeholder="Spesifikasi" className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs focus:outline-none focus:border-brand" /></div>
+              <div className="col-span-2"><input type="number" value={item.harga} onChange={e => updateItem(item.id, 'harga', Number(e.target.value))} placeholder="Harga" className="w-full px-2 py-1.5 rounded border border-[#E2E8F0] text-xs focus:outline-none focus:border-brand" /></div>
               <div className="col-span-1">{items.length > 1 && <button onClick={() => removeItem(item.id)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>}</div>
             </div>
           ))}
         </div>
 
         <div><label className="text-xs font-semibold text-[#475569] mb-1 block">Penutup</label>
-          <textarea value={penutup} onChange={e => setPenutup(e.target.value)} rows={3} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#2563EB]" /></div>
+          <textarea value={penutup} onChange={e => setPenutup(e.target.value)} rows={3} className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm focus:outline-none focus:border-brand" /></div>
 
-        <button onClick={() => handlePrint()} className="w-full py-3 bg-[#2563EB] text-white font-bold rounded-xl hover:bg-[#1D4ED8] transition-colors">
+        <button onClick={() => handlePrint()} className="w-full py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand transition-colors">
           Print / Download PDF
         </button>
       </div>
@@ -84,9 +88,9 @@ export default function SuratPenawaranGenerator() {
         <div ref={printRef} className="bg-white p-10 rounded-xl border border-[#E2E8F0] shadow-sm" style={{ fontFamily: "'Inter', sans-serif" }}>
           <div className="flex items-center gap-3 mb-6">
             <img src="/images/logo-main.png?v=2" alt="" className="w-14 h-14 object-contain" />
-            <div><p className="font-bold text-[#0F172A]">PT Karya Cipta Solusi</p><p className="text-[10px] text-[#1D4ED8] font-bold tracking-wider">SOLUSI TEKNOLOGI</p>
-              <p className="text-[9px] text-[#475569]">Kp. Sindangkarsa, RT.05/RW.15, Sukamaju Baru, Tapos, Depok 16455</p>
-              <p className="text-[9px] text-[#475569]">Telp: 0838-9891-1244 | Email: pt.karyaciptasolusi@gmail.com</p>
+            <div><p className="font-bold text-[#0F172A]">PT Karya Cipta Solusi</p><p className="text-[10px] text-brand font-bold tracking-wider">SOLUSI TEKNOLOGI</p>
+              <p className="text-[9px] text-[#475569]">{alamatKantor}</p>
+              <p className="text-[9px] text-[#475569]">Telp: {company.phone} | Email: {company.email}</p>
             </div>
           </div>
 
@@ -111,7 +115,7 @@ export default function SuratPenawaranGenerator() {
             <p className="text-xs text-[#0F172A] leading-relaxed mb-3">Sehubungan dengan kebutuhan {perusahaan || 'Bapak/Ibu'}, kami sampaikan penawaran harga sebagai berikut:</p>
 
             <table className="w-full mb-4">
-              <thead><tr className="border-b-2 border-[#2563EB]">
+              <thead><tr className="border-b-2 border-brand">
                 <th className="text-left text-[10px] font-bold text-[#475569] uppercase py-2 w-8">No</th>
                 <th className="text-left text-[10px] font-bold text-[#475569] uppercase py-2">Nama Layanan/Produk</th>
                 <th className="text-left text-[10px] font-bold text-[#475569] uppercase py-2">Spesifikasi</th>
@@ -130,9 +134,9 @@ export default function SuratPenawaranGenerator() {
             </table>
 
             <div className="flex justify-end mb-4">
-              <div className="w-48 flex justify-between py-2 border-t-2 border-[#2563EB]">
+              <div className="w-48 flex justify-between py-2 border-t-2 border-brand">
                 <span className="text-sm font-bold text-[#0F172A]">TOTAL</span>
-                <span className="text-sm font-bold" style={{ color: '#1D4ED8' }}>{formatRupiah(total)}</span>
+                <span className="text-sm font-bold" style={{ color: 'rgb(var(--brand))' }}>{formatRupiah(total)}</span>
               </div>
             </div>
 

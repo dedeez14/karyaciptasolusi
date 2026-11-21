@@ -25,6 +25,8 @@ import CareerSection from './sections/CareerSection';
 import NewsletterSection from './sections/NewsletterSection';
 import ContactFormSection from './sections/ContactFormSection';
 import ContactSection from './sections/ContactSection';
+import SiteProvider from './components/SiteProvider';
+import { useSite } from './lib/siteContext';
 
 const Tools = lazy(() => import('./pages/Tools'));
 const Blog = lazy(() => import('./pages/Blog'));
@@ -53,6 +55,7 @@ function RouterBehavior() {
 
 function HomePage() {
   const [loaded, setLoaded] = useState(false);
+  const { isHidden, site } = useSite();
 
   useEffect(() => {
     const timer = setTimeout(() => setLoaded(true), 1200);
@@ -66,22 +69,22 @@ function HomePage() {
       <Navbar />
       <main>
         <HeroSection />
-        <StatsSection />
-        <ClientMarquee />
-        <AboutSection />
-        <ServicesSection />
-        <WhyUsSection />
+        {!isHidden('stats') && <StatsSection />}
+        {!isHidden('clients') && <ClientMarquee />}
+        {!isHidden('portfolio') && <AboutSection />}
+        {!isHidden('services') && <ServicesSection />}
+        {!isHidden('whyus') && <WhyUsSection />}
         <PortfolioSection />
         <TechStackSection />
-        <TestimonialsSection />
-        <ConsultationSection />
-        <FAQSection />
-        <BlogSection />
-        <BusinessInfoSection />
-        <CareerSection />
-        <NewsletterSection />
-        <ContactFormSection />
-        <ContactSection />
+        {!isHidden('testimonials') && <TestimonialsSection />}
+        {!isHidden('consultation') && <ConsultationSection />}
+        {!isHidden('faq') && <FAQSection />}
+        {!isHidden('blog') && <BlogSection />}
+        {!isHidden('business') && <BusinessInfoSection />}
+        {!isHidden('career') && site.jobs.length > 0 && <CareerSection />}
+        {!isHidden('newsletter') && <NewsletterSection />}
+        {!isHidden('contact') && <ContactFormSection />}
+        {!isHidden('contact') && <ContactSection />}
       </main>
       <Footer />
       {loaded && (
@@ -97,27 +100,29 @@ function HomePage() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <RouterBehavior />
-        <Suspense fallback={<div className="min-h-[100dvh] bg-white" />}>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/tools" element={<Tools />} />
-            <Route path="/blog" element={<Blog />} />
-            <Route path="/blog/:slug" element={<BlogPost />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/kebijakan-privasi" element={<KebijakanPrivasi />} />
-            <Route path="/penghapusan-data" element={<PenghapusanData />} />
-            <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
-            {/* alias bahasa Inggris agar tautan dari platform luar tetap bekerja */}
-            <Route path="/privacy-policy" element={<KebijakanPrivasi />} />
-            <Route path="/data-deletion" element={<PenghapusanData />} />
-            <Route path="/terms" element={<SyaratKetentuan />} />
-          </Routes>
-        </Suspense>
-      </AuthProvider>
-    </BrowserRouter>
+    <SiteProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <RouterBehavior />
+          <Suspense fallback={<div className="min-h-[100dvh] bg-white" />}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/tools" element={<Tools />} />
+              <Route path="/blog" element={<Blog />} />
+              <Route path="/blog/:slug" element={<BlogPost />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/kebijakan-privasi" element={<KebijakanPrivasi />} />
+              <Route path="/penghapusan-data" element={<PenghapusanData />} />
+              <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
+              {/* alias bahasa Inggris agar tautan dari platform luar tetap bekerja */}
+              <Route path="/privacy-policy" element={<KebijakanPrivasi />} />
+              <Route path="/data-deletion" element={<PenghapusanData />} />
+              <Route path="/terms" element={<SyaratKetentuan />} />
+            </Routes>
+          </Suspense>
+        </AuthProvider>
+      </BrowserRouter>
+    </SiteProvider>
   );
 }

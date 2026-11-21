@@ -1,20 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, User, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown, Megaphone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSite } from '@/lib/siteContext';
+import type { SectionKey } from '@/lib/siteTypes';
 
-const navLinks = [
+const ALL_NAV_LINKS: { label: string; href: string; section?: SectionKey }[] = [
   { label: 'Beranda', href: '#beranda' },
-  { label: 'Portofolio', href: '#portofolio' },
-  { label: 'Layanan', href: '#layanan' },
-  // { label: 'Portofolio', href: '#portofolio' },
-  { label: 'Konsultasi', href: '#konsultasi' },
-  { label: 'Blog', href: '#blog' },
-  // { label: 'Karir', href: '#karir' },
-  { label: 'FAQ', href: '#faq' },
-  { label: 'Kontak', href: '#kontak' },
+  { label: 'Portofolio', href: '#portofolio', section: 'portfolio' },
+  { label: 'Layanan', href: '#layanan', section: 'services' },
+  { label: 'Konsultasi', href: '#konsultasi', section: 'consultation' },
+  { label: 'Blog', href: '#blog', section: 'blog' },
+  { label: 'Karir', href: '#karir', section: 'career' },
+  { label: 'FAQ', href: '#faq', section: 'faq' },
+  { label: 'Kontak', href: '#kontak', section: 'contact' },
 ];
+
+const ANNOUNCE_KEY = 'kcs-announcement-dismissed';
 
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -22,6 +25,34 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('#beranda');
+  const { site, isHidden, waLink } = useSite();
+  // Karir hanya tampil bila ada lowongan dari ERP; section lain bisa disembunyikan dari ERP.
+  const jobCount = site.jobs.length;
+  const navLinks = useMemo(
+    () =>
+      ALL_NAV_LINKS.filter(
+        (l) => !l.section || (!isHidden(l.section) && (l.section !== 'career' || jobCount > 0)),
+      ),
+    [isHidden, jobCount],
+  );
+  const announcement = site.announcement;
+  const [dismissed, setDismissed] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem(ANNOUNCE_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const showAnnouncement = !!announcement && dismissed !== announcement;
+  const dismissAnnouncement = () => {
+    if (!announcement) return;
+    setDismissed(announcement);
+    try {
+      sessionStorage.setItem(ANNOUNCE_KEY, announcement);
+    } catch {
+      /* abaikan */
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -37,7 +68,7 @@ export default function Navbar() {
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [navLinks]);
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
@@ -50,6 +81,22 @@ export default function Navbar() {
     <nav className={`fixed top-[3px] left-0 right-0 z-50 transition-all duration-500 ${
       scrolled ? 'bg-white/95 backdrop-blur-xl shadow-sm' : 'bg-transparent'
     }`}>
+      {showAnnouncement && (
+        <div className="on-dark bg-brand-dark text-white">
+          <div className="max-w-7xl mx-auto pl-4 sm:pl-6 lg:pl-8 flex items-center gap-2 min-h-[44px]">
+            <Megaphone size={15} className="text-gold flex-shrink-0" aria-hidden="true" />
+            <p className="flex-1 text-xs sm:text-[13px] font-medium py-2 leading-snug">{announcement}</p>
+            <button
+              type="button"
+              onClick={dismissAnnouncement}
+              className="w-11 h-11 flex items-center justify-center text-white/80 hover:text-white flex-shrink-0"
+              aria-label="Tutup pengumuman"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           <a href="#beranda" onClick={(e) => handleNavClick(e, '#beranda')} className="flex items-center gap-2.5">
@@ -57,7 +104,7 @@ export default function Navbar() {
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             <div className="hidden sm:block">
               <p className="text-[#0F172A] font-bold text-sm leading-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Karya Cipta</p>
-              <p className="text-[#1D4ED8] text-[9px] font-bold tracking-[0.15em]">SOLUSI</p>
+              <p className="text-brand text-[9px] font-bold tracking-[0.15em]">SOLUSI</p>
             </div>
           </a>
 
@@ -65,7 +112,7 @@ export default function Navbar() {
             {navLinks.map((link) => (
               <a key={link.href} href={link.href} onClick={(e) => handleNavClick(e, link.href)}
                 className={`px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all ${
-                  activeSection === link.href ? 'text-[#1D4ED8] bg-[#DBEAFE]' : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                  activeSection === link.href ? 'text-brand bg-brand-tint shadow-[inset_0_-2px_0_rgb(var(--gold))]' : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                 }`}>
                 {link.label}
               </a>
@@ -79,7 +126,7 @@ export default function Navbar() {
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
                 >
-                  <span className="w-7 h-7 rounded-full bg-[#DBEAFE] text-[#1D4ED8] flex items-center justify-center">
+                  <span className="w-7 h-7 rounded-full bg-brand-tint-strong text-brand flex items-center justify-center">
                     <User size={14} />
                   </span>
                   <span className="max-w-[100px] truncate">{user?.name}</span>
@@ -103,11 +150,11 @@ export default function Navbar() {
                 Masuk
               </Link>
             )}
-            <a href="https://wa.me/6283898911244" target="_blank" rel="noopener noreferrer"
-              className="hidden lg:inline-flex btn-primary btn-small shadow-lg shadow-[#2563EB]/25">
+            <a href={waLink()} target="_blank" rel="noopener noreferrer"
+              className="hidden lg:inline-flex btn-primary btn-small shadow-lg shadow-brand/25">
               Konsultasi Gratis
             </a>
-            <button onClick={() => setMenuOpen(!menuOpen)} className="lg:hidden p-2.5 rounded-xl text-[#0F172A] hover:bg-[#DBEAFE] transition-colors">
+            <button onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-label={menuOpen ? 'Tutup menu' : 'Buka menu'} className="lg:hidden w-11 h-11 flex items-center justify-center rounded-xl text-[#0F172A] hover:bg-brand-tint-strong transition-colors">
               {menuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
@@ -123,7 +170,7 @@ export default function Navbar() {
                 <motion.a key={link.href} href={link.href} onClick={(e) => handleNavClick(e, link.href)}
                   initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
                   className={`block px-4 py-3 rounded-xl font-medium transition-colors ${
-                    activeSection === link.href ? 'text-[#1D4ED8] bg-[#DBEAFE]' : 'text-[#0F172A] hover:bg-[#F8FAFC]'
+                    activeSection === link.href ? 'text-brand bg-brand-tint shadow-[inset_3px_0_0_rgb(var(--gold))]' : 'text-[#0F172A] hover:bg-[#F8FAFC]'
                   }`}>
                   {link.label}
                 </motion.a>
@@ -150,7 +197,7 @@ export default function Navbar() {
                   </Link>
                 </motion.div>
               )}
-              <motion.a href="https://wa.me/6283898911244" target="_blank" rel="noopener noreferrer"
+              <motion.a href={waLink()} target="_blank" rel="noopener noreferrer"
                 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: (navLinks.length + 1) * 0.05 }}
                 className="block px-4 py-3 mt-2 btn-primary text-center">
                 Konsultasi Gratis

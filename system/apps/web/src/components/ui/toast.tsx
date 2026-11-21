@@ -26,15 +26,15 @@ export const toast = {
 export function ToastHost() {
   const items = useToasts((s) => s.items);
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4 sm:right-4 sm:left-auto sm:items-end" aria-live="polite">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[60] lg:bottom-4 flex flex-col items-center gap-2 px-4 sm:right-4 sm:left-auto sm:items-end" aria-live="polite">
       {items.map((t) => (
         <div
           key={t.id}
           className={cn(
-            'pointer-events-auto flex max-w-md items-start gap-2 rounded-lg px-4 py-3 text-sm text-white shadow-lg',
+            'pointer-events-auto flex max-w-md items-start gap-2.5 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-pop',
             t.kind === 'success' && 'bg-emerald-600',
             t.kind === 'error' && 'bg-red-600',
-            t.kind === 'info' && 'bg-slate-800',
+            t.kind === 'info' && 'bg-slate-900',
           )}
         >
           <Icon name={t.kind === 'success' ? 'check-circle-2' : t.kind === 'error' ? 'alert-circle' : 'info'} className="mt-0.5 h-4 w-4 shrink-0" />

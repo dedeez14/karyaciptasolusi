@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Code2, Server, ShoppingCart, Database, ExternalLink } from 'lucide-react';
 
 const projects = [
-  { id: 1, title: 'Sistem ERP UMKM', category: 'Web App', desc: 'Sistem manajemen bisnis terintegrasi untuk UMKM dengan modul keuangan, inventory, CRM, dan laporan otomatis.', tech: ['React', 'Node.js', 'PostgreSQL'], icon: Code2, color: 'from-[#2563EB] to-[#1D4ED8]', colorBright: 'from-[#60A5FA] to-[#2563EB]' },
-  { id: 2, title: 'Platform E-Learning', category: 'SaaS', desc: 'Platform pembelajaran online lengkap dengan video conference, kuis interaktif, dan sertifikat digital.', tech: ['Next.js', 'AWS', 'MongoDB'], icon: Server, color: 'from-[#0F4C81] to-[#1E6BAF]', colorBright: 'from-[#1E6BAF] to-[#3B8ED0]' },
-  { id: 3, title: 'E-Commerce Pro', category: 'Web App', desc: 'Toko online dengan payment gateway multi-bank, manajemen produk, dan sistem review pelanggan.', tech: ['Vue.js', 'Laravel', 'MySQL'], icon: ShoppingCart, color: 'from-[#1D4ED8] to-[#2563EB]', colorBright: 'from-[#2563EB] to-[#60A5FA]' },
-  { id: 4, title: 'Sistem Info Desa', category: 'Data', desc: 'Aplikasi pengelolaan data administrasi desa dengan peta digital dan laporan kependudukan.', tech: ['React', 'Firebase'], icon: Database, color: 'from-[#1E6BAF] to-[#0F4C81]', colorBright: 'from-[#3B8ED0] to-[#1E6BAF]' },
+  { id: 1, title: 'Sistem ERP UMKM', category: 'Web App', desc: 'Sistem manajemen bisnis terintegrasi untuk UMKM dengan modul keuangan, inventory, CRM, dan laporan otomatis.', tech: ['React', 'Node.js', 'PostgreSQL'], icon: Code2, color: 'from-brand to-brand-dark', colorBright: 'from-brand-light to-brand' },
+  { id: 2, title: 'Platform E-Learning', category: 'SaaS', desc: 'Platform pembelajaran online lengkap dengan video conference, kuis interaktif, dan sertifikat digital.', tech: ['Next.js', 'AWS', 'MongoDB'], icon: Server, color: 'from-brand-dark to-brand-light', colorBright: 'from-brand-light to-brand-light' },
+  { id: 3, title: 'E-Commerce Pro', category: 'Web App', desc: 'Toko online dengan payment gateway multi-bank, manajemen produk, dan sistem review pelanggan.', tech: ['Vue.js', 'Laravel', 'MySQL'], icon: ShoppingCart, color: 'from-brand-dark to-brand', colorBright: 'from-brand to-brand-light' },
+  { id: 4, title: 'Sistem Info Desa', category: 'Data', desc: 'Aplikasi pengelolaan data administrasi desa dengan peta digital dan laporan kependudukan.', tech: ['React', 'Firebase'], icon: Database, color: 'from-brand-light to-brand-dark', colorBright: 'from-brand-light to-brand-light' },
 ];
 
 const categories = ['Semua', 'Web App', 'SaaS', 'Data'];
@@ -35,19 +35,19 @@ export default function PortfolioSection() {
   if (!SHOW_PORTFOLIO) return null;
 
   return (
-    <section id="portofolio" className="relative py-24 lg:py-32 overflow-hidden" style={{ background: 'linear-gradient(180deg, #F8FAFC 0%, #EFF6FF 100%)' }}>
+    <section id="portofolio" className="relative py-24 lg:py-32 overflow-hidden" style={{ background: 'linear-gradient(180deg, #F8FAFC 0%, rgb(var(--brand-tint)) 100%)' }}>
       {/* Floating decorative elements */}
       <motion.div
         animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         className="absolute top-20 left-10 w-20 h-20 rounded-full opacity-[0.04]"
-        style={{ background: 'radial-gradient(circle, #2563EB, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, rgb(var(--brand)), transparent 70%)' }}
       />
       <motion.div
         animate={{ y: [0, 12, 0], rotate: [0, -5, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         className="absolute bottom-32 right-16 w-32 h-32 rounded-full opacity-[0.05]"
-        style={{ background: 'radial-gradient(circle, #0F4C81, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, rgb(var(--brand-darker)), transparent 70%)' }}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -58,7 +58,7 @@ export default function PortfolioSection() {
           transition={{ duration: 0.6 }}
           className="mb-12"
         >
-          <span className="section-badge mb-3 inline-block">Portofolio</span>
+          <span className="section-badge mb-3">Portofolio</span>
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
             <motion.h2
               className="text-4xl lg:text-5xl font-bold text-[#0F172A]"
@@ -68,7 +68,7 @@ export default function PortfolioSection() {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.1 }}
             >
-              Proyek <span style={{ color: '#1D4ED8' }}>Terbaru</span>
+              Proyek <span className="text-accent">Terbaru</span>
             </motion.h2>
             <motion.div
               className="flex flex-wrap gap-2"
@@ -106,7 +106,7 @@ export default function PortfolioSection() {
                 transition={{ duration: 0.5, delay: i * 0.1, type: "spring", stiffness: 200, damping: 25 }}
                 onClick={() => setSelectedProject(project)}
                 whileHover={{ scale: 1.02, y: -4 }}
-                className="group relative rounded-2xl overflow-hidden cursor-pointer bg-white border border-[#E2E8F0] hover:border-[#2563EB]/40 transition-colors duration-300 shadow-sm hover:shadow-xl hover:shadow-[#2563EB]/10"
+                className="group relative rounded-2xl overflow-hidden cursor-pointer bg-white border border-[#E2E8F0] hover:border-brand/40 transition-colors duration-300 shadow-sm hover:shadow-xl hover:shadow-brand/10"
               >
                 {/* Gradient Top Half */}
                 <div className="relative h-52 overflow-hidden">
@@ -162,7 +162,7 @@ export default function PortfolioSection() {
 
                 {/* White Bottom Half */}
                 <div className="p-6">
-                  <h3 className="text-[#0F172A] font-bold text-lg mb-2 group-hover:text-[#1D4ED8] transition-colors duration-300">
+                  <h3 className="text-[#0F172A] font-bold text-lg mb-2 group-hover:text-brand transition-colors duration-300">
                     {project.title}
                   </h3>
                   <p className="text-[#475569] text-sm mb-4 line-clamp-2 leading-relaxed">
@@ -173,7 +173,7 @@ export default function PortfolioSection() {
                       <motion.span
                         key={t}
                         whileHover={{ scale: 1.1, y: -1 }}
-                        className={`px-3 py-1 bg-gradient-to-r ${techBadgeColors[t] || 'from-[#2563EB] to-[#1D4ED8]'} text-white text-[10px] font-semibold rounded-full shadow-sm`}
+                        className={`px-3 py-1 bg-gradient-to-r ${techBadgeColors[t] || 'from-brand to-brand-dark'} text-white text-[10px] font-semibold rounded-full shadow-sm`}
                       >
                         {t}
                       </motion.span>
@@ -295,7 +295,7 @@ export default function PortfolioSection() {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.3 + i * 0.08, type: "spring", stiffness: 300 }}
                         whileHover={{ scale: 1.1, y: -2 }}
-                        className={`px-4 py-1.5 bg-gradient-to-r ${techBadgeColors[t] || 'from-[#2563EB] to-[#1D4ED8]'} text-white text-xs font-semibold rounded-full shadow-md`}
+                        className={`px-4 py-1.5 bg-gradient-to-r ${techBadgeColors[t] || 'from-brand to-brand-dark'} text-white text-xs font-semibold rounded-full shadow-md`}
                       >
                         {t}
                       </motion.span>

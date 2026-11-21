@@ -10,7 +10,7 @@ export function sniffMime(buf: Buffer, ext: string): string | null | 'blocked' {
   if (hex.startsWith('7f454c46')) return 'blocked'; // ELF
   if (hex.startsWith('cafebabe') || hex.startsWith('feedface') || hex.startsWith('cffaedfe')) return 'blocked'; // Mach-O / class
   if (head.startsWith('#!')) return 'blocked'; // shell scripts
-  if (['html', 'htm', 'svg', 'js', 'mjs', 'xml'].includes(ext) || /^<(!doctype html|html|script|svg)/.test(head)) return 'blocked'; // stored XSS vectors
+  if (['html', 'htm', 'svg', 'js', 'mjs', 'xml'].includes(ext) || /^<(!doctype html|html|script|svg|\?xml)/.test(head)) return 'blocked'; // stored XSS vectors
 
   if (hex.startsWith('25504446')) return 'application/pdf';
   if (hex.startsWith('89504e47')) return 'image/png';

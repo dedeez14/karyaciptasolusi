@@ -4,11 +4,20 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '@/lib/api';
 import { download } from '@/lib/download';
-import { fmtByType, fmtCompact } from '@/lib/format';
-import { AsyncSelect, Button, Card, cn, Dropdown, EmptyState, Field, Input, PageHeader, Select, Spinner, toast } from '@/components/ui';
+import { fmtByType, fmtCompact, fmtDate, plural } from '@/lib/format';
+import { AsyncSelect, Button, Card, cn, DatePicker, Dropdown, EmptyState, Field, PageHeader, previewFile, Select, Spinner, toast } from '@/components/ui';
 import { CHART_COLORS, defaultValue, type ReportMeta, type ReportResult } from './reportTypes';
 
 const NUMERIC = new Set(['money', 'number', 'qty', 'integer', 'percent']);
+
+/** "2026-11-01 to 2026-11-12" -> "1 Nov 2026 to 12 Nov 2026" */
+const prettyPeriod = (t: string) => t.replace(/(\d{4}-\d{2}-\d{2})/g, (d) => fmtDate(d));
+
+/** reports that can produce a DJP Coretax import file (XML, official template) */
+const CORETAX: Record<string, { path: string; label: string } | undefined> = {
+  'vat-output': { path: 'efaktur', label: 'Coretax e-Faktur XML (month of "From")' },
+  'withholding-tax': { path: 'bppu', label: 'Coretax bukti potong PPh 23 / 4(2) XML' },
+};
 
 export default function ReportViewPage() {
   const { key = '' } = useParams();
@@ -69,11 +78,17 @@ export default function ReportViewPage() {
     <div>
       <PageHeader
         title={def.label}
-        subtitle={data?.subtitle ?? def.description}
+        subtitle={data?.subtitle ? prettyPeriod(data.subtitle) : def.description}
         back={() => navigate('/reports')}
         actions={
           <div className="no-print flex gap-2">
-            <Button variant="outline" icon="printer" onClick={() => window.print()} disabled={!data}>
+            <Button
+              variant="outline"
+              icon="printer"
+              disabled={!data}
+              title="Print-ready PDF with the company letterhead"
+              onClick={() => previewFile({ path: `/reports/${key}/export`, params: { ...applied, format: 'pdf' }, title: def.label }).catch((e) => toast.error(e))}
+            >
               Print
             </Button>
             <Dropdown
@@ -89,6 +104,20 @@ export default function ReportViewPage() {
                 'divider',
                 { label: 'Save PDF to File Manager', icon: 'folder-input', onClick: () => doExport('pdf', true) },
                 { label: 'Save Excel to File Manager', icon: 'folder-input', onClick: () => doExport('xlsx', true) },
+                // DJP Coretax import files for the month of the "From" date
+                ...(CORETAX[key ?? ''] && (applied.from || applied.to)
+                  ? [
+                      'divider' as const,
+                      {
+                        label: CORETAX[key ?? '']!.label,
+                        icon: 'file-code',
+                        onClick: () =>
+                          download(`/coretax/${CORETAX[key ?? '']!.path}`, { month: String(applied.from ?? applied.to).slice(0, 7) })
+                            .then(() => toast.success('File ready: upload it in Coretax'))
+                            .catch((e) => toast.error(e)),
+                      },
+                    ]
+                  : []),
               ]}
             />
           </div>
@@ -107,7 +136,7 @@ export default function ReportViewPage() {
             {def.params.map((p) => (
               <Field key={p.name} label={p.label} required={p.required}>
                 {p.type === 'date' ? (
-                  <Input type="date" value={draft[p.name] ?? ''} onChange={(e) => setDraft({ ...draft, [p.name]: e.target.value })} />
+                  <DatePicker value={draft[p.name] ?? ''} onChange={(v) => setDraft({ ...draft, [p.name]: v })} />
                 ) : p.type === 'select' ? (
                   <Select value={draft[p.name] ?? ''} onChange={(e) => setDraft({ ...draft, [p.name]: e.target.value })} options={p.options ?? []} placeholder={p.required ? undefined : 'All'} />
                 ) : (
@@ -142,7 +171,7 @@ export default function ReportViewPage() {
               <div className="scrollbar-thin max-h-[70vh] overflow-auto print:max-h-none print:overflow-visible">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10">
-                    <tr className="bg-slate-100 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase dark:bg-slate-800 dark:text-slate-300">
+                    <tr className="border-b border-line bg-slate-50/80 text-left text-xs font-medium text-slate-500">
                       {data.columns.map((c) => (
                         <th key={c.key} className={cn('px-3 py-2.5 whitespace-nowrap', NUMERIC.has(c.type ?? '') && 'text-right')}>
                           {c.label}
@@ -155,7 +184,7 @@ export default function ReportViewPage() {
                       const isSection = hasSection && !!r.section;
                       const isHeader = isSection && (r.amount === null || r.amount === undefined);
                       return (
-                        <tr key={i} className={cn('border-b border-slate-100 dark:border-slate-800', isSection && 'font-semibold', isHeader && 'bg-slate-50 dark:bg-slate-800/50', !isSection && 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30')}>
+                        <tr key={i} className={cn('border-b border-line', isSection && 'font-semibold', isHeader && 'bg-slate-50', !isSection && 'hover:bg-slate-50/60')}>
                           {data.columns.map((c) => (
                             <td key={c.key} className={cn('px-3 py-2 whitespace-nowrap', NUMERIC.has(c.type ?? '') && 'text-right tabular-nums', typeof r[c.key] === 'number' && (r[c.key] as number) < 0 && 'text-red-600')}>
                               {fmtByType(r[c.key], c.type)}
@@ -167,7 +196,7 @@ export default function ReportViewPage() {
                   </tbody>
                   {data.totals && (
                     <tfoot className="sticky bottom-0">
-                      <tr className="bg-slate-100 font-semibold dark:bg-slate-800">
+                      <tr className="bg-slate-100 font-semibold">
                         {data.columns.map((c, i) => (
                           <td key={c.key} className={cn('px-3 py-2.5 whitespace-nowrap', NUMERIC.has(c.type ?? '') && 'text-right tabular-nums')}>
                             {i === 0 ? 'Total' : data.totals![c.key] !== undefined ? fmtByType(data.totals![c.key], c.type) : ''}
@@ -179,7 +208,7 @@ export default function ReportViewPage() {
                 </table>
               </div>
             )}
-            <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400 dark:border-slate-800">{data.rows.length} rows</div>
+            <div className="border-t border-line px-4 py-2 text-xs text-slate-400">{plural(data.rows.length, 'row')}</div>
           </Card>
         </div>
       ) : null}
@@ -213,7 +242,7 @@ function ReportChart({ result }: { result: ReportResult }) {
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} />
               <YAxis tickFormatter={(v) => fmtCompact(v)} tick={{ fontSize: 11, fill: '#94a3b8' }} width={60} />
               <Tooltip formatter={(v) => fmt(Number(v))} />
-              <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} />
+              <Line type="monotone" dataKey="value" stroke="#1d4f7a" strokeWidth={2} />
             </LineChart>
           ) : (
             <BarChart data={data}>

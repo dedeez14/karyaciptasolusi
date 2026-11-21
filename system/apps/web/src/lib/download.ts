@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, qs } from './api';
 
 /** Downloads a file from the API (auth headers included) and saves it in the browser */
 export async function download(path: string, params?: Record<string, unknown>) {
@@ -14,12 +14,27 @@ export async function download(path: string, params?: Record<string, unknown>) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/** Opens a PDF / image from the API in a new tab (blob URL, so the token never appears in a URL) */
-export async function openInNewTab(path: string, params?: Record<string, unknown>) {
-  const w = window.open('', '_blank');
-  const { blob } = await api.blob(path, { ...params, inline: 1 });
-  const url = URL.createObjectURL(blob);
-  if (w) w.location.href = url;
-  else window.location.href = url;
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+/**
+ * Returns a same-origin URL that renders the file natively (browser PDF viewer, images).
+ * Uses a single-use, 60 second ticket bound to this path - the access token never appears in a URL.
+ */
+export async function fileUrl(path: string, params?: Record<string, unknown>) {
+  const { ticket } = await api.post<{ ticket: string }>('/auth/ticket', { path });
+  return `/api/v1${path}${qs({ ...params, inline: 1, ticket })}`;
 }
+
+/** Opens a PDF / image in a new browser tab */
+export async function openInNewTab(path: string, params?: Record<string, unknown>) {
+  // open synchronously (inside the click) so pop-up blockers allow it, then point it at the file
+  const w = window.open('about:blank', '_blank');
+  try {
+    const url = await fileUrl(path, params);
+    if (w) w.location.href = url;
+    else window.location.assign(url);
+  } catch (e) {
+    w?.close();
+    throw e;
+  }
+}
+
+export const isTouchDevice = () => window.matchMedia('(max-width: 767px), (pointer: coarse)').matches;

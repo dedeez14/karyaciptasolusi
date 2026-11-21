@@ -19,6 +19,8 @@ export interface RequestContext {
   requestId: string;
   ip?: string;
   userAgent?: string;
+  /** request made on this computer to a development server (see local-dev.ts) */
+  localDev?: boolean;
   user?: AuthUser;
 }
 

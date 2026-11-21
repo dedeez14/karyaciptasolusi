@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
+import { useSite } from '../lib/siteContext';
 
 export default function WhatsAppFloat() {
+  const { waLink } = useSite();
   return (
     <motion.a
-      href="https://wa.me/6283898911244"
+      href={waLink()}
       target="_blank"
       rel="noopener noreferrer"
       initial={{ opacity: 0, scale: 0 }}

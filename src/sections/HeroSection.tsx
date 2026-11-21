@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { ArrowDownRight, Phone, Sparkles, Shield, MessageCircle, Headphones } from 'lucide-react';
+import { Fragment } from 'react';
 import { useTypingEffect } from '../hooks/useTypingEffect';
+import { useSite } from '../lib/siteContext';
 
 const easing = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -19,8 +21,8 @@ const floatingDots = [
 /* Trust badges with icons */
 const trustBadges = [
   { text: 'Badan Usaha Resmi', color: '#4ADE80', icon: Shield },
-  { text: 'Konsultasi Gratis', color: '#2563EB', icon: MessageCircle },
-  { text: 'Support 24/7', color: '#0F4C81', icon: Headphones },
+  { text: 'Konsultasi Gratis', color: 'rgb(var(--brand))', icon: MessageCircle },
+  { text: 'Support 24/7', color: 'rgb(var(--brand-light))', icon: Headphones },
 ];
 
 /* Animation variants */
@@ -44,18 +46,29 @@ const lineVariants = {
   },
 };
 
-export default function HeroSection() {
-  const typedText = useTypingEffect(
-    ['Website Company Profile', 'Toko Online & E-Commerce', 'Aplikasi Web & Mobile Custom', 'Konsultasi IT Profesional', 'Platform SaaS Terintegrasi'],
-    80, 40, 2500
+/** Teks di antara *bintang* diberi warna aksen; selain itu teks biasa. */
+function renderEmphasis(line: string) {
+  return line.split(/\*([^*]+)\*/).map((part, i) =>
+    i % 2 === 1 ? (
+      <span key={i} className="text-brand">{part}</span>
+    ) : (
+      <Fragment key={i}>{part.replace(/\*/g, '')}</Fragment>
+    ),
   );
+}
+
+export default function HeroSection() {
+  const { site, waLink, telLink } = useSite();
+  const { hero, company } = site;
+  const typedText = useTypingEffect(hero.typing, 80, 40, 2500);
+  const titleLines = hero.title.split('\n').map((l) => l.trim()).filter(Boolean);
 
   return (
     <section
       id="beranda"
       className="relative min-h-[100dvh] overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 40%, #EFF6FF 70%, #DBEAFE 100%)',
+        background: 'linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 40%, rgb(var(--brand-tint)) 70%, rgb(var(--brand-tint-strong)) 100%)',
       }}
     >
       {/* Background pattern image */}
@@ -70,11 +83,11 @@ export default function HeroSection() {
       {/* Subtle yellow blobs */}
       <div
         className="absolute top-20 right-[10%] w-64 h-64 rounded-full opacity-30"
-        style={{ background: 'radial-gradient(circle, #2563EB20, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, rgb(var(--brand) / 0.13), transparent 70%)' }}
       />
       <div
         className="absolute bottom-40 left-[5%] w-80 h-80 rounded-full opacity-20"
-        style={{ background: 'radial-gradient(circle, #2563EB15, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, rgb(var(--brand) / 0.08), transparent 70%)' }}
       />
 
       {/* Floating animated dots */}
@@ -87,8 +100,8 @@ export default function HeroSection() {
             height: dot.size,
             left: dot.left,
             top: dot.top,
-            background: `radial-gradient(circle, rgba(37,99,235,${dot.opacity * 2}), rgba(37,99,235,${dot.opacity}))`,
-            boxShadow: `0 0 ${dot.size * 2}px rgba(37,99,235,${dot.opacity * 0.5})`,
+            background: `radial-gradient(circle, rgb(var(${i % 3 === 1 ? '--gold' : '--brand'}) / ${dot.opacity * 2}), rgb(var(${i % 3 === 1 ? '--gold' : '--brand'}) / ${dot.opacity}))`,
+            boxShadow: `0 0 ${dot.size * 2}px rgb(var(--brand) / ${dot.opacity * 0.5})`,
           }}
           animate={{ y: [0, -15, 0] }}
           transition={{
@@ -101,7 +114,7 @@ export default function HeroSection() {
       ))}
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[100dvh] flex items-center">
-        <div className="grid lg:grid-cols-12 gap-8 w-full items-center py-24">
+        <div className={`grid lg:grid-cols-12 gap-8 w-full items-center pb-24 ${site.announcement ? 'pt-36' : 'pt-24'}`}>
           {/* Left - Text content */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
@@ -114,14 +127,14 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.5, ease: easing }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#2563EB]/30 bg-[#2563EB]/8 mb-6 relative overflow-hidden"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-brand/25 bg-white/70 mb-6 relative overflow-hidden"
             >
               {/* Shimmer overlay */}
               <motion.div
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   background:
-                    'linear-gradient(90deg, transparent 0%, rgba(37,99,235,0.15) 50%, transparent 100%)',
+                    'linear-gradient(90deg, transparent 0%, rgb(var(--brand) / 0.15) 50%, transparent 100%)',
                 }}
                 animate={{ x: ['-100%', '200%'] }}
                 transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
@@ -130,10 +143,10 @@ export default function HeroSection() {
                 animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <Sparkles size={14} className="text-[#1D4ED8]" />
+                <Sparkles size={14} className="text-gold-dark" />
               </motion.div>
-              <span className="text-[#1D4ED8] text-xs font-bold tracking-[0.15em] uppercase relative z-10">
-                Solusi Teknologi Terpercaya
+              <span className="text-brand text-xs font-bold tracking-[0.15em] uppercase relative z-10">
+                {hero.badge}
               </span>
             </motion.div>
 
@@ -145,67 +158,63 @@ export default function HeroSection() {
               initial="hidden"
               animate="visible"
             >
-              <motion.span
-                variants={lineVariants}
-                className="block text-[#0F172A]"
-              >
-                Jasa Pembuatan
-              </motion.span>
-              <motion.span variants={lineVariants} className="block">
-                <span style={{ color: '#1D4ED8' }}>Website</span>
-                <span className="text-[#0F172A]"> &amp;</span>
-              </motion.span>
-              <motion.span variants={lineVariants} className="block text-[#0F172A]">
-                Aplikasi untuk
-              </motion.span>
-              <motion.span variants={lineVariants} className="block">
-                <span className="bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] bg-clip-text text-transparent">
-                  Bisnis Anda.
-                </span>
-              </motion.span>
+              {titleLines.map((line, i) => {
+                const last = i === titleLines.length - 1 && titleLines.length > 1;
+                return (
+                  <motion.span key={`${i}-${line}`} variants={lineVariants} className="block text-[#0F172A]">
+                    {last ? (
+                      <span className="relative inline-block">
+                        <span className="bg-gradient-to-r from-brand to-brand-light bg-clip-text text-transparent">
+                          {line.replace(/\*/g, '')}
+                        </span>
+                        <span aria-hidden="true" className="absolute left-0 right-1 -bottom-1 h-[0.12em] rounded-full bg-gold" />
+                      </span>
+                    ) : (
+                      renderEmphasis(line)
+                    )}
+                  </motion.span>
+                );
+              })}
             </motion.h1>
 
             {/* Typing effect */}
             <div className="h-8 mb-5">
               <span
-                className="text-lg sm:text-xl font-medium typing-cursor"
-                style={{ color: '#1D4ED8' }}
+                className="text-lg sm:text-xl font-medium typing-cursor text-brand"
               >
                 {typedText}
               </span>
             </div>
 
             <p className="text-[#475569] max-w-lg mb-8 leading-relaxed text-sm">
-              PT Karya Cipta Solusi adalah partner transformasi digital Anda jasa pembuatan website
-              company profile, toko online, aplikasi custom, hingga konsultasi IT untuk mempercepat
-              pertumbuhan bisnis Anda.
+              {hero.subtitle}
             </p>
 
             {/* CTA buttons with hover scale */}
             <div className="flex flex-wrap gap-3">
               <motion.a
-                href="https://wa.me/6283898911244"
+                href={waLink()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-primary group"
+                className="btn-gold group"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               >
-                Mulai Proyek{' '}
+                {hero.ctaText}{' '}
                 <ArrowDownRight
                   size={18}
                   className="group-hover:translate-x-0.5 group-hover:translate-y-0.5 transition-transform"
                 />
               </motion.a>
               <motion.a
-                href="tel:083898911244"
+                href={telLink()}
                 className="btn-secondary"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               >
-                <Phone size={16} /> 0838-9891-1244
+                <Phone size={16} /> {company.phone}
               </motion.a>
             </div>
 
@@ -250,14 +259,14 @@ export default function HeroSection() {
                 className="absolute -inset-12 rounded-full"
                 style={{
                   background:
-                    'radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 70%)',
+                    'radial-gradient(circle, rgb(var(--brand) / 0.12) 0%, transparent 70%)',
                 }}
                 animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.7, 0.4] }}
                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               />
               {/* Secondary pulse ring */}
               <motion.div
-                className="absolute -inset-20 rounded-full border border-[#2563EB]/10"
+                className="absolute -inset-20 rounded-full border border-brand/10"
                 animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
                 transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
               />
@@ -265,7 +274,7 @@ export default function HeroSection() {
                 className="absolute -inset-10 rounded-full opacity-20"
                 style={{
                   background:
-                    'radial-gradient(circle, #2563EB30, transparent 70%)',
+                    'radial-gradient(circle, rgb(var(--brand) / 0.19), transparent 70%)',
                 }}
               />
               <motion.div
@@ -293,10 +302,10 @@ export default function HeroSection() {
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
                     style={{
-                      background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                      background: 'linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-dark)))',
                     }}
                   >
-                    5+
+                    {site.services.length}
                   </div>
                   <div>
                     <p className="text-[10px] text-[#475569]">Layanan</p>

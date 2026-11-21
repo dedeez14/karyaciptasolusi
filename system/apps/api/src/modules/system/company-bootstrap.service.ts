@@ -12,6 +12,8 @@ import {
   SIMPLE_TEMPLATE,
   STAGE_TEMPLATE,
   TAX_TEMPLATE,
+  VAT_FACILITY,
+  TASK_STAGE_TEMPLATE,
 } from './templates/company-template';
 
 type Db = Tx | PrismaClient;
@@ -43,8 +45,12 @@ export class CompanyBootstrapService {
     for (const [code, name, prefix, resetPeriod] of SEQUENCE_TEMPLATE) {
       await db.numberSequence.upsert({ where: { companyId_code: { companyId, code } }, create: { companyId, code, name, prefix, resetPeriod, padding: 5 }, update: {} });
     }
-    for (const [code, name, rate] of TAX_TEMPLATE) {
-      await db.tax.upsert({ where: { companyId_code: { companyId, code } }, create: { ...c, code, name, rate, salesAccountId: ids.get('2-1300'), purchaseAccountId: ids.get('1-1500') }, update: {} });
+    for (const [code, name, kind, rate, baseNumerator, baseDenominator, extra, noNpwpSurcharge, [out, inn]] of TAX_TEMPLATE) {
+      await db.tax.upsert({
+        where: { companyId_code: { companyId, code } },
+        create: { ...c, code, name, kind, rate, baseNumerator, baseDenominator, trxCode: kind === 'VAT' ? extra : null, addInfo: VAT_FACILITY[code]?.[0] ?? null, facilityStamp: VAT_FACILITY[code]?.[1] ?? null, objectCode: kind === 'WHT' ? extra : null, noNpwpSurcharge, salesAccountId: ids.get(out), purchaseAccountId: ids.get(inn) },
+        update: {},
+      });
     }
     for (const [code, name, days] of PAYMENT_TERM_TEMPLATE) {
       await db.paymentTerm.upsert({ where: { companyId_code: { companyId, code } }, create: { ...c, code, name, days }, update: {} });
@@ -64,7 +70,7 @@ export class CompanyBootstrapService {
       }
     }
     for (const [code, name, probability, isWon, isLost] of STAGE_TEMPLATE) {
-      await db.pipelineStage.upsert({ where: { companyId_code: { companyId, code } }, create: { ...c, code, name, probability, isWon, isLost, sortOrder: probability }, update: {} });
+      await db.pipelineStage.upsert({ where: { companyId_code: { companyId, code } }, create: { ...c, code, name, probability, isWon, isLost, sortOrder: isLost ? 1000 : isWon ? 900 : probability }, update: {} });
     }
     for (const [code, name, levelCode] of POSITION_TEMPLATE) {
       await db.position.upsert({ where: { companyId_code: { companyId, code } }, create: { ...c, code, name, levelCode }, update: {} });
@@ -75,13 +81,19 @@ export class CompanyBootstrapService {
     for (const [code, name, kind, calcType, amount] of SALARY_COMPONENT_TEMPLATE) {
       await db.salaryComponent.upsert({
         where: { companyId_code: { companyId, code } },
-        create: { ...c, code, name, kind, calcType, amount, accountId: kind === 'DEDUCTION' ? ids.get('2-1500') : ids.get('6-1100') },
+        create: { ...c, code, name, kind, calcType, amount, accountId: kind === 'DEDUCTION' ? ids.get('2-1500') : ids.get('6-1100'), fixedAllowance: code === 'POSITION', isActive: !['BPJS_TK', 'BPJS_KES', 'PPH21'].includes(code) },
         update: {},
       });
     }
     await db.warehouse.upsert({ where: { companyId_code: { companyId, code: 'WH-MAIN' } }, create: { ...c, code: 'WH-MAIN', name: 'Main Warehouse', branchId: ho.id }, update: {} });
     await db.bankAccount.upsert({ where: { companyId_code: { companyId, code: 'CASH' } }, create: { ...c, code: 'CASH', name: 'Petty Cash', isCash: true, accountId: ids.get('1-1100') }, update: {} });
     await db.bankAccount.upsert({ where: { companyId_code: { companyId, code: 'BANK-01' } }, create: { ...c, code: 'BANK-01', name: 'Operational Bank Account', accountId: ids.get('1-1200') }, update: {} });
+
+    let order = 0;
+    for (const [code, name, color, isDone] of TASK_STAGE_TEMPLATE) {
+      order += 10;
+      await db.taskStage.upsert({ where: { companyId_code: { companyId, code } }, create: { ...c, code, name, color, isDone, sortOrder: order }, update: {} });
+    }
 
     const year = new Date().getFullYear();
     await db.fiscalPeriod.upsert({

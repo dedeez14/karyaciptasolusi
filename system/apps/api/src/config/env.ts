@@ -14,14 +14,26 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   HOST: z.string().default('127.0.0.1'),
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
+  /** sites allowed to read /public/website and post its contact form (no cookies) */
+  WEBSITE_ORIGINS: z.string().default('https://karyaciptasolusi.com,https://www.karyaciptasolusi.com'),
+  /** company whose content the public website shows (code); empty = the oldest active company */
+  WEBSITE_COMPANY_CODE: z.string().default(''),
   DATABASE_URL: z.string().url(),
   JWT_ACCESS_SECRET: base64Key(32),
   ENCRYPTION_KEY: base64Key(32),
   HMAC_KEY: base64Key(32),
+  PASSWORD_PEPPER: base64Key(32),
   JWT_ACCESS_TTL: z.string().default('15m'),
   REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
   STORAGE_DIR: z.string().default('./storage'),
   MAX_UPLOAD_MB: z.coerce.number().positive().default(25),
+  /**
+   * Local development only: username that is signed in automatically when the app is opened on this computer
+   * (http://localhost). Ignored for any other address, and the server refuses to start with it in production.
+   */
+  DEV_AUTO_LOGIN: z.string().trim().default(''),
+  /** Local development only: no two-factor step when signing in on this computer (http://localhost). Refused in production. */
+  DEV_SKIP_MFA: z.preprocess((v) => v === 'true' || v === '1', z.boolean()).default(false),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -34,3 +46,7 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 export const isProd = env.NODE_ENV === 'production';
+if (isProd && (env.DEV_AUTO_LOGIN || env.DEV_SKIP_MFA)) {
+  console.error('DEV_AUTO_LOGIN / DEV_SKIP_MFA are for local development only: remove them from the production .env');
+  process.exit(1);
+}
