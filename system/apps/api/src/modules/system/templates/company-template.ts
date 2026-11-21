@@ -415,7 +415,7 @@ export const TAX_TEMPLATE: [string, string, 'VAT' | 'WHT', number, number, numbe
   ['PPN-EXEMPT', 'PPN dibebaskan (PP 49/2022: ternak, pakan, telur, daging, ikan...)', 'VAT', 0, 1, 1, '08', false, ['2-1300', '1-1500']],
   ['PPN-EDU', 'PPN dibebaskan: jasa pendidikan by a licensed school / course (PP 49/2022 Art. 16)', 'VAT', 0, 1, 1, '08', false, ['2-1300', '1-1500']],
   ['PPH22-PMSE', 'PPh 22 0.5% collected by a domestic marketplace from the seller turnover (PMK 37/2025)', 'WHT', 0.5, 1, 1, null, false, ['2-1370', '1-1520']],
-  ['PPH22-AGRI', 'PPh 22 0.25% (farm / plantation / livestock / fishery produce bought by industry or exporter above Rp20 jt a month, PMK 51/2025)', 'WHT', 0.25, 1, 1, null, true, ['2-1370', '1-1520']],
+  ['PPH22-AGRI', 'PPh 22 0.25% (farm / fish produce bought by industry or exporter > Rp20 jt a month, PMK 51/2025)', 'WHT', 0.25, 1, 1, null, true, ['2-1370', '1-1520']],
   // PMK 64/2022 jo PMK 11/2025: optional deemed rate 10% x 11/12 x 12% = 1.1% of the price for fresh plantation produce (TBS...); input VAT not creditable
   ['PPN-AGRI', 'PPN 1.1% besaran tertentu (TBS / hasil perkebunan, PMK 64/2022 jo 11/2025)', 'VAT', 1.1, 1, 1, '05', false, ['2-1300', '1-1500']],
 ];
