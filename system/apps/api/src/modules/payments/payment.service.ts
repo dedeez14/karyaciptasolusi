@@ -210,11 +210,15 @@ export class PaymentService {
     );
   }
 
-  async cancel(direction: string, id: string) {
+  async cancel(direction: string, id: string, opts: { fromModule?: boolean } = {}) {
     const d = this.dir(direction);
     RequestCtx.assert(`${d.perm}.cancel`);
     const p = await this.get(direction, id);
     if (p.status === 'CANCELLED') throw new ConflictException('Payment is already cancelled');
+    if (!opts.fromModule && d.direction === 'IN') {
+      const mp = await this.prisma.marketplaceSettlement.findFirst({ where: { receiptId: id, status: 'POSTED' }, select: { number: true } });
+      if (mp) throw new ConflictException(`Receipt of marketplace settlement ${mp.number}: undo the settlement in Marketplace`);
+    }
     return this.prisma.$transaction(async (tx) => {
       const r = await tx.payment.update({ where: { id }, data: { status: 'CANCELLED', updatedById: RequestCtx.user().id } });
       for (const a of p.allocations) await this.recalcInvoice(tx, a.documentId);

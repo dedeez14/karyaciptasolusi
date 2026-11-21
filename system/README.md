@@ -61,6 +61,7 @@ Other commands:
 | File Manager | Folders, multi-upload, tags, categories, filters, group-by, bulk move/tag/delete, preview, encrypted at rest, generated PDFs & exports archived automatically |
 | Reports | 22 reports, filterable, charts, export to Excel / CSV / PDF, save to File Manager |
 | Master Data | Every list is data, not code: products, categories, brands, units, customers, suppliers, groups, terms, methods, currencies, rates, countries, banks, projects, stages, lookup values |
+| Marketplace | Stores on Gumroad, Etsy, Shopee, Tokopedia... and social channels (Facebook Page, Pinterest...) in one overview: orders from the Gumroad API or the marketplaces' CSV exports (buyer country only, no names or e-mails), listings mapped to products, settlements (sales invoice paid into the marketplace balance, fees, PPh 22 collected by the marketplace, refunds), payouts to the bank, daily channel statistics |
 | System | Companies, branches, users (per company/branch roles), roles & permission matrix, menu management, number sequences, settings, Hostinger integration, audit trail, activity log, active sessions |
 
 All business documents (quotation, order, delivery, invoice, PO, receipt, payslip, report tables …) are rendered by **one PDF template**,

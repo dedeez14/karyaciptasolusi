@@ -806,6 +806,8 @@ export class DocumentService {
           if (rb) throw new ConflictException('Invoice of a rental contract: cancel the bill in Rental');
           const sb = await tx.schoolBill.findFirst({ where: { invoiceId: id, status: 'POSTED' }, select: { period: true } });
           if (sb) throw new ConflictException(`School fee invoice (${sb.period}): cancel it from the student in School`);
+          const mps = await tx.marketplaceSettlement.findFirst({ where: { invoiceId: id, status: 'POSTED' }, select: { number: true } });
+          if (mps) throw new ConflictException(`Invoice of marketplace settlement ${mps.number}: undo the settlement in Marketplace`);
         }
         if (!opts.skipPermission && def.code === 'DO') {
           const cd = await tx.clinicVisit.findFirst({ where: { deliveryId: id, status: 'BILLED' }, select: { number: true } });

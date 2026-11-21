@@ -125,6 +125,8 @@ export const COA_TEMPLATE: Acc[] = [
   ['4-2010', 'Rental Compensation (forfeited deposits, damage)', 'INCOME', '4-0000'],
   ['4-2100', 'Tuition Fees (SPP and annual fees)', 'INCOME', '4-0000'],
   ['4-2110', 'Entry Fees (uang pangkal)', 'INCOME', '4-0000'],
+  ['1-1210', 'Marketplace Balances (held by Gumroad, Etsy, Shopee... until paid out)', 'ASSET', '1-1000'],
+  ['6-2310', 'Marketplace Fees & Commissions', 'EXPENSE', '6-0000'],
   ['6-0000', 'Operating Expenses', 'EXPENSE', null, true],
   ['6-1000', 'Salaries & Wages', 'EXPENSE', '6-0000'],
   ['6-1100', 'Employee Benefits', 'EXPENSE', '6-0000'],
@@ -258,6 +260,8 @@ export const ACCOUNT_MAPPING_TEMPLATE: [string, string, string][] = [
   ['RENTAL_COMPENSATION', 'Forfeited deposits and damage charged to lessees (compensation, no PPN)', '4-2010'],
   ['SCHOOL_FEES', 'School fees billed (PPN-exempt education, PP 49/2022 Art. 16)', '4-2100'],
   ['SCHOOL_ENTRY_FEES', 'Entry fees (uang pangkal) billed at enrolment', '4-2110'],
+  ['MARKETPLACE_BALANCE', 'Money held by marketplaces for us (ledger of the marketplace balance accounts)', '1-1210'],
+  ['MARKETPLACE_FEES', 'Marketplace fees, commissions and payout charges', '6-2310'],
   ['PROPERTY_DEPOSIT', 'Payments invoiced to property buyers before the handover (booking fee, down payment, instalments)', '2-1740'],
   ['PROPERTY_REFUND', 'Refunds due to buyers of cancelled property sales (Permen PUPR 11/2019: within 30 days)', '2-1750'],
   ['PROPERTY_REVENUE', 'Real estate sales recognised at the handover', '4-1500'],
@@ -342,6 +346,7 @@ export const SEQUENCE_TEMPLATE: [string, string, string, string][] = [
   ['RENTAL_CONTRACT', 'Rental Contract', 'SWA/{YYYY}/', 'YEARLY'],
   ['SCHOOL_REG', 'School Admission', 'PPDB/{YYYY}/', 'YEARLY'],
   ['SCHOOL_NIS', 'Student Number (NIS)', '{YY}', 'NEVER'],
+  ['MP_SETTLEMENT', 'Marketplace Settlement', 'MPS/{YYYY}/', 'YEARLY'],
   ['PRINCIPAL_CLAIM', 'Principal Claim', 'CLM/{YYYY}/', 'YEARLY'],
   ['TINT_JOB', 'Tinting Job', 'TNT/{YYYY}/', 'YEARLY'],
   ['COLOUR_CHECK', 'Colour Check', 'CLR/{YYYY}/', 'YEARLY'],
@@ -409,6 +414,7 @@ export const TAX_TEMPLATE: [string, string, 'VAT' | 'WHT', number, number, numbe
   // PP 49/2022: livestock, feed, seeds, meat, eggs, fish... are exempt; faktur code 08, input VAT on them not creditable
   ['PPN-EXEMPT', 'PPN dibebaskan (PP 49/2022: ternak, pakan, telur, daging, ikan...)', 'VAT', 0, 1, 1, '08', false, ['2-1300', '1-1500']],
   ['PPN-EDU', 'PPN dibebaskan: jasa pendidikan by a licensed school / course (PP 49/2022 Art. 16)', 'VAT', 0, 1, 1, '08', false, ['2-1300', '1-1500']],
+  ['PPH22-PMSE', 'PPh 22 0.5% collected by a domestic marketplace from the seller turnover (PMK 37/2025)', 'WHT', 0.5, 1, 1, null, false, ['2-1370', '1-1520']],
   ['PPH22-AGRI', 'PPh 22 0.25% (farm / plantation / livestock / fishery produce bought by industry or exporter above Rp20 jt a month, PMK 51/2025)', 'WHT', 0.25, 1, 1, null, true, ['2-1370', '1-1520']],
   // PMK 64/2022 jo PMK 11/2025: optional deemed rate 10% x 11/12 x 12% = 1.1% of the price for fresh plantation produce (TBS...); input VAT not creditable
   ['PPN-AGRI', 'PPN 1.1% besaran tertentu (TBS / hasil perkebunan, PMK 64/2022 jo 11/2025)', 'VAT', 1.1, 1, 1, '05', false, ['2-1300', '1-1500']],

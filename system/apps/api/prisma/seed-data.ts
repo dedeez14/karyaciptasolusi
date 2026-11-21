@@ -428,6 +428,12 @@ export const MENUS: [string, string | null, string, string, string | null, strin
   ['school.students', 'school', 'Students', 'graduation-cap', '/school/students', 'school.read'],
   ['school.billing', 'school', 'Fees & Billing', 'receipt', '/school/billing', 'school.read'],
   ['school.setup', 'school', 'Classes & Fee Types', 'layers', '/school/setup', 'school.read'],
+  ['marketplace', null, 'Marketplace', 'store', null, null],
+  ['marketplace.overview', 'marketplace', 'Channels Overview', 'trending-up', '/marketplace', 'marketplace.read'],
+  ['marketplace.orders', 'marketplace', 'Orders', 'shopping-cart', '/marketplace/orders', 'marketplace.read'],
+  ['marketplace.settlements', 'marketplace', 'Settlements & Payouts', 'wallet', '/marketplace/settlements', 'marketplace.read'],
+  ['marketplace.stats', 'marketplace', 'Channel Statistics', 'eye', '/marketplace/stats', 'marketplace.read'],
+  ['marketplace.stores', 'marketplace', 'Stores & Listings', 'settings-2', '/marketplace/stores', 'marketplace.read'],
 
   ['purchase', null, 'Purchase', 'shopping-bag', null, null],
   ['purchase.requests', 'purchase', 'Purchase Requests', 'file-question', '/documents/PR', 'purchase.request.read'],

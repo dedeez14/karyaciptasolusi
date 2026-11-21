@@ -87,6 +87,7 @@ import { COOP_CONTROLLERS, COOP_PROVIDERS } from './modules/coop';
 import { HOTEL_CONTROLLERS, HOTEL_PROVIDERS } from './modules/hotel';
 import { CLINIC_CONTROLLERS, CLINIC_PROVIDERS } from './modules/clinic';
 import { RENTAL_CONTROLLERS, RENTAL_PROVIDERS } from './modules/rental';
+import { MARKETPLACE_CONTROLLERS, MARKETPLACE_PROVIDERS } from './modules/marketplace';
 import { SCHOOL_CONTROLLERS, SCHOOL_PROVIDERS } from './modules/school';
 import { INSIGHTS_CONTROLLERS, INSIGHTS_PROVIDERS } from './modules/insights';
 import { OPENING_CONTROLLERS, OPENING_PROVIDERS } from './modules/opening';
@@ -186,6 +187,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...HOTEL_CONTROLLERS,
     ...CLINIC_CONTROLLERS,
     ...RENTAL_CONTROLLERS,
+    ...MARKETPLACE_CONTROLLERS,
     ...SCHOOL_CONTROLLERS,
     ...POS_CONTROLLERS,
     ...EXPENSES_CONTROLLERS,
@@ -267,6 +269,7 @@ const webDist = join(__dirname, '..', '..', 'web', 'dist');
     ...HOTEL_PROVIDERS,
     ...CLINIC_PROVIDERS,
     ...RENTAL_PROVIDERS,
+    ...MARKETPLACE_PROVIDERS,
     ...SCHOOL_PROVIDERS,
     ...POS_PROVIDERS,
     ...EXPENSES_PROVIDERS,

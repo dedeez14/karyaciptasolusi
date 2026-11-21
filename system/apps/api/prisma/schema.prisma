@@ -7589,3 +7589,242 @@ model SchoolBill {
   @@index([studentId])
   @@map("school_bills")
 }
+
+// ============================================================ Marketplace (online stores & social channels)
+
+/// A store on a marketplace (Gumroad, Etsy, Shopee...) or a social channel (Facebook Page, Pinterest...)
+model MarketplaceStore {
+  id                   String    @id @default(uuid()) @db.Uuid
+  companyId            String    @db.Uuid
+  code                 String    @db.VarChar(20)
+  name                 String    @db.VarChar(100)
+  /// GUMROAD | ETSY | SHOPEE | TOKOPEDIA | TIKTOK | LAZADA | WEBSITE | FACEBOOK | INSTAGRAM | PINTEREST | OTHER
+  channel              String    @db.VarChar(12)
+  /// STORE (sells, has orders) | SOCIAL (audience only: views, followers)
+  kind                 String    @default("STORE") @db.VarChar(6)
+  url                  String?   @db.VarChar(300)
+  /// currency the marketplace pays in (orders, fees and payouts)
+  currencyCode         String    @default("IDR") @db.VarChar(3)
+  /// the marketplace as the customer of the settlement invoices
+  customerId           String?   @db.Uuid
+  /// cash / bank account standing for the money the marketplace holds for us (ledger: Marketplace Balances)
+  balanceBankAccountId String?   @db.Uuid
+  /// where payouts land
+  payoutBankAccountId  String?   @db.Uuid
+  /// VAT on the sales (prices are taken as tax-inclusive); empty = no VAT
+  taxId                String?   @db.Uuid
+  /// income tax the marketplace collects from us (PPh 22 PMSE 0.5%); empty = none
+  whtTaxId             String?   @db.Uuid
+  /// product used for order lines whose listing is not mapped to a product
+  defaultProductId     String?   @db.Uuid
+  /// API token (encrypted), Gumroad only for now
+  apiToken             String?   @db.Text
+  /// first day read by the API sync
+  syncFrom             DateTime? @db.Date
+  lastSyncAt           DateTime?
+  isActive             Boolean   @default(true)
+  notes                String?   @db.Text
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  createdById          String?   @db.Uuid
+
+  listings    MarketplaceListing[]
+  orders      MarketplaceOrder[]
+  settlements MarketplaceSettlement[]
+  payouts     MarketplacePayout[]
+  stats       MarketplaceStat[]
+
+  @@unique([companyId, code])
+  @@map("marketplace_stores")
+}
+
+/// A product page on a store, mapped to an ERP product for the invoices
+model MarketplaceListing {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @db.Uuid
+  storeId      String   @db.Uuid
+  externalId   String   @db.VarChar(80)
+  title        String   @db.VarChar(300)
+  url          String?  @db.VarChar(500)
+  price        Decimal  @default(0) @db.Decimal(18, 2)
+  currencyCode String   @default("IDR") @db.VarChar(3)
+  productId    String?  @db.Uuid
+  /// ACTIVE | INACTIVE | DRAFT
+  status       String   @default("ACTIVE") @db.VarChar(8)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  store MarketplaceStore       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  lines MarketplaceOrderLine[]
+
+  @@unique([storeId, externalId])
+  @@index([companyId])
+  @@map("marketplace_listings")
+}
+
+/// An order taken on a store. No buyer name, e-mail or address is kept: the buyer country only.
+model MarketplaceOrder {
+  id                 String   @id @default(uuid()) @db.Uuid
+  companyId          String   @db.Uuid
+  storeId            String   @db.Uuid
+  externalId         String   @db.VarChar(80)
+  orderDate          DateTime
+  currencyCode       String   @db.VarChar(3)
+  /// what the buyer paid for the items (store currency, tax collected by the marketplace excluded)
+  gross              Decimal  @db.Decimal(18, 2)
+  /// marketplace fees and commissions
+  fee                Decimal  @default(0) @db.Decimal(18, 2)
+  /// sales tax / VAT the marketplace collected and pays itself (information only)
+  taxCollected       Decimal  @default(0) @db.Decimal(18, 2)
+  refunded           Decimal  @default(0) @db.Decimal(18, 2)
+  feeRefunded        Decimal  @default(0) @db.Decimal(18, 2)
+  /// PAID | PARTIAL (partly refunded) | REFUNDED
+  status             String   @default("PAID") @db.VarChar(8)
+  country            String?  @db.VarChar(2)
+  /// API | FILE | MANUAL
+  source             String   @default("FILE") @db.VarChar(6)
+  /// settlement that booked the sale
+  settlementId       String?  @db.Uuid
+  /// refund amount already booked (by the sale settlement or a later one)
+  refundBooked       Decimal  @default(0) @db.Decimal(18, 2)
+  feeRefundBooked    Decimal  @default(0) @db.Decimal(18, 2)
+  importId           String?  @db.Uuid
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  store MarketplaceStore       @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  lines MarketplaceOrderLine[]
+
+  @@unique([storeId, externalId])
+  @@index([companyId, orderDate])
+  @@index([settlementId])
+  @@map("marketplace_orders")
+}
+
+model MarketplaceOrderLine {
+  id         String  @id @default(uuid()) @db.Uuid
+  orderId    String  @db.Uuid
+  listingId  String? @db.Uuid
+  externalId String? @db.VarChar(80)
+  title      String  @db.VarChar(300)
+  qty        Decimal @default(1) @db.Decimal(18, 3)
+  /// share of the order gross
+  amount     Decimal @db.Decimal(18, 2)
+
+  order   MarketplaceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  listing MarketplaceListing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([listingId])
+  @@map("marketplace_order_lines")
+}
+
+/// Orders of a store up to a date booked at once: one sales invoice settled into the marketplace balance, fees and refunds
+model MarketplaceSettlement {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  storeId     String   @db.Uuid
+  number      String   @db.VarChar(30)
+  date        DateTime @db.Date
+  /// company currency per unit of the store currency
+  rate        Decimal  @default(1) @db.Decimal(18, 6)
+  orders      Int      @default(0)
+  /// amounts in the company currency
+  gross       Decimal  @default(0) @db.Decimal(18, 2)
+  fees        Decimal  @default(0) @db.Decimal(18, 2)
+  withheld    Decimal  @default(0) @db.Decimal(18, 2)
+  refunds     Decimal  @default(0) @db.Decimal(18, 2)
+  invoiceId   String?  @db.Uuid
+  receiptId   String?  @db.Uuid
+  /// POSTED | CANCELLED
+  status      String   @default("POSTED") @db.VarChar(9)
+  /// lines per product, the orders and refunds booked (to undo)
+  detail      Json
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  store MarketplaceStore @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, number])
+  @@index([storeId])
+  @@map("marketplace_settlements")
+}
+
+/// Money paid out by a marketplace to our bank
+model MarketplacePayout {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  storeId       String   @db.Uuid
+  externalId    String?  @db.VarChar(80)
+  date          DateTime @db.Date
+  /// amount in the store currency
+  amount        Decimal  @db.Decimal(18, 2)
+  /// amount received in the bank (company currency)
+  amountBase    Decimal  @default(0) @db.Decimal(18, 2)
+  /// transfer / conversion fee (company currency)
+  fee           Decimal  @default(0) @db.Decimal(18, 2)
+  bankAccountId String?  @db.Uuid
+  reference     String?  @db.VarChar(100)
+  /// PENDING (read from the marketplace, not booked) | POSTED | CANCELLED
+  status        String   @default("PENDING") @db.VarChar(9)
+  source        String   @default("MANUAL") @db.VarChar(6)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?  @db.Uuid
+
+  store MarketplaceStore @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
+  @@unique([storeId, externalId])
+  @@index([companyId, date])
+  @@map("marketplace_payouts")
+}
+
+/// Daily snapshot of the statistics a store or channel shows (for the period it reports)
+model MarketplaceStat {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  storeId     String   @db.Uuid
+  date        DateTime @db.Date
+  /// period the marketplace reports, e.g. "Last 30 Days: Oct 22 - Nov 20"
+  rangeLabel  String?  @db.VarChar(100)
+  visits      Int?
+  views       Int?
+  orders      Int?
+  revenue     Decimal? @db.Decimal(18, 2)
+  followers   Int?
+  favorites   Int?
+  impressions Int?
+  clicks      Int?
+  saves       Int?
+  listings    Int?
+  source      String   @default("MANUAL") @db.VarChar(6)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store MarketplaceStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, date])
+  @@index([companyId, date])
+  @@map("marketplace_stats")
+}
+
+/// Log of every API sync and file import
+model MarketplaceImport {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  storeId     String   @db.Uuid
+  /// ORDERS | STATS | PAYOUTS | SYNC
+  kind        String   @db.VarChar(8)
+  /// API | FILE
+  source      String   @db.VarChar(6)
+  fileName    String?  @db.VarChar(200)
+  created     Int      @default(0)
+  updated     Int      @default(0)
+  skipped     Int      @default(0)
+  messages    Json
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+
+  @@index([storeId, createdAt])
+  @@map("marketplace_imports")
+}

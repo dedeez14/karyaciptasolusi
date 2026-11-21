@@ -163,6 +163,12 @@ const SchoolStudentsPage = lazy(() => schoolPages().then((m) => ({ default: m.St
 const SchoolStudentPage = lazy(() => schoolPages().then((m) => ({ default: m.StudentPage })));
 const SchoolBillingPage = lazy(() => schoolPages().then((m) => ({ default: m.BillingPage })));
 const SchoolSetupPage = lazy(() => schoolPages().then((m) => ({ default: m.SetupPage })));
+const marketplacePages = () => import('@/features/marketplace/MarketplacePages');
+const MarketplaceOverviewPage = lazy(() => marketplacePages().then((m) => ({ default: m.OverviewPage })));
+const MarketplaceOrdersPage = lazy(() => marketplacePages().then((m) => ({ default: m.OrdersPage })));
+const MarketplaceSettlementsPage = lazy(() => marketplacePages().then((m) => ({ default: m.SettlementsPage })));
+const MarketplaceStatsPage = lazy(() => marketplacePages().then((m) => ({ default: m.StatsPage })));
+const MarketplaceStoresPage = lazy(() => marketplacePages().then((m) => ({ default: m.StoresPage })));
 const HerdHerdOverviewPage = lazy(() => herdPages().then((m) => ({ default: m.HerdOverviewPage })));
 const HerdAnimalsPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalsPage })));
 const HerdAnimalPage = lazy(() => herdPages().then((m) => ({ default: m.AnimalPage })));
@@ -408,6 +414,11 @@ export default function App() {
             <Route path="school/students/:id" element={<SchoolStudentPage />} />
             <Route path="school/billing" element={<SchoolBillingPage />} />
             <Route path="school/setup" element={<SchoolSetupPage />} />
+            <Route path="marketplace" element={<MarketplaceOverviewPage />} />
+            <Route path="marketplace/orders" element={<MarketplaceOrdersPage />} />
+            <Route path="marketplace/settlements" element={<MarketplaceSettlementsPage />} />
+            <Route path="marketplace/stats" element={<MarketplaceStatsPage />} />
+            <Route path="marketplace/stores" element={<MarketplaceStoresPage />} />
             <Route path="compliance" element={<ComplianceOverviewPage />} />
             <Route path="compliance/certificates" element={<CertificatesPage />} />
             <Route path="compliance/tkdn" element={<TkdnListPage />} />
