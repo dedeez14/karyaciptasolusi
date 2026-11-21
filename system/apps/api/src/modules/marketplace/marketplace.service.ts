@@ -46,6 +46,10 @@ export const storeSchema = z.object({
   syncFrom: z.preprocess((v) => (v === '' || v === null ? null : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional()),
   isActive: z.boolean().default(true),
   notes: optText(2000),
+  /** daily job */
+  autoSync: z.boolean().default(false),
+  autoSettle: z.boolean().default(false),
+  autoHour: z.coerce.number().int().min(0).max(23).default(7),
 });
 export type StoreInput = z.infer<typeof storeSchema>;
 
@@ -183,6 +187,10 @@ export class MarketplaceService {
       syncFrom: i.syncFrom ? new Date(i.syncFrom) : null,
       isActive: i.isActive,
       notes: i.notes ?? null,
+      // the daily job only reads stores that sell; Gumroad is the only API for now
+      autoSync: kind === 'STORE' && i.channel === 'GUMROAD' && i.autoSync,
+      autoSettle: kind === 'STORE' && i.autoSettle,
+      autoHour: i.autoHour,
       ...(i.apiToken === undefined ? {} : { apiToken: i.apiToken ? this.crypto.encrypt(i.apiToken) : null }),
     };
   }

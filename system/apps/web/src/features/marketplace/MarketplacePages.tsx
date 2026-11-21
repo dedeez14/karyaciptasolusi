@@ -63,6 +63,11 @@ interface Store {
   isActive: boolean;
   notes: string | null;
   hasToken: boolean;
+  autoSync: boolean;
+  autoSettle: boolean;
+  autoHour: number;
+  lastAutoRunAt: string | null;
+  lastAutoResult: string | null;
   listings: number;
   unmapped: number;
   unposted: number;
@@ -1186,6 +1191,11 @@ export function StoresPage() {
     onSuccess: (r) => (toast.success(r.made.length ? `Created ${r.made.join(' and ')}` : 'Nothing to create'), qc.invalidateQueries({ queryKey: ['marketplace'] })),
     onError: (e) => toast.error(e),
   });
+  const runDaily = useMutation({
+    mutationFn: (id: string) => api.post<{ result: string }>(`/marketplace/stores/${id}/run-daily`),
+    onSuccess: (r) => (r.result.includes('failed') || r.result.includes('blocked') ? toast.error(r.result) : toast.success(r.result), qc.invalidateQueries({ queryKey: ['marketplace'] })),
+    onError: (e) => toast.error(e),
+  });
   const del = useMutation({
     mutationFn: (id: string) => api.delete(`/marketplace/stores/${id}`),
     onSuccess: () => (toast.success('Store deleted'), qc.invalidateQueries({ queryKey: ['marketplace'] })),
@@ -1224,6 +1234,19 @@ export function StoresPage() {
                       {s.channel === 'GUMROAD' && (s.hasToken ? ' · API token saved' : ' · no API token')}
                     </span>
                     {!!s.issues.length && <span className="block text-xs text-amber-700">{s.issues.join(' · ')}</span>}
+                    {(s.autoSync || s.autoSettle) && (
+                      <span className="block text-xs text-slate-500">
+                        Daily from {String(s.autoHour).padStart(2, '0')}:00 WIB: {[s.autoSync && 'sync', s.autoSettle && 'book yesterday’s orders'].filter(Boolean).join(' + ')}
+                        {s.lastAutoRunAt ? (
+                          <span className={s.lastAutoResult?.startsWith('ERROR') ? 'text-red-600' : ''}>
+                            {' '}
+                            · last run {fmtDateTime(s.lastAutoRunAt)}: {s.lastAutoResult}
+                          </span>
+                        ) : (
+                          ' · not run yet'
+                        )}
+                      </span>
+                    )}
                   </button>
                   {s.url && (
                     <a href={s.url} target="_blank" rel="noreferrer noopener" className="text-xs text-brand hover:underline">
@@ -1231,6 +1254,11 @@ export function StoresPage() {
                     </a>
                   )}
                   <SyncButton store={s} />
+                  {(s.autoSync || s.autoSettle) && can('marketplace.import') && (!s.autoSettle || can('marketplace.post')) && (
+                    <Button size="sm" variant="secondary" icon="play" loading={runDaily.isPending && runDaily.variables === s.id} onClick={() => runDaily.mutate(s.id)}>
+                      Run daily job now
+                    </Button>
+                  )}
                   {can('marketplace.manage') && s.kind === 'STORE' && (!s.customerId || !s.balanceBankAccountId) && (
                     <Button size="sm" variant="secondary" loading={setup.isPending} onClick={() => setup.mutate(s.id)}>
                       Set up accounts
@@ -1371,12 +1399,15 @@ function StoreForm({ store, onClose }: { store: Store | null; onClose: () => voi
     syncFrom: store?.syncFrom?.slice(0, 10) ?? (null as string | null),
     isActive: store?.isActive ?? true,
     notes: store?.notes ?? '',
+    autoSync: store?.autoSync ?? false,
+    autoSettle: store?.autoSettle ?? false,
+    autoHour: String(store?.autoHour ?? 7),
   });
   const [token, setToken] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const save = useMutation({
     mutationFn: () => {
-      const body = { ...f, ...(token === undefined ? {} : { apiToken: token }) };
+      const body = { ...f, autoHour: Number(f.autoHour || 0), ...(token === undefined ? {} : { apiToken: token }) };
       return store ? api.put(`/marketplace/stores/${store.id}`, body) : api.post('/marketplace/stores', body);
     },
     onSuccess: () => (toast.success('Saved'), qc.invalidateQueries({ queryKey: ['marketplace'] }), onClose()),
@@ -1459,6 +1490,18 @@ function StoreForm({ store, onClose }: { store: Store | null; onClose: () => voi
               )}
             </>
           )}
+          <h3 className="mb-2 mt-5 text-sm font-semibold">Daily job</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Field label="Runs every day from" help="Jakarta time. Checked every 15 minutes, so a server that was off catches up when it starts">
+              <Select value={f.autoHour} onChange={(e) => setF({ ...f, autoHour: e.target.value })} options={Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00 WIB` }))} />
+            </Field>
+            <Field label=" ">
+              <Checkbox checked={f.autoSync && f.channel === 'GUMROAD'} disabled={f.channel !== 'GUMROAD'} onChange={(v) => setF({ ...f, autoSync: v })} label={f.channel === 'GUMROAD' ? 'Sync every day (products, sales, payouts)' : 'Sync every day: Gumroad only, import files for the others'} />
+            </Field>
+            <Field label=" " help="Only when nothing blocks it (rates, mapping, accounts); otherwise the reason is shown on the store">
+              <Checkbox checked={f.autoSettle} onChange={(v) => setF({ ...f, autoSettle: v })} label="Book the orders up to yesterday every day" />
+            </Field>
+          </div>
         </>
       )}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">

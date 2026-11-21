@@ -7622,6 +7622,15 @@ model MarketplaceStore {
   /// first day read by the API sync
   syncFrom             DateTime? @db.Date
   lastSyncAt           DateTime?
+  /// daily job: read the store through its API (Gumroad)
+  autoSync             Boolean   @default(false)
+  /// daily job: book the orders up to yesterday when nothing blocks the settlement
+  autoSettle           Boolean   @default(false)
+  /// hour of the day (Asia/Jakarta, 0-23) from which the daily job runs
+  autoHour             Int       @default(7)
+  lastAutoRunAt        DateTime?
+  /// what the last daily job did, or why it stopped
+  lastAutoResult       String?   @db.VarChar(500)
   isActive             Boolean   @default(true)
   notes                String?   @db.Text
   createdAt            DateTime  @default(now())

@@ -2,12 +2,14 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/
 import { Activity } from '../../common/decorators';
 import { MarketplaceService } from './marketplace.service';
 import { MarketplacePostingService } from './marketplace-posting.service';
+import { MarketplaceScheduler } from './marketplace.scheduler';
 
 @Controller('marketplace')
 export class MarketplaceController {
   constructor(
     private readonly mp: MarketplaceService,
     private readonly posting: MarketplacePostingService,
+    private readonly daily: MarketplaceScheduler,
   ) {}
 
   @Get('overview')
@@ -68,6 +70,13 @@ export class MarketplaceController {
   @Post('stores/:id/sync')
   sync(@Param('id') id: string) {
     return this.mp.sync(id);
+  }
+
+  /** the daily job of the store, now */
+  @Activity('marketplace.daily')
+  @Post('stores/:id/run-daily')
+  runDaily(@Param('id') id: string) {
+    return this.daily.runNow(id);
   }
 
   @Activity('marketplace.import')
