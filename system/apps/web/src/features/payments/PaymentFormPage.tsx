@@ -139,7 +139,7 @@ export default function PaymentFormPage() {
           </>
         }
       />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card title="Payment" className="lg:col-span-1">
           <div className="grid gap-4">
             <Field label={m.partner} required error={errors.partnerId}>
@@ -221,7 +221,7 @@ export default function PaymentFormPage() {
 
         <Card
           title="Apply to invoices"
-          className="lg:col-span-2"
+          className="lg:col-span-1"
           bodyClass="p-0"
           actions={
             invoices.data?.length ? (
