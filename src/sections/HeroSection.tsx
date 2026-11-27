@@ -103,9 +103,11 @@ export default function HeroSection() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[100dvh] flex items-center">
         <div className="grid lg:grid-cols-12 gap-8 w-full items-center py-24">
           {/* Left - Text content */}
+          {/* Kolom hero tidak di-fade dari opacity 0: elemen yang mulai transparan baru dihitung tampil
+              setelah animasi selesai, sehingga LCP (paragraf ini di mobile, gambar di desktop) mundur berdetik-detik. */}
           <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ x: -50 }}
+            animate={{ x: 0 }}
             transition={{ duration: 1, ease: easing }}
             className="lg:col-span-7"
           >
@@ -239,8 +241,8 @@ export default function HeroSection() {
 
           {/* Right - Logo visual */}
           <motion.div
-            initial={{ opacity: 0, x: 60, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
+            initial={{ x: 60, scale: 0.95 }}
+            animate={{ x: 0, scale: 1 }}
             transition={{ delay: 0.4, duration: 1, ease: easing }}
             className="lg:col-span-5 hidden lg:flex justify-center"
           >
