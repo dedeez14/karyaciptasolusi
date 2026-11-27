@@ -1,0 +1,77 @@
+import type { BlogBlock } from '../blogTypes';
+
+export const meta = {
+  slug: "pertanyaan-sebelum-menyewa-jasa-pembuatan-website",
+  title: "Pertanyaan Sebelum Menyewa Jasa Pembuatan Website: Tanyakan Tiga Hal Ini",
+  excerpt: "Sebelum menyewa jasa pembuatan website, tanyakan tiga hal ini: kepemilikan source code, garansi bug setelah tayang, dan kecepatan balasan vendor. Simak panduannya.",
+  category: "Panduan",
+  date: "27 November 2026",
+  isoDate: "2026-11-27",
+  readTime: "5 menit",
+  image: "/images/blog/panduan-3.svg",
+};
+
+const content: BlogBlock[] = [
+  { type: 'p', text: "Pertanyaan sebelum menyewa jasa pembuatan website sebaiknya diajukan sebelum Anda membayar uang muka. Jawabannya menentukan apakah website nanti benar-benar menjadi milik Anda, atau justru membuat Anda bergantung pada satu vendor selamanya." },
+  { type: 'p', text: "Website adalah wajah bisnis Anda di internet, dan biasanya dipakai bertahun-tahun. Banyak pemilik usaha baru sadar ada masalah setelah proyek selesai: file tidak diserahkan, atau setiap perubahan kecil harus antre menunggu vendor. Bertanya di awal jauh lebih mudah daripada memperbaikinya nanti." },
+  { type: 'h2', text: "Kenapa Pertanyaan Sebelum Menyewa Jasa Pembuatan Website Penting" },
+  { type: 'p', text: "Calon klien sering fokus pada tampilan dan harga, padahal ada hal lain yang sama pentingnya. Ada tiga hal yang paling sering luput:" },
+  { type: 'ul', items: [
+    "Siapa yang memegang file website setelah proyek selesai",
+    "Apa yang terjadi kalau muncul masalah beberapa hari setelah website tayang",
+    "Seberapa cepat vendor menjawab saat Anda butuh bantuan",
+  ] },
+  { type: 'p', text: "Kalau ketiganya tidak jelas sejak awal, Anda akan kesulitan membandingkan vendor mana pun. Karena itu, sebelum memutuskan, tanyakan tiga hal berikut. Jawabannya sebaiknya tertulis, bukan sekadar lisan." },
+  { type: 'h2', text: "Pertanyaan Pertama: Apakah Source Code Menjadi Milik Saya?" },
+  { type: 'p', text: "Source code adalah kumpulan file yang membentuk website atau aplikasi Anda. Anggap saja seperti gambar rumah beserta kuncinya. Tanpa itu, Anda tidak bisa pindah ke pengembang lain tanpa mengulang dari nol." },
+  { type: 'p', text: "Contoh sederhananya begini. Misalkan toko kue Anda sudah berjalan dua tahun, lalu Anda ingin pindah ke tim lain yang lebih dekat dengan lokasi usaha. Kalau file website tidak pernah diserahkan, Anda harus membuat ulang semuanya. Waktu, biaya, dan data pelanggan bisa ikut hilang di tengah jalan." },
+  { type: 'p', text: "Di Karya Cipta Solusi, source code dan dokumentasi diserahkan kepada klien setelah pelunasan, sehingga tidak terkunci pada kami. Meski begitu, jangan berhenti di janji. Pastikan hal berikut tertulis dalam kerja sama:" },
+  { type: 'ul', items: [
+    "Source code dan dokumentasi diserahkan setelah pelunasan, dengan tanggal yang jelas",
+    "Siapa pemegang akun domain dan hosting, dan siapa yang bisa mengubahnya",
+    "Daftar file atau akses apa saja yang akan Anda terima saat serah terima",
+  ] },
+  { type: 'h2', text: "Pertanyaan Kedua: Garansi Setelah Website Tayang Berapa Lama?" },
+  { type: 'p', text: "Bug setelah peluncuran itu wajar dalam pengembangan software. Sebagian baru muncul ketika pengunjung asli memakai website dengan HP dan kebiasaan mereka sendiri. Tombol yang rapi di laptop bisa saja tertutup di layar ponsel tertentu." },
+  { type: 'p', text: "Karena itu, tanyakan apakah ada garansi perbaikan bug, berapa lama masa berlakunya, dan apakah gratis. Di Karya Cipta Solusi, garansi bug fixing diberikan gratis selama 1 bulan setelah website live." },
+  { type: 'p', text: "Tanyakan juga batas antara bug dan permintaan baru. Perbaikan tombol yang tidak berfungsi berbeda dengan penambahan fitur baru, misalnya menambah menu pembayaran yang belum ada di rencana awal. Vendor yang jujur akan menjelaskan perbedaan ini sejak awal, dan sebaiknya tertulis di kontrak." },
+  { type: 'h2', text: "Pertanyaan Ketiga: Seberapa Cepat Vendor Membalas?" },
+  { type: 'p', text: "Setelah website berjalan, Anda pasti punya pertanyaan. Mungkin soal mengganti foto produk, atau ada halaman yang tidak bisa dibuka pelanggan. Vendor yang lambat membalas akan membuat masalah kecil terasa besar." },
+  { type: 'p', text: "Tanyakan dua hal: berapa lama waktu balasan maksimal, dan siapa yang menjawab. Di Karya Cipta Solusi, respon maksimal 1x24 jam, langsung dengan tim pengerja melalui WhatsApp, bukan bot. Jam kerja kami Senin sampai Jumat pukul 09.00 sampai 17.00 WIB, dan Sabtu pukul 09.00 sampai 14.00 WIB." },
+  { type: 'p', text: "Selama pengerjaan, tanyakan juga bagaimana progres dilaporkan. Vendor yang baik biasanya memberi demo atau MVP di tengah pengerjaan dan update rutin, sehingga Anda tidak perlu terus mengejar. Kami juga bersedia menandatangani NDA, dan kerahasiaan ide serta data klien dijaga." },
+  { type: 'h2', text: "Berapa Lama Pengerjaan dan Bagaimana Cara Bayarnya?" },
+  { type: 'p', text: "Dua pertanyaan ini wajar, dan jawabannya sebaiknya konkret. Sebagai gambaran umum di Karya Cipta Solusi:" },
+  { type: 'ul', items: [
+    "Aplikasi sederhana: sekitar 2 sampai 4 minggu",
+    "Proyek kompleks: sekitar 2 sampai 3 bulan",
+    "Estimasi pasti diberikan setelah kami berdiskusi tentang kebutuhan Anda",
+  ] },
+  { type: 'p', text: "Harga kami tidak berupa paket tetap. Harga menyesuaikan jumlah halaman, fitur, dan tingkat kompleksitas. Karena itu, artikel ini tidak mencantumkan angka. Yang bisa Anda perhatikan adalah cara bayarnya: DP 30 persen, pembayaran 40 persen saat demo atau MVP, dan pelunasan 30 persen setelah website selesai dan tayang. Dengan skema ini, klien tidak membayar penuh sebelum melihat hasilnya." },
+  { type: 'p', text: "Hindari vendor yang meminta pembayaran penuh di muka tanpa bukti kemajuan. Kalau ada yang menolak menjelaskan tahap pembayarannya, itu juga patut dicatat." },
+  { type: 'h2', text: "Yang Perlu Anda Siapkan Sebelum Konsultasi" },
+  { type: 'p', text: "Anda tidak perlu paham teknis. Cukup siapkan beberapa hal sederhana supaya konsultasi lebih efektif:" },
+  { type: 'ul', items: [
+    "Tujuan website: profil perusahaan, toko online, landing page, atau sistem internal",
+    "Siapa calon pengunjung atau pelanggan Anda",
+    "Daftar halaman yang Anda bayangkan, misalnya beranda, produk, dan kontak",
+    "Contoh website yang Anda suka, serta yang tidak Anda suka",
+    "Materi awal seperti logo, foto, dan deskripsi usaha",
+    "Tenggat yang Anda inginkan",
+    "Akun domain dan hosting yang sudah Anda miliki, jika ada",
+  ] },
+  { type: 'p', text: "Kalau sebagian belum siap, tidak masalah. Dari diskusi, kami bisa membantu menyusun kebutuhan Anda pelan-pelan." },
+  { type: 'h2', text: "Kesalahan Umum Saat Menyewa Jasa Pembuatan Website" },
+  { type: 'p', text: "Ada beberapa kesalahan yang sering terjadi:" },
+  { type: 'ul', items: [
+    "Hanya melihat tangkapan layar portofolio, tanpa membuka websitenya langsung",
+    "Menyetujui kerja sama secara lisan saja",
+    "Membayar penuh di muka",
+    "Tidak bertanya soal kepemilikan source code sejak awal",
+    "Hanya membandingkan harga, tanpa memeriksa apa saja yang akan didapat",
+  ] },
+  { type: 'p', text: "Sebagai bahan pembanding, Anda bisa membuka demo hidup kami sendiri, misalnya aplikasi akuntansi Macco, aplikasi koperasi SISKOMEPU, dan ERP MOVERA. Dari sana Anda bisa menilai sendiri kualitas dan kerapiannya, tanpa harus percaya begitu saja pada promosi." },
+  { type: 'p', text: "Kantor kami berada di Depok, dan kami melayani klien di seluruh Indonesia serta luar negeri secara online. Jika Anda sedang membandingkan jasa pembuatan website, ajukan tiga pertanyaan ini kepada siapa pun, termasuk kepada kami. Jawaban yang jelas dan tertulis adalah tanda vendor yang bisa dipercaya." },
+  { type: 'p', text: "Silakan hubungi WhatsApp Karya Cipta Solusi di nomor 0838-9891-1244 untuk konsultasi gratis, Senin sampai Jumat pukul 09.00 sampai 17.00 WIB atau Sabtu pukul 09.00 sampai 14.00 WIB. Kami bantu petakan kebutuhan Anda dulu, sebelum Anda memutuskan apa pun." },
+];
+
+export default content;

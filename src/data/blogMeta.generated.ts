@@ -3,6 +3,16 @@ import type { BlogMeta } from './blogTypes';
 
 export const blogMeta: BlogMeta[] = [
   {
+    slug: "pertanyaan-sebelum-menyewa-jasa-pembuatan-website",
+    title: "Pertanyaan Sebelum Menyewa Jasa Pembuatan Website: Tanyakan Tiga Hal Ini",
+    excerpt: "Sebelum menyewa jasa pembuatan website, tanyakan tiga hal ini: kepemilikan source code, garansi bug setelah tayang, dan kecepatan balasan vendor. Simak panduannya.",
+    category: "Panduan",
+    date: "27 November 2026",
+    isoDate: "2026-11-27",
+    readTime: "5 menit",
+    image: "/images/blog/panduan-3.svg",
+  },
+  {
     slug: "apa-itu-domain-dan-cara-memilihnya",
     title: "Apa Itu Domain? Panduan Memilih Nama Domain untuk Bisnis",
     excerpt: "Kenali cara kerja domain, arti setiap ekstensi seperti .com dan .co.id, serta cara memilih nama yang mudah diingat dan aman dimiliki jangka panjang.",
