@@ -7,6 +7,7 @@ import { blogPosts, getPostBySlug, loadContent, relatedPosts } from '../data/blo
 import { themeOf } from '../data/categoryTheme';
 import { usePageMeta } from '../hooks/usePageMeta';
 import SubPageHeader from '../components/SubPageHeader';
+import { useSite } from '../lib/siteContext';
 
 const easing = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -43,6 +44,7 @@ function BlockRenderer({ block, accent }: { block: BlogBlock; accent: string }) 
 
 export default function BlogPost() {
   const { slug } = useParams();
+  const { waLink } = useSite();
   const post = slug ? getPostBySlug(slug) : undefined;
   const [content, setContent] = useState<BlogBlock[] | null>(null);
 
@@ -193,7 +195,7 @@ export default function BlogPost() {
               <p className="text-white/75 text-sm">Konsultasi gratis — harga menyesuaikan kebutuhan Anda.</p>
             </div>
             <a
-              href="https://wa.me/6283898911244?text=Halo,%20saya%20ingin%20konsultasi%20pembuatan%20website"
+              href={waLink('Halo, saya ingin konsultasi pembuatan website')}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-white hover:bg-[#F8FAFC] transition-colors flex-shrink-0 group"
@@ -209,12 +211,12 @@ export default function BlogPost() {
             {older ? (
               <Link
                 to={`/blog/${older.slug}`}
-                className="group flex flex-col p-5 rounded-2xl border border-[#E2E8F0] bg-white hover:border-[#2563EB]/40 hover:shadow-lg transition-all duration-300"
+                className="group flex flex-col p-5 rounded-2xl border border-[#E2E8F0] bg-white hover:border-brand/40 hover:shadow-lg transition-all duration-300"
               >
                 <span className="flex items-center gap-1.5 text-[10px] font-bold text-[#475569] uppercase tracking-wider mb-2">
                   <ArrowLeft size={11} /> Sebelumnya
                 </span>
-                <span className="font-bold text-sm text-[#0F172A] leading-snug group-hover:text-[#1D4ED8] transition-colors">
+                <span className="font-bold text-sm text-[#0F172A] leading-snug group-hover:text-brand transition-colors">
                   {older.title}
                 </span>
               </Link>
@@ -224,12 +226,12 @@ export default function BlogPost() {
             {newer && (
               <Link
                 to={`/blog/${newer.slug}`}
-                className="group flex flex-col p-5 rounded-2xl border border-[#E2E8F0] bg-white hover:border-[#2563EB]/40 hover:shadow-lg transition-all duration-300 sm:text-right"
+                className="group flex flex-col p-5 rounded-2xl border border-[#E2E8F0] bg-white hover:border-brand/40 hover:shadow-lg transition-all duration-300 sm:text-right"
               >
                 <span className="flex items-center gap-1.5 text-[10px] font-bold text-[#475569] uppercase tracking-wider mb-2 sm:justify-end">
                   Berikutnya <ArrowRight size={11} />
                 </span>
-                <span className="font-bold text-sm text-[#0F172A] leading-snug group-hover:text-[#1D4ED8] transition-colors">
+                <span className="font-bold text-sm text-[#0F172A] leading-snug group-hover:text-brand transition-colors">
                   {newer.title}
                 </span>
               </Link>
@@ -264,7 +266,7 @@ export default function BlogPost() {
                       <p className="text-[10px] font-bold mb-1.5" style={{ color: rt.ink }}>
                         {r.category} · {r.readTime}
                       </p>
-                      <p className="font-bold text-[13px] text-[#0F172A] leading-snug group-hover:text-[#1D4ED8] transition-colors">
+                      <p className="font-bold text-[13px] text-[#0F172A] leading-snug group-hover:text-brand transition-colors">
                         {r.title}
                       </p>
                     </div>

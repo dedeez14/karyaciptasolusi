@@ -1,0 +1,8 @@
+{
+  "name": "deepmerge",
+  "version": "4.3.1-kcs.1",
+  "description": "Prototype-pollution safe drop-in replacement for deepmerge 4.3.1 (GHSA-gcqx-w48m-w2h4), used via overrides",
+  "main": "index.js",
+  "license": "MIT",
+  "private": true
+}

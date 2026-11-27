@@ -8,6 +8,7 @@ import { DocumentService } from './document.service';
 import { DocumentPrintService } from '../print/document-print.service';
 import { FileOutputService } from '../files/file-output.service';
 import { MailService } from '../integrations/mail.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 const listSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -25,7 +26,7 @@ const emailSchema = z.object({ to: z.email(), cc: z.email().optional().or(z.lite
 
 @Controller('documents')
 export class DocumentController {
-  constructor(private readonly docs: DocumentService, private readonly printer: DocumentPrintService, private readonly output: FileOutputService, private readonly mail: MailService) {}
+  constructor(private readonly docs: DocumentService, private readonly printer: DocumentPrintService, private readonly output: FileOutputService, private readonly mail: MailService, private readonly prisma: PrismaService) {}
 
   @Get('types')
   types() {
@@ -42,6 +43,13 @@ export class DocumentController {
     return this.docs.get(type, id);
   }
 
+  /** Change history of a document (from the immutable audit trail) */
+  @Get(':type/:id/history')
+  async history(@Param('type') type: string, @Param('id') id: string) {
+    await this.docs.get(type, id); // permission + ownership check
+    return this.prisma.auditLog.findMany({ where: { entityId: id, companyId: RequestCtx.companyId() }, orderBy: { id: 'desc' }, take: 100, select: { id: true, action: true, username: true, createdAt: true, before: true, after: true } });
+  }
+
   @Post(':type')
   create(@Param('type') type: string, @Body() body: unknown) {
     return this.docs.create(type, body);
@@ -50,6 +58,12 @@ export class DocumentController {
   @Patch(':type/:id')
   update(@Param('type') type: string, @Param('id') id: string, @Body() body: unknown) {
     return this.docs.update(type, id, body);
+  }
+
+  /** Nomor Faktur Pajak - can be filled in after the invoice was confirmed */
+  @Patch(':type/:id/tax-invoice-number')
+  taxInvoiceNumber(@Param('type') type: string, @Param('id') id: string, @Body(new ZodPipe(z.object({ taxInvoiceNumber: z.string().trim().max(40).nullable().optional() }))) body: { taxInvoiceNumber?: string | null }) {
+    return this.docs.setTaxInvoiceNumber(type, id, body.taxInvoiceNumber ?? null);
   }
 
   @Delete(':type/:id')
@@ -62,9 +76,31 @@ export class DocumentController {
     return this.docs.confirm(type, id);
   }
 
+  /** Approval status, required levels and history of a document */
+  @Get(':type/:id/approval')
+  approval(@Param('type') type: string, @Param('id') id: string) {
+    return this.docs.approval(type, id);
+  }
+
+  @Post(':type/:id/request-approval')
+  requestApproval(@Param('type') type: string, @Param('id') id: string) {
+    return this.docs.requestApproval(type, id);
+  }
+
   @Post(':type/:id/cancel')
   cancel(@Param('type') type: string, @Param('id') id: string) {
     return this.docs.cancel(type, id);
+  }
+
+  /** credit / debit notes: where they were applied; invoices: which notes settled them */
+  @Get(':type/:id/credits')
+  credits(@Param('type') type: string, @Param('id') id: string) {
+    return this.docs.credits(type, id);
+  }
+
+  @Post(':type/:id/apply-credit')
+  applyCredit(@Param('type') type: string, @Param('id') id: string, @Body(new ZodPipe(z.object({ invoiceId: z.uuid(), amount: z.coerce.number().positive().max(1e14) }))) body: { invoiceId: string; amount: number }) {
+    return this.docs.applyCredit(type, id, body);
   }
 
   @Post(':type/:id/convert/:target')

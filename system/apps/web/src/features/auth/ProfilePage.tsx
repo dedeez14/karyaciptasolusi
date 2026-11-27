@@ -4,6 +4,8 @@ import { api, ApiError } from '@/lib/api';
 import { fmtDateTime } from '@/lib/format';
 import { useSession } from '@/stores/session';
 import { Button, Card, Field, Icon, Input, PageHeader, toast } from '@/components/ui';
+import { TwoFactorCard } from './TwoFactorCard';
+import { SignatureCard } from './SignatureCard';
 
 export default function ProfilePage() {
   const { me, logout } = useSession();
@@ -35,11 +37,18 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-2xl">
       <PageHeader title="My Profile" subtitle={me?.user.email} />
       {forced && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <Icon name="key-round" className="mt-0.5 h-4 w-4" /> For your security, please set a new password before continuing.
         </div>
       )}
+      {!forced && me?.user.mfaSetupRequired && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <Icon name="shield-alert" className="mt-0.5 h-4 w-4" /> Your role requires two-factor sign-in. Set it up below to continue using the app.
+        </div>
+      )}
       <div className="grid gap-4">
+        {!forced && <SignatureCard />}
+        {!forced && <TwoFactorCard />}
         <Card title="Account">
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <dt className="text-slate-500">Name</dt>

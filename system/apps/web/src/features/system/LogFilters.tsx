@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Icon, Input, Select } from '@/components/ui';
+import { Button, DatePicker, Icon, Input, Select } from '@/components/ui';
 
 export interface LogFilterValue {
   search?: string;
@@ -13,7 +13,7 @@ export interface LogFilterValue {
 export function LogFilters({ value, onChange, entities, actionPlaceholder = 'Action' }: { value: LogFilterValue; onChange: (v: LogFilterValue) => void; entities?: string[]; actionPlaceholder?: string }) {
   const [search, setSearch] = useState(value.search ?? '');
   return (
-    <div className="grid grid-cols-1 gap-2 border-b border-slate-100 p-3 sm:grid-cols-2 lg:grid-cols-6 dark:border-slate-800">
+    <div className="grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-6">
       <form
         className="relative lg:col-span-2"
         onSubmit={(e) => {
@@ -28,9 +28,9 @@ export function LogFilters({ value, onChange, entities, actionPlaceholder = 'Act
         <Select value={value.entity ?? ''} onChange={(e) => onChange({ ...value, entity: e.target.value })} placeholder="All entities" options={entities.map((e) => ({ value: e, label: e }))} />
       ) : null}
       <Input placeholder={actionPlaceholder} value={value.action ?? ''} onChange={(e) => onChange({ ...value, action: e.target.value })} />
-      <Input type="date" value={value.from ?? ''} onChange={(e) => onChange({ ...value, from: e.target.value })} aria-label="From" />
+      <DatePicker value={value.from ?? ''} onChange={(v) => onChange({ ...value, from: v })} placeholder="From date" aria-label="From" />
       <div className="flex gap-2">
-        <Input type="date" value={value.to ?? ''} onChange={(e) => onChange({ ...value, to: e.target.value })} aria-label="To" />
+        <DatePicker value={value.to ?? ''} onChange={(v) => onChange({ ...value, to: v })} placeholder="To date" aria-label="To" />
         <Button
           variant="ghost"
           size="icon"

@@ -20,7 +20,7 @@ export default function Preloader() {
         <div className="preloader-bar">
           <div className="preloader-bar-inner" />
         </div>
-        <p className="text-xs font-semibold tracking-[0.2em] uppercase" style={{ color: '#1D4ED8' }}>
+        <p className="text-xs font-semibold tracking-[0.2em] uppercase" style={{ color: 'rgb(var(--brand))' }}>
           Memuat
         </p>
       </div>

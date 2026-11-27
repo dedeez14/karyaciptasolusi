@@ -5,6 +5,7 @@ import InvoiceGenerator from './tools/InvoiceGenerator';
 import KwitansiGenerator from './tools/KwitansiGenerator';
 import SuratPenawaranGenerator from './tools/SuratPenawaranGenerator';
 import SuratKontrakGenerator from './tools/SuratKontrakGenerator';
+import { BRAND } from '../lib/brand';
 
 const easing = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -14,32 +15,32 @@ const tools = [
     label: 'Invoice',
     icon: FileText,
     desc: 'Generate invoice profesional dengan format rapi dan otomatis.',
-    gradient: 'from-[#2563EB] via-[#60A5FA] to-[#1D4ED8]',
-    shadowColor: 'rgba(37, 99, 235, 0.25)',
+    gradient: 'from-brand via-brand-light to-brand-dark',
+    shadowColor: 'rgb(var(--brand) / 0.25)',
   },
   {
     id: 'kwitansi',
     label: 'Kwitansi',
     icon: Receipt,
     desc: 'Generate kwitansi pembayaran yang valid dan terstruktur.',
-    gradient: 'from-[#0F4C81] via-[#1565A0] to-[#1E6BAF]',
-    shadowColor: 'rgba(15, 76, 129, 0.25)',
+    gradient: 'from-brand-dark via-brand to-brand-light',
+    shadowColor: 'rgb(var(--brand-dark) / 0.25)',
   },
   {
     id: 'penawaran',
     label: 'Surat Penawaran',
     icon: FileSpreadsheet,
     desc: 'Generate surat penawaran harga untuk klien Anda.',
-    gradient: 'from-[#1E6BAF] via-[#2980B9] to-[#0F4C81]',
-    shadowColor: 'rgba(30, 107, 175, 0.25)',
+    gradient: 'from-brand-light via-brand-light to-brand-dark',
+    shadowColor: 'rgb(var(--brand-light) / 0.25)',
   },
   {
     id: 'kontrak',
     label: 'Surat Perjanjian',
     icon: ShieldCheck,
     desc: 'Generate draft perjanjian kerja yang profesional.',
-    gradient: 'from-[#1D4ED8] via-[#1E40AF] to-[#0F4C81]',
-    shadowColor: 'rgba(29, 78, 216, 0.25)',
+    gradient: 'from-brand-dark via-brand-darker to-brand-dark',
+    shadowColor: 'rgb(var(--brand-darker) / 0.25)',
   },
 ];
 
@@ -73,7 +74,7 @@ export default function Tools() {
                   exit={{ opacity: 0, x: -10, scale: 0.8 }}
                   transition={{ duration: 0.2 }}
                   onClick={() => setActiveTool(null)}
-                  whileHover={{ scale: 1.08, backgroundColor: '#DBEAFE' }}
+                  whileHover={{ scale: 1.08, backgroundColor: BRAND.tintStrong }}
                   whileTap={{ scale: 0.95 }}
                   className="p-2 rounded-xl transition-colors"
                 >
@@ -162,7 +163,7 @@ export default function Tools() {
                   className="text-3xl sm:text-4xl font-bold text-[#0F172A] mb-3"
                   style={{ fontFamily: "'Space Grotesk', sans-serif" }}
                 >
-                  Pilih <span style={{ color: '#1D4ED8' }}>Generator</span>
+                  Pilih <span className="text-accent">Generator</span>
                 </h2>
                 <p className="text-[#475569] text-sm max-w-md mx-auto leading-relaxed">
                   Buat invoice, kwitansi, dan surat-surat untuk PT Karya Cipta Solusi dengan cepat dan mudah.
@@ -204,7 +205,7 @@ export default function Tools() {
                     </motion.div>
 
                     {/* Card text */}
-                    <h3 className="font-bold text-[#0F172A] text-base mb-2 relative z-10 group-hover:text-[#1D4ED8] transition-colors duration-200">
+                    <h3 className="font-bold text-[#0F172A] text-base mb-2 relative z-10 group-hover:text-brand transition-colors duration-200">
                       {tool.label}
                     </h3>
                     <p className="text-xs text-[#475569] leading-relaxed mb-4 relative z-10">
@@ -217,7 +218,7 @@ export default function Tools() {
                       whileHover={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.25 }}
                       className="flex items-center gap-1 text-xs font-bold relative z-10"
-                      style={{ color: '#1D4ED8' }}
+                      style={{ color: 'rgb(var(--brand))' }}
                     >
                       <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1">
                         Buka Tool <ArrowRight size={12} />

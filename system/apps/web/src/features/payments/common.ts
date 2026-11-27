@@ -10,6 +10,12 @@ export interface PaymentRow {
   bankAccountId: string;
   paymentMethodId: string | null;
   amount: string;
+  /** income tax withheld (PPh 23 / 4(2) / final) */
+  whtAmount?: string;
+  whtBase?: string;
+  whtRate?: string;
+  whtSlipNo?: string | null;
+  whtSlipDate?: string | null;
   reference: string | null;
   notes: string | null;
   status: string;

@@ -34,15 +34,15 @@ export interface ReportResult {
 }
 
 export const MODULES: Record<string, { label: string; icon: string; color: string }> = {
-  sales: { label: 'Sales', icon: 'shopping-cart', color: '#2563eb' },
-  purchase: { label: 'Purchase', icon: 'shopping-bag', color: '#f59e0b' },
+  sales: { label: 'Sales', icon: 'shopping-cart', color: '#1d4f7a' },
+  purchase: { label: 'Purchase', icon: 'shopping-bag', color: '#f8b810' },
   inventory: { label: 'Inventory', icon: 'boxes', color: '#10b981' },
   accounting: { label: 'Accounting', icon: 'calculator', color: '#8b5cf6' },
   crm: { label: 'Marketing & CRM', icon: 'megaphone', color: '#ef4444' },
   hris: { label: 'HRIS', icon: 'id-card', color: '#06b6d4' },
 };
 
-export const CHART_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b'];
+export const CHART_COLORS = ['#1d4f7a', '#f8b810', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b'];
 
 export function defaultValue(d?: string): string {
   if (d === 'monthStart') return monthStart();

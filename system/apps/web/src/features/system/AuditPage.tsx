@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api, type Paged } from '@/lib/api';
-import { fmtDateTime } from '@/lib/format';
+import { fmtDateTime, humanize, fmtByType } from '@/lib/format';
 import { Badge, Card, DataTable, Modal, Pagination, PageHeader, type Column, type Tone } from '@/components/ui';
 import { LogFilters, type LogFilterValue } from './LogFilters';
 
@@ -20,7 +20,8 @@ interface AuditRow {
 }
 
 const ACTION_TONE: Record<string, Tone> = { CREATE: 'green', UPDATE: 'blue', DELETE: 'red', CANCEL: 'red', CONFIRM: 'violet', APPROVED: 'green', REJECTED: 'red' };
-const show = (v: unknown) => (v === null || v === undefined ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v));
+// readable values: dates in the company format, booleans as Yes/No, objects as JSON
+const show = (v: unknown) => (v === null || v === undefined ? '—' : typeof v === 'object' ? JSON.stringify(v, (_k, x) => (typeof x === 'string' ? fmtByType(x) : x)) : fmtByType(v) || String(v));
 
 export default function AuditPage() {
   const [filters, setFilters] = useState<LogFilterValue>({});
@@ -37,7 +38,7 @@ export default function AuditPage() {
   const columns: Column<AuditRow>[] = [
     { key: 'createdAt', header: 'Time', render: (r) => <span className="whitespace-nowrap">{fmtDateTime(r.createdAt)}</span> },
     { key: 'username', header: 'User', render: (r) => r.username ?? <span className="text-slate-400">system</span> },
-    { key: 'action', header: 'Action', render: (r) => <Badge tone={ACTION_TONE[r.action] ?? 'gray'}>{r.action}</Badge> },
+    { key: 'action', header: 'Action', render: (r) => <Badge tone={ACTION_TONE[r.action] ?? 'gray'}>{humanize(r.action)}</Badge> },
     { key: 'entity', header: 'Entity' },
     { key: 'entityId', header: 'Record', render: (r) => <span className="font-mono text-xs text-slate-500">{r.entityId?.slice(0, 8) ?? ''}</span> },
     {
@@ -91,9 +92,9 @@ export default function AuditPage() {
               </div>
             </div>
             {fields.length ? (
-              <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="overflow-x-auto rounded-lg border border-line">
                 <table className="w-full text-xs">
-                  <thead className="bg-slate-50 text-left text-slate-500 dark:bg-slate-800">
+                  <thead className="bg-slate-50 text-left text-slate-500">
                     <tr>
                       <th className="px-3 py-2">Field</th>
                       <th className="px-3 py-2">Before</th>
@@ -102,10 +103,10 @@ export default function AuditPage() {
                   </thead>
                   <tbody>
                     {fields.map((f) => (
-                      <tr key={f} className="border-t border-slate-100 align-top dark:border-slate-800">
+                      <tr key={f} className="border-t border-line align-top">
                         <td className="px-3 py-2 font-medium">{f}</td>
-                        <td className="px-3 py-2 break-all text-red-600 dark:text-red-400">{show(detail.before?.[f])}</td>
-                        <td className="px-3 py-2 break-all text-emerald-700 dark:text-emerald-400">{show(detail.after?.[f])}</td>
+                        <td className="px-3 py-2 break-all text-red-600">{show(detail.before?.[f])}</td>
+                        <td className="px-3 py-2 break-all text-emerald-700">{show(detail.after?.[f])}</td>
                       </tr>
                     ))}
                   </tbody>

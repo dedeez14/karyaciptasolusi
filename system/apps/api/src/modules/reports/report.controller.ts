@@ -1,22 +1,42 @@
-import { Controller, Get, NotFoundException, Param, Query, Res } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, NotFoundException, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Activity } from '../../common/decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { RequestCtx } from '../../common/context/request-context';
+import { CryptoService } from '../../common/crypto/crypto.service';
 import { FileOutputService } from '../files/file-output.service';
-import { REPORT_MAP, REPORTS, ReportDef } from './report.registry';
+import { REPORT_MAP, REPORTS, ReportCtx, ReportDef } from './report.registry';
 
 const SAFE = /^[\w\-:.,]{0,60}$/;
 
 @Controller('reports')
 export class ReportController {
-  constructor(private readonly prisma: PrismaService, private readonly output: FileOutputService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly output: FileOutputService,
+    private readonly audit: AuditService,
+    private readonly crypto: CryptoService,
+  ) {}
+
+  private ctx(def: ReportDef, q: Record<string, unknown>): ReportCtx {
+    const u = RequestCtx.user();
+    const companyWide = u.isSuperAdmin || u.dataScope === 'ALL' || u.dataScope === 'COMPANY';
+    return { prisma: this.prisma, companyId: RequestCtx.companyId(), p: this.params(def, q), decrypt: (v) => this.crypto.decrypt(v), can: (c) => RequestCtx.can(c), branchIds: companyWide ? null : (u.branchIds ?? null) };
+  }
+
+  /** company-wide roles run every report; branch roles only the branch aware ones; own-records roles none */
+  private allowedByScope(def: ReportDef) {
+    const u = RequestCtx.user();
+    if (u.isSuperAdmin || u.dataScope === 'ALL' || u.dataScope === 'COMPANY') return true;
+    return u.dataScope === 'BRANCH' && !!def.branchAware;
+  }
 
   private def(key: string): ReportDef {
     const d = REPORT_MAP.get(key);
     if (!d) throw new NotFoundException('Report not found');
     RequestCtx.assert(`report.${d.key}.view`);
+    if (!this.allowedByScope(d)) throw new ForbiddenException('This report covers the whole company. It needs a role with company-wide data access.');
     return d;
   }
 
@@ -35,14 +55,14 @@ export class ReportController {
 
   @Get()
   list() {
-    return REPORTS.filter((r) => RequestCtx.can(`report.${r.key}.view`)).map(({ run, ...r }) => r);
+    return REPORTS.filter((r) => RequestCtx.can(`report.${r.key}.view`) && this.allowedByScope(r)).map(({ run, ...r }) => r);
   }
 
   @Get(':key')
   async run(@Param('key') key: string, @Query() q: Record<string, unknown>) {
     const def = this.def(key);
     const { run, ...meta } = def;
-    const result = await run({ prisma: this.prisma, companyId: RequestCtx.companyId(), p: this.params(def, q) });
+    const result = await run(this.ctx(def, q));
     return { report: meta, ...result };
   }
 
@@ -50,8 +70,8 @@ export class ReportController {
   @Get(':key/export')
   async export(@Param('key') key: string, @Query() q: Record<string, unknown>, @Res() res: Response) {
     const def = this.def(key);
-    const r = await def.run({ prisma: this.prisma, companyId: RequestCtx.companyId(), p: this.params(def, q) });
+    const r = await def.run(this.ctx(def, q));
     this.audit.activity('report.export', { report: key, format: q.format });
-    await this.output.sendTable(res, { title: def.label, subtitle: r.subtitle, columns: r.columns, rows: r.rows, totals: r.totals }, String(q.format ?? 'xlsx'), q.save === '1');
+    await this.output.sendTable(res, { title: def.label, subtitle: r.subtitle, columns: r.columns, rows: r.rows, totals: r.totals }, String(q.format ?? 'xlsx'), q.save === '1', q.inline === '1');
   }
 }

@@ -5,6 +5,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        /* Warna brand KCS — nilainya didefinisikan sekali di src/index.css (:root) */
+        brand: {
+          DEFAULT: "rgb(var(--brand) / <alpha-value>)",
+          dark: "rgb(var(--brand-dark) / <alpha-value>)",
+          darker: "rgb(var(--brand-darker) / <alpha-value>)",
+          light: "rgb(var(--brand-light) / <alpha-value>)",
+          tint: "rgb(var(--brand-tint) / <alpha-value>)",
+          "tint-strong": "rgb(var(--brand-tint-strong) / <alpha-value>)",
+        },
+        gold: {
+          DEFAULT: "rgb(var(--gold) / <alpha-value>)",
+          dark: "rgb(var(--gold-dark) / <alpha-value>)",
+          ink: "rgb(var(--brand-darker) / <alpha-value>)",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

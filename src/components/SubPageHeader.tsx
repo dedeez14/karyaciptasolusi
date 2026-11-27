@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useSite } from '../lib/siteContext';
 
 export default function SubPageHeader({ subtitle }: { subtitle: string }) {
+  const { waLink } = useSite();
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-[#E2E8F0]">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
@@ -21,7 +23,7 @@ export default function SubPageHeader({ subtitle }: { subtitle: string }) {
             >
               {subtitle}
             </p>
-            <p className="text-[#1D4ED8] text-[9px] font-bold tracking-[0.15em] uppercase truncate">
+            <p className="text-brand text-[9px] font-bold tracking-[0.15em] uppercase truncate">
               PT Karya Cipta Solusi
             </p>
           </div>
@@ -33,7 +35,7 @@ export default function SubPageHeader({ subtitle }: { subtitle: string }) {
             <span className="hidden sm:inline">Beranda</span>
           </Link>
           <a
-            href="https://wa.me/6283898911244?text=Halo,%20saya%20ingin%20konsultasi%20gratis"
+            href={waLink('Halo, saya ingin konsultasi gratis')}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-primary btn-small whitespace-nowrap"

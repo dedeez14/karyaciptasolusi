@@ -82,12 +82,28 @@ export class CryptoService {
     return ab.length === bb.length && timingSafeEqual(ab, bb);
   }
 
-  hashPassword(password: string): Promise<string> {
-    // Argon2id, OWASP recommended parameters
-    return argonHash(password, { memoryCost: 19456, timeCost: 2, parallelism: 1 });
+  private readonly pepper = Buffer.from(env.PASSWORD_PEPPER, 'base64');
+
+  /** HMAC-SHA256 with the server-side pepper: a stolen database alone is not enough to brute-force passwords */
+  private peppered(password: string) {
+    return createHmac('sha256', this.pepper).update(password.normalize('NFKC')).digest('base64');
+  }
+
+  /**
+   * Salting & hashing: Argon2id (memory-hard, random 16-byte salt per password, OWASP parameters)
+   * over the peppered password. Stored as `p1$<argon2 encoded hash incl. salt>`.
+   */
+  async hashPassword(password: string): Promise<string> {
+    return 'p1$' + (await argonHash(this.peppered(password), { memoryCost: 19456, timeCost: 2, parallelism: 1 }));
   }
 
   verifyPassword(hash: string, password: string): Promise<boolean> {
-    return argonVerify(hash, password).catch(() => false);
+    if (hash.startsWith('p1$')) return argonVerify(hash.slice(3), this.peppered(password)).catch(() => false);
+    return argonVerify(hash, password).catch(() => false); // legacy (pre-pepper) hash
+  }
+
+  /** true when the stored hash uses an older scheme and should be upgraded at the next successful login */
+  needsRehash(hash: string) {
+    return !hash.startsWith('p1$');
   }
 }

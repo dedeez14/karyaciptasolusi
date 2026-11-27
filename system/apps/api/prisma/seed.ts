@@ -41,7 +41,7 @@ async function main() {
   for (const [code, parent, label, icon, path, permissionCode] of MENUS) {
     order += 10;
     const parentId = parent ? menuIds.get(parent) ?? null : null;
-    const m = await prisma.menu.upsert({ where: { code }, create: { code, parentId, label, icon, path, permissionCode, sortOrder: order }, update: { permissionCode } });
+    const m = await prisma.menu.upsert({ where: { code }, create: { code, parentId, label, icon, path, permissionCode, sortOrder: order }, update: { permissionCode } }); // never override menu order changed in Menu Management
     menuIds.set(code, m.id);
   }
 
@@ -50,9 +50,11 @@ async function main() {
   for (const [code, name, dataScope, rules] of ROLES) {
     const existing = await prisma.role.findFirst({ where: { companyId: null, code } });
     const role = existing ?? (await prisma.role.create({ data: { code, name, dataScope, isSystem: true } }));
-    const matched = allPerms.filter((p) =>
-      rules.some((r) => r === '*' || (r.startsWith('*.') ? p.code.endsWith(r.slice(1)) : r.endsWith('.') || r.endsWith('-') ? p.code.startsWith(r) : p.code === r || p.code.startsWith(r + '.'))),
-    );
+    const hit = (p: { code: string }, r: string) => r === '*' || (r.startsWith('*.') ? p.code.endsWith(r.slice(1)) : r.endsWith('.') || r.endsWith('-') ? p.code.startsWith(r) : p.code === r || p.code.startsWith(r + '.'));
+    // "!prefix" removes permissions matched by the other rules
+    const include = rules.filter((r) => !r.startsWith('!'));
+    const exclude = rules.filter((r) => r.startsWith('!')).map((r) => r.slice(1));
+    const matched = allPerms.filter((p) => include.some((r) => hit(p, r)) && !exclude.some((r) => hit(p, r)));
     await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
     await prisma.rolePermission.createMany({ data: matched.map((p) => ({ roleId: role.id, permissionId: p.id })), skipDuplicates: true });
   }
@@ -88,6 +90,33 @@ async function main() {
     await prisma.userAssignment.create({ data: { userId: admin.id, companyId: company.id, roleId: adminRole.id } });
     console.log(`Super administrator "${username}" created (password from SEED_ADMIN_PASSWORD).`);
   }
+  console.log('Encrypting sensitive fields at rest...');
+  const { createCipheriv, randomBytes } = await import('node:crypto');
+  const encKey = Buffer.from(process.env.ENCRYPTION_KEY!, 'base64').subarray(0, 32);
+  const enc = (plain: string) => {
+    const iv = randomBytes(12);
+    const c = createCipheriv('aes-256-gcm', encKey, iv);
+    const ct = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
+    return ['v1', iv.toString('base64'), c.getAuthTag().toString('base64'), ct.toString('base64')].join(':');
+  };
+  const { RESOURCES } = await import('../src/modules/resources/resource.registry');
+  let encrypted = 0;
+  for (const r of RESOURCES) {
+    const fields = r.fields.filter((f) => f.encrypted).map((f) => f.name);
+    if (!fields.length) continue;
+    const delegate = (prisma as any)[r.model];
+    for (const f of fields) {
+      const rows: any[] = await delegate.findMany({ where: { [f]: { not: null } }, select: { [r.idField ?? 'id']: true, [f]: true } });
+      for (const row of rows) {
+        const v = row[f];
+        if (typeof v === 'string' && v !== '' && !/^v1:[^:]+:[^:]+:[^:]+$/.test(v)) {
+          await delegate.update({ where: { [r.idField ?? 'id']: row[r.idField ?? 'id'] }, data: { [f]: enc(v) } });
+          encrypted++;
+        }
+      }
+    }
+  }
+  console.log(`  ${encrypted} plaintext value(s) encrypted.`);
   console.log(`Done. ${catalog.length} permissions, ${MENUS.length} menus, ${ROLES.length} roles.`);
 }
 

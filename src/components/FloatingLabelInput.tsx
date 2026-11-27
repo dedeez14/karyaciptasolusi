@@ -33,7 +33,7 @@ export default function FloatingLabelInput({
           error
             ? 'border-red-400 shadow-[0_0_0_3px_rgba(248,113,113,0.12)]'
             : focused
-              ? 'border-[#2563EB] shadow-[0_0_0_3px_rgba(37,99,235,0.12)]'
+              ? 'border-brand shadow-[0_0_0_3px_rgb(var(--brand) / 0.12)]'
               : 'border-[#E2E8F0] hover:border-[#CBD5E1]',
         )}
       >
@@ -75,7 +75,7 @@ export default function FloatingLabelInput({
             'absolute left-4 transition-all duration-200 pointer-events-none select-none',
             icon && 'left-11',
             focused || filled
-              ? 'top-1.5 text-[10px] font-semibold text-[#2563EB]'
+              ? 'top-1.5 text-[10px] font-semibold text-brand'
               : 'top-1/2 -translate-y-1/2 text-sm text-[#94A3B8]',
             error && (focused || filled ? 'text-red-500' : ''),
           )}

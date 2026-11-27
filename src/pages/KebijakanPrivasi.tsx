@@ -1,14 +1,19 @@
 import { Link } from 'react-router-dom';
 import LegalPage, { type LegalSection } from '../components/LegalPage';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { useSite } from '../lib/siteContext';
+import { addressOneLine } from '../lib/site';
+import type { CompanyInfo } from '../lib/siteTypes';
 
-const UPDATED = '18 Agustus 2026';
+const UPDATED = '12 November 2026';
 
-const sections: LegalSection[] = [
+function buildSections(c: CompanyInfo): LegalSection[] {
+  const alamat = addressOneLine(c.address);
+  return [
   {
     heading: '1. Siapa Kami',
     paragraphs: [
-      'PT Karya Cipta Solusi adalah perusahaan penyedia jasa pembuatan website, pengembangan aplikasi, dan konsultasi teknologi informasi yang berkedudukan di Kp. Sindangkarsa, RT.05/RW.15, Kel. Sukamaju Baru, Kec. Tapos, Kota Depok, Jawa Barat 16455, Indonesia.',
+      `${c.name} adalah perusahaan penyedia jasa pembuatan website, pengembangan aplikasi, dan konsultasi teknologi informasi yang berkedudukan di ${alamat}, Indonesia.`,
       'Dalam kebijakan ini, kata "kami" merujuk pada PT Karya Cipta Solusi, dan kata "Anda" merujuk pada pengunjung situs karyaciptasolusi.com maupun orang yang menghubungi kami melalui kanal resmi kami.',
     ],
   },
@@ -28,8 +33,8 @@ const sections: LegalSection[] = [
   {
     heading: '3. Bagaimana Data Anda Diproses',
     paragraphs: [
-      'Formulir kontak dan formulir berlangganan di situs kami tidak menyimpan data Anda di server kami. Ketika Anda menekan tombol kirim, isian tersebut disusun menjadi pesan dan diteruskan ke aplikasi WhatsApp pada perangkat Anda, sehingga Andalah yang menekan tombol kirim terakhir. Salinan isian juga tersimpan sementara di penyimpanan lokal peramban Anda sendiri agar tampilan situs tetap berfungsi, dan salinan itu tidak dikirimkan ke mana pun.',
-      'Artinya, data Anda baru sampai kepada kami ketika Anda benar-benar mengirimkan pesan tersebut kepada kami melalui WhatsApp, email, atau telepon.',
+      'Ketika Anda menekan tombol kirim pada formulir kontak atau formulir berlangganan, isian Anda dikirim melalui koneksi terenkripsi (HTTPS) ke sistem internal kami dan tercatat sebagai pesan masuk yang ditangani oleh tim kami. Data tersebut hanya digunakan untuk membalas pesan Anda atau mengirimkan pembaruan yang Anda minta.',
+      'Apabila sistem kami sedang tidak dapat dihubungi, isian formulir disusun menjadi pesan dan diteruskan ke aplikasi WhatsApp pada perangkat Anda, sehingga Andalah yang menekan tombol kirim terakhir. Situs kami tidak menyimpan salinan isian formulir di penyimpanan peramban Anda.',
     ],
   },
   {
@@ -56,7 +61,7 @@ const sections: LegalSection[] = [
     ],
     bullets: [
       'Penyedia layanan pesan (WhatsApp) dan penyedia surel, sebagai sarana komunikasi antara Anda dan kami.',
-      'Penyedia hosting dan infrastruktur situs, yang memproses data teknis kunjungan.',
+      'Penyedia hosting dan infrastruktur situs serta server sistem internal kami, yang menyimpan pesan formulir dan memproses data teknis kunjungan.',
       'Google Fonts, yang memuat huruf pada situs ini, serta Google Maps apabila Anda melihat peta lokasi kami.',
       'Platform periklanan dan media sosial, apabila Anda mengunjungi situs kami melalui iklan atau tautan dari platform tersebut, sesuai kebijakan privasi masing-masing platform.',
       'Aparat penegak hukum atau instansi berwenang, apabila diwajibkan oleh peraturan perundang-undangan yang berlaku.',
@@ -105,13 +110,16 @@ const sections: LegalSection[] = [
   {
     heading: '12. Menghubungi Kami',
     paragraphs: [
-      'Apabila Anda memiliki pertanyaan, permintaan, atau keluhan terkait data pribadi Anda, silakan hubungi kami melalui email pt.karyaciptasolusi@gmail.com, WhatsApp 0838-9891-1244, atau surat ke alamat kantor kami di Kp. Sindangkarsa, RT.05/RW.15, Kel. Sukamaju Baru, Kec. Tapos, Kota Depok, Jawa Barat 16455.',
+      `Apabila Anda memiliki pertanyaan, permintaan, atau keluhan terkait data pribadi Anda, silakan hubungi kami melalui email ${c.email}, WhatsApp ${c.phone}, atau surat ke alamat kantor kami di ${alamat}.`,
       'Kami berupaya menanggapi setiap permintaan terkait data pribadi dalam waktu yang wajar, umumnya paling lama 14 hari kerja sejak permintaan diterima dan identitas pemohon dapat kami pastikan.',
     ],
   },
-];
+  ];
+}
 
 export default function KebijakanPrivasi() {
+  const { site } = useSite();
+  const sections = buildSections(site.company);
   usePageMeta({
     title: 'Kebijakan Privasi | PT Karya Cipta Solusi',
     description:
@@ -131,7 +139,7 @@ export default function KebijakanPrivasi() {
         <p className="text-sm text-[#334155] leading-relaxed">
           Ingin data Anda dihapus dari catatan kami? Kami menyediakan halaman khusus berisi
           langkah-langkahnya:{' '}
-          <Link to="/penghapusan-data" className="font-bold text-[#1D4ED8] hover:underline">
+          <Link to="/penghapusan-data" className="font-bold text-brand hover:underline">
             Permintaan Penghapusan Data Pengguna
           </Link>
           .

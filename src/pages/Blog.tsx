@@ -56,7 +56,7 @@ export default function Blog() {
       <SubPageHeader subtitle="Blog & Artikel" />
 
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F4C81 0%, #1D4ED8 60%, #2563EB 100%)' }}>
+      <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgb(var(--brand-darker)) 0%, rgb(var(--brand-dark)) 60%, rgb(var(--brand)) 100%)' }}>
         <div
           className="absolute inset-0 opacity-[0.13]"
           style={{ backgroundImage: 'radial-gradient(circle, #fff 1.5px, transparent 1.5px)', backgroundSize: '30px 30px' }}
@@ -130,8 +130,8 @@ export default function Blog() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
         {filtered.length === 0 ? (
           <div className="text-center py-20">
-            <div className="w-14 h-14 rounded-2xl bg-[#EFF6FF] flex items-center justify-center mx-auto mb-4">
-              <Search size={24} className="text-[#1D4ED8]" />
+            <div className="w-14 h-14 rounded-2xl bg-brand-tint flex items-center justify-center mx-auto mb-4">
+              <Search size={24} className="text-brand" />
             </div>
             <p className="text-[#0F172A] font-bold mb-1">Belum ada yang cocok</p>
             <p className="text-[#475569] text-sm mb-5">
@@ -172,7 +172,7 @@ export default function Blog() {
                 <div className="max-w-xs mx-auto mt-5">
                   <div className="h-1 rounded-full bg-[#E2E8F0] overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-[#2563EB] transition-all duration-500"
+                      className="h-full rounded-full bg-brand transition-all duration-500"
                       style={{ width: `${((shown.length + (featured ? 1 : 0)) / filtered.length) * 100}%` }}
                     />
                   </div>
@@ -196,8 +196,8 @@ function CatChip({
   count,
   active,
   onClick,
-  color = '#1D4ED8',
-  tint = '#EFF6FF',
+  color = 'rgb(var(--brand-dark))',
+  tint = 'rgb(var(--brand-tint))',
 }: {
   label: string;
   count: number;
@@ -247,7 +247,7 @@ function FeaturedCard({ post }: { post: (typeof blogPosts)[number] }) {
     >
       <Link
         to={`/blog/${post.slug}`}
-        className="group grid lg:grid-cols-2 bg-white rounded-3xl border border-[#E2E8F0] overflow-hidden transition-all duration-300 hover:border-[#2563EB]/40 hover:shadow-2xl hover:shadow-[#2563EB]/10"
+        className="group grid lg:grid-cols-2 bg-white rounded-3xl border border-[#E2E8F0] overflow-hidden transition-all duration-300 hover:border-brand/40 hover:shadow-2xl hover:shadow-brand/10"
       >
         <div className="relative h-52 lg:h-full min-h-[220px] overflow-hidden" style={{ background: t.tint }}>
           <img
@@ -268,7 +268,7 @@ function FeaturedCard({ post }: { post: (typeof blogPosts)[number] }) {
             <span className="text-[11px] text-[#475569]">{post.category}</span>
           </div>
           <h2
-            className="text-2xl lg:text-3xl font-bold text-[#0F172A] leading-tight mb-3 group-hover:text-[#1D4ED8] transition-colors"
+            className="text-2xl lg:text-3xl font-bold text-[#0F172A] leading-tight mb-3 group-hover:text-brand transition-colors"
             style={{ fontFamily: "'Space Grotesk', sans-serif" }}
           >
             {post.title}
@@ -329,7 +329,7 @@ function ArticleCard({ post, index }: { post: (typeof blogPosts)[number]; index:
               <Clock size={10} /> {post.readTime}
             </span>
           </div>
-          <h3 className="font-bold text-[#0F172A] text-[15px] leading-snug mb-2 transition-colors group-hover:text-[#1D4ED8]">
+          <h3 className="font-bold text-[#0F172A] text-[15px] leading-snug mb-2 transition-colors group-hover:text-brand">
             {post.title}
           </h3>
           <p className="text-xs text-[#475569] leading-relaxed line-clamp-3 mb-4">{post.excerpt}</p>
